@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("cr-theme") === "dark") {
+            document.documentElement.setAttribute("data-theme", "dark");
+          }
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
+    <title>{% block title %}Civil Registry OCR{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --brand-blue: #002080;
+        --brand-blue-2: #001a66;
+        --brand-green: #008a3a;
+        --main-bg: #f0f4f8;
+        --surface: #ffffff;
+        --surface-2: #f8fafc;
+        --border: rgba(15, 23, 42, 0.10);
+        --text: #0f172a;
+        --text-muted: rgba(15, 23, 42, 0.64);
+        --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
+        --content-max: 1180px;
+        --topbar-height: 76px;
+      }
+      html { font-size: 15px; }
+      * { box-sizing: border-box; }
+      /* Hide scrollbars site-wide; mouse wheel, touch, and keyboard scroll still work */
+      html, body, * {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      html::-webkit-scrollbar,
+      body::-webkit-scrollbar,
+      *::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        display: none;
+      }
+      body { margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); line-height: 1.4; }
+      .topbar {
+        min-height: var(--topbar-height);
+        height: var(--topbar-height);
+        background: linear-gradient(90deg, #0a1f44 0%, #0c2a5c 48%, #0a244d 100%);
+        color: #f8fafc;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 18px rgba(0, 32, 128, 0.22);
+      }
+      .topbar-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        text-decoration: none;
+        color: inherit;
+        flex-shrink: 0;
+      }
+      .topbar-brand:hover .topbar-brand-name {
+        color: #ffffff;
+      }
+      .topbar-logo-wrap {
+        flex-shrink: 0;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        padding: 3px;
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(226, 232, 240, 0.9) 100%);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .topbar-logo {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+      }
+      .topbar-brand-text {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+        line-height: 1.25;
+      }
+      .topbar-brand-name {
+        font-size: 1.2rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+      .topbar-title {
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: rgba(248, 250, 252, 0.82);
+        font-size: 0.875rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .topbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .topbar .theme-toggle {
+        padding: 8px 14px;
+        font-size: 0.84rem;
+      }
+      .topbar .home-circle-mark {
+        --home-circle-size: 26px;
+      }
+      .topbar-user {
+        font-size: 0.875rem;
+        color: #f8fafc;
+        font-weight: 700;
+        padding: 9px 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        white-space: nowrap;
+      }
+      .topbar-user strong {
+        font-weight: 800;
+      }
+      @media (max-width: 640px) {
+        :root {
+          --topbar-height: 64px;
+        }
+        .topbar {
+          padding: 0 12px;
+          gap: 10px;
+        }
+        .topbar-title { display: none; }
+        .topbar-brand-name { font-size: 1rem; }
+        .topbar-logo-wrap { width: 42px; height: 42px; }
+      }
+      .layout {
+        display: flex;
+        min-height: calc(100vh - var(--topbar-height));
+        background: var(--layout-bg, var(--main-bg));
+      }
+      .sidebar {
+        width: 220px;
+        flex-shrink: 0;
+        background: var(--sidebar-bg, linear-gradient(180deg, #eef5fc 0%, #e3ecf7 55%, #d9e5f3 100%));
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        padding: 14px 0;
+        border-right: 1px solid rgba(0, 32, 128, 0.14);
+        box-shadow: 4px 0 20px rgba(11, 42, 90, 0.08);
+      }
+      .sidebar-brand { padding: 0; border-bottom: none; }
+      .sidebar-brand.sidebar-brand--panel {
+        margin: 0 10px 14px;
+        padding: 10px 12px 12px;
+        border-radius: 14px;
+        background: var(--sidebar-brand-bg, #ebf2fa);
+        border: 1px solid var(--sidebar-brand-border, rgba(0, 32, 128, 0.12));
+        box-shadow: 0 2px 10px rgba(11, 42, 90, 0.07);
+      }
+      .sidebar-brand-cluster { display: flex; align-items: center; gap: 10px; }
+      .sidebar-brand-icon.home-circle-mark {
+        box-shadow: 0 3px 12px rgba(0, 32, 128, 0.28);
+        border: 1px solid rgba(0, 32, 128, 0.15);
+      }
+      .sidebar-brand-text { min-width: 0; }
+      .sidebar-brand h2 { margin: 0; font-size: 0.98rem; font-weight: 800; color: var(--sidebar-title, #002080); letter-spacing: -0.02em; line-height: 1.2; }
+      .sidebar-brand p { margin: 4px 0 0; font-size: 0.6rem; color: var(--sidebar-sub, #64748b); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; line-height: 1.25; }
+      .sidebar-nav { flex: 1; padding: 8px 0; }
+      .sidebar-nav a { display: block; padding: 9px 14px; margin: 2px 10px; border-radius: 12px; color: var(--sidebar-link, #1e3a67); text-decoration: none; font-size: 0.875rem; font-weight: 700; }
+      .sidebar-nav a:hover { color: var(--sidebar-link-hover, #002080); background: var(--sidebar-link-hover-bg, rgba(0, 32, 128, 0.1)); }
+      .sidebar-nav a.active { color: #ffffff; background: linear-gradient(180deg, #002080 0%, #001a66 100%); border-left: none; padding-left: 14px; box-shadow: 0 4px 14px rgba(0, 32, 128, 0.3); }
+      .sidebar-footer { padding: 12px 14px; border-top: 1px solid var(--sidebar-footer-border, rgba(0, 32, 128, 0.14)); }
+      .sidebar-footer .btn-logout { display: block; width: 100%; padding: 8px 10px; border: 1px solid var(--sidebar-logout-border, #7c9cc4); border-radius: 12px; color: var(--sidebar-logout-text, #002080); background: var(--sidebar-logout-bg, rgba(255, 255, 255, 0.85)); text-decoration: none; text-align: center; font-size: 0.8rem; font-weight: 700; }
+      .sidebar-footer .btn-logout:hover { background: var(--surface); }
+      .main { flex: 1 1 auto; background: transparent; padding: 14px 18px 20px; overflow: auto; max-width: var(--content-max); min-width: 0; }
+      .main-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow-sm); }
+      .page-header { margin: 0 0 14px; padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--page-header-bg, linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)); }
+      .page-title { margin: 0 0 4px; font-size: 1.65rem; font-weight: 900; color: var(--brand-blue); letter-spacing: -0.01em; }
+      .page-state { font-size: 0.875rem; color: var(--text-muted); margin: 0; }
+      .workflow-pills { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+      .pill { padding: 7px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; background: var(--pill-bg, #fff); border: 1px solid var(--pill-border, rgba(0,32,128,0.12)); color: var(--pill-text, #1e3a67); }
+      /* Vertical stack: controls on top, document preview / results below */
+      .scan-workflow-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        align-items: stretch;
+        width: 100%;
+      }
+      .scan-workflow-stack > .main-card { width: 100%; }
+      .scan-workflow-preview-below {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+      }
+      .scan-workflow-preview-below > .section-title:first-child { margin-top: 0; }
+      /* Legacy grid — prefer .scan-workflow-stack */
+      .scan-workflow-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+        gap: 14px;
+        align-items: start;
+      }
+      /* Review forms: tighter column gap; record detail keeps wider preview */
+      .form-review-page-grid {
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 0.95fr);
+      }
+      .record-detail-page-grid {
+        grid-template-columns: minmax(0, 1.08fr) minmax(280px, 1fr);
+      }
+      .scan-workflow-preview-card .section-title { margin-top: 0; }
+      .scan-preview-empty {
+        margin: 0;
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: #f1f5f9;
+        border: 1px dashed #94a3b8;
+        color: #475569;
+        font-size: 0.85rem;
+        line-height: 1.45;
+      }
+      .scan-preview-viewer-inner {
+        border: 1px solid #c8d6ea;
+        border-radius: 16px;
+        background: #eef2f8;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      }
+      .scan-preview-viewer-inner .document-viewer-section { padding: 10px 10px 12px; }
+      .scan-preview-viewer-inner .document-viewer-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .scan-preview-viewer-inner .document-viewer-title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #1f3556;
+        margin: 0;
+      }
+      /* Pane: no inner padding so the certificate spans the full width at 100% zoom */
+      .scan-preview-viewer-inner .document-viewer-pane {
+        background: #d8e2ee;
+        border: 1px solid #c8d5e7;
+        border-radius: 12px;
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        overflow: auto;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0;
+      }
+      .scan-preview-viewer-inner .document-viewer-image-wrap {
+        display: block;
+        width: 100%;
+        min-height: 0;
+        line-height: 0;
+        font-size: 0;
+      }
+      .scan-preview-viewer-inner .document-viewer-image {
+        display: block;
+        margin: 0;
+        width: auto;
+        height: auto;
+        max-width: none;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      .scan-preview-viewer-inner .document-viewer-controls .document-viewer-btn {
+        min-width: 34px;
+        min-height: 32px;
+        border-radius: 10px;
+        border: 1px solid #c6d4e8;
+        background: #ffffff;
+        color: #1f3556;
+        font-weight: 900;
+      }
+      .scan-preview-viewer-inner .document-viewer-zoom-value {
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: #4d6486;
+      }
+      @media (max-width: 1024px) {
+        .scan-workflow-grid { grid-template-columns: 1fr; }
+      }
+      .flash-container { margin-bottom: 12px; }
+      .flash { padding: 10px 12px; border-radius: 10px; background: #fffbeb; border: 1px solid #fcd34d; color: #92400e; font-size: 0.85rem; font-weight: 600; }
+      .field { margin-bottom: 12px; }
+      .field label { display: block; font-size: 0.8rem; font-weight: 800; margin-bottom: 5px; color: var(--label-text, #314f79); }
+      .field input, .field select, .field textarea { padding: 8px 10px; border: 1px solid var(--input-border, #c7d4e8); border-radius: 9px; width: 100%; background: var(--input-bg, #fff); color: var(--input-text, #0f172a); font-size: 0.875rem; }
+      .field input::placeholder, .field textarea::placeholder { color: var(--input-placeholder, #6b7f9f); opacity: 1; }
+      .field select option { color: var(--input-text, #0f172a); background: var(--input-bg, #ffffff); }
+      .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.18); }
+      .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .button-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+      .btn { padding: 8px 14px; border-radius: 9px; font-size: 0.84rem; font-weight: 800; text-decoration: none; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-height: 36px; }
+      .btn:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+      .btn-primary { background: linear-gradient(180deg, var(--brand-blue) 0%, var(--brand-blue-2) 100%); color: #fff; box-shadow: 0 4px 12px rgba(0, 32, 128, 0.25); }
+      .btn-primary:hover { filter: brightness(1.04); }
+      .btn-secondary, .btn-ghost { background: var(--btn-secondary-bg, #fff); color: var(--btn-secondary-text, #1f3556); border-color: var(--btn-secondary-border, #c7d4e8); }
+      .btn-secondary:hover, .btn-ghost:hover { background: var(--btn-secondary-hover-bg, #f8fbff); border-color: #b9c9e1; }
+      .btn-danger { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+      .btn-danger:hover { background: #fecaca; }
+      .btn-sm { min-height: 30px; padding: 5px 10px; font-size: 0.78rem; }
+      .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--table-wrap-bg, #fff); }
+      .table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+      .table th, .table td { padding: 9px 11px; border-bottom: 1px solid var(--border); color: var(--table-text, #1f3556); }
+      .table th { color: var(--table-head-text, #0f172a); font-weight: 900; background: var(--table-head-bg, #f5f8fd); }
+      .table tr:hover td { background: var(--table-row-hover, #f8fbff); }
+      .sidebar-badge, .notif-dot { display:none; }
+      @media (max-width: 980px) { .layout { display:block; } .sidebar { width:100%; } }
+      .ocr-loading{
+        display:none;
+        border:2px solid var(--brand-blue);
+        border-radius:12px;
+        padding:14px 16px 16px;
+        background:linear-gradient(180deg,#d1fae5 0%,#ecfdf5 45%,#ffffff 100%);
+        margin-top:14px;
+        box-shadow:0 6px 20px rgba(0,32,128,0.12);
+      }
+      .ocr-loading[aria-busy="true"]{
+        box-shadow:0 0 0 3px rgba(0,138,58,0.25),0 10px 32px rgba(0,32,128,0.16);
+      }
+      .ocr-loading-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+      .ocr-loading-title{margin:0;font-size:0.98rem;font-weight:900;color:var(--brand-blue);letter-spacing:-0.02em}
+      .ocr-loading-percent{font-size:1.02rem;font-weight:900;color:#047857;min-width:3.25rem;text-align:right}
+      .ocr-loading-track{width:100%;height:14px;border-radius:999px;background:#dbe4ef;overflow:hidden;border:1px solid rgba(15,23,42,0.08)}
+      .ocr-loading-fill{width:1%;height:100%;background:linear-gradient(90deg,#0d9488 0%,#16a34a 55%,#22c55e 100%);transition:width 0.25s ease}
+      .section-title{font-size:0.98rem;font-weight:900;margin:0 0 10px;color:#1f3f73}
+      .section-desc{font-size:.85rem;color:#475d7f}
+      .status-text,.scanner-session{font-size:.86rem;color:#4f6484}
+
+      /* OCR review — extracted metadata (birth / marriage / death): compact, 2-col on wide screens */
+      .main-card.form-review-meta {
+        padding: 14px 16px 16px;
+      }
+      .form-review-meta .section-title {
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin: 0 0 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #0f2b5c;
+      }
+      .form-review-meta .form-meta-scroll {
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        padding: 0;
+        overflow: visible;
+        box-shadow: none;
+      }
+      .form-review-meta .confirm-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        column-gap: 14px;
+        row-gap: 0;
+        align-items: start;
+      }
+      @media (min-width: 720px) {
+        .form-review-meta .confirm-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .form-review-meta .metadata-section-title {
+        grid-column: 1 / -1;
+        font-size: 0.68rem;
+        font-weight: 800;
+        color: #002080;
+        letter-spacing: 0.04em;
+        text-transform: none;
+        margin: 10px 0 0;
+        padding: 8px 0 6px;
+        border-top: 1px solid #e2e8f0;
+        border-bottom: none;
+      }
+      .form-review-meta .metadata-section-title:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .form-review-meta .form-meta-field {
+        margin: 0;
+        padding: 0 0 8px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .form-review-meta .metadata-section-title + .form-meta-field {
+        padding-top: 2px;
+      }
+      .form-review-meta .confirm-item-label {
+        display: block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #64748b;
+        line-height: 1.25;
+        margin-bottom: 3px;
+        letter-spacing: 0.01em;
+      }
+      .form-review-meta .confirm-item-value {
+        line-height: 1.35;
+      }
+      .form-review-meta .confirm-item-value input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 5px 8px 6px;
+        margin: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.35;
+        letter-spacing: 0.01em;
+        text-transform: none;
+        min-height: 0;
+        height: auto;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      }
+      .form-review-meta .confirm-item-value input:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+      }
+      .form-review-meta .confirm-item-value input:focus {
+        outline: none;
+        background: #fff;
+        border-color: #002080;
+        box-shadow: 0 0 0 2px rgba(0, 32, 128, 0.12);
+      }
+      .form-review-meta .confirm-item-value input::placeholder {
+        color: #94a3b8;
+        font-weight: 500;
+        text-transform: none;
+      }
+      .form-review-actions {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .form-review-actions .btn {
+        border-radius: 10px;
+        padding: 8px 14px;
+        min-height: 36px;
+        font-size: 0.84rem;
+        font-weight: 800;
+      }
+    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/staff.css') }}" />
+    {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
+  </head>
+  <body class="{% block body_class %}{% endblock %}">
+    <header class="topbar">
+      <a
+        class="topbar-brand"
+        href="{% if current_user %}{{ url_for('index') }}{% else %}{{ url_for('login') }}{% endif %}"
+        title="Daraga Municipal Civil Registry"
+      >
+        <span class="topbar-logo-wrap">
+          <img
+            class="topbar-logo"
+            src="{{ url_for('static', filename='mcr-daraga-seal.png') }}"
+            alt="Seal of the Municipality of Daraga"
+            width="46"
+            height="46"
+          />
+        </span>
+        <span class="topbar-brand-text">
+          <span class="topbar-brand-name">Daraga</span>
+          <span class="topbar-title">Civil Registry · Offline System</span>
+        </span>
+      </a>
+      <div class="topbar-right">
+        {% include '_theme_toggle.html' %}
+        {% if current_user %}
+          <span class="topbar-user"><strong>{{ current_user.username }}</strong> · {{ (current_user.role or 'USER')|upper }}</span>
+        {% endif %}
+      </div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar">
+        {% block sidebar_brand %}
+        <div class="sidebar-brand sidebar-brand--panel">
+          <div class="sidebar-brand-cluster">
+            <div class="sidebar-brand-icon home-circle-mark" aria-hidden="true">
+              {% include '_icon_home_circle.html' %}
+            </div>
+            <div class="sidebar-brand-text">
+              <h2>Civil Registry</h2>
+              <p>Offline system</p>
+            </div>
+          </div>
+        </div>
+        {% endblock %}
+        <nav class="sidebar-nav">
+          <a href="{{ url_for('index') }}" class="{% if nav_active == 'scan' %}active{% endif %}">Scan Workflow</a>
+          <a href="{{ url_for('autofilled_form_latest') }}" class="{% if nav_active == 'form' %}active{% endif %}">Auto-Filled Form</a>
+          <a href="{{ url_for('archiving') }}" class="{% if nav_active == 'archiving' %}active{% endif %}">Archiving</a>
+          <a href="{{ url_for('search_records') }}" class="{% if nav_active == 'search' %}active{% endif %}">Search Records</a>
+          {% if current_user and (current_user.role or '')|upper == 'STAFF' %}
+            <a href="{{ url_for('my_edit_requests') }}" class="{% if nav_active == 'my_edit_requests' %}active{% endif %}">My Edit Requests</a>
+            <a href="{{ url_for('my_print_requests') }}" class="{% if nav_active == 'my_print_requests' %}active{% endif %}">My Print Requests</a>
+          {% endif %}
+          {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
+            <a href="{{ url_for('administration', tab='dashboard') }}" class="{% if nav_active == 'admin' %}active{% endif %}">Administration</a>
+          {% endif %}
+        </nav>
+        {% block sidebar_extra %}{% endblock %}
+        <div class="sidebar-footer">
+          {% if current_user %}<a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>{% endif %}
+        </div>
+      </aside>
+      <main class="main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-container">
+              {% for category, msg in messages %}
+                <div class="flash">{{ msg }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+  </body>
+</html>

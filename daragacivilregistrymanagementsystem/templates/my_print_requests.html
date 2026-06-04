@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}My Print Requests{% endblock %}
+{% block body_class %}page-staff-requests{% endblock %}
+
+{% block content %}
+<div class="staff-requests-shell">
+  <div class="page-header">
+    <h1 class="page-title">My print requests</h1>
+    <p class="page-state">Track requests to print civil records. When admin approves, open the record and use <strong>Print</strong> once; submit a new request for another copy.</p>
+  </div>
+
+  <div class="workflow-pills staff-pills">
+    <span class="pill pill-state">Queue: <strong>My print requests</strong></span>
+    <span class="pill pill-state">Next: Search or archiving to request a print</span>
+  </div>
+
+  <form method="get" action="{{ url_for('my_print_requests') }}" class="request-doc-type-filter staff-doc-type-filter">
+    <label for="staff-print-doc-type-filter">Document type</label>
+    <select name="doc_type" id="staff-print-doc-type-filter" aria-label="Filter by document type" onchange="this.form.submit()">
+      <option value="" {% if not request_doc_type %}selected{% endif %}>All document types</option>
+      {% for key, label in document_types.items() %}
+      <option value="{{ key }}" {% if request_doc_type == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <div class="main-card staff-requests-card">
+    {% if requests_list %}
+      <div class="staff-table-wrap staff-print-table-wrap">
+        <table class="table staff-requests-table staff-print-requests-table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-registry">Registry</th>
+              <th class="col-type">Type</th>
+              <th class="col-print-format">Print</th>
+              <th class="col-requested">Requested</th>
+              <th class="col-status">Status</th>
+              <th class="col-print-status">Print status</th>
+              <th class="col-reason">Reason</th>
+              <th class="col-reject">Reject note</th>
+              <th class="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for req in requests_list %}
+              <tr>
+                <td class="col-id">{{ req.id }}</td>
+                <td class="col-registry">{{ req.record.registry_number or '—' if req.record else '—' }}</td>
+                <td class="col-type">
+                  {% if req.record %}
+                    <span class="doc-type-short doc-type-short--{{ req.record.document_type }}">{{ req.record.document_type | capitalize }}</span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="col-print-format">
+                  {% if req.record %}
+                    <span
+                      class="print-format-badge print-format-badge--{{ normalize_print_format(req.print_format) }}"
+                      title="{{ print_format_label(req.print_format, req.record.document_type) }}"
+                    >{{ print_format_short_label(req.print_format, req.record.document_type) }}</span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="col-requested">{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else '—' }}</td>
+                <td class="col-status"><span class="status-badge status-{{ req.status|lower }}">{{ req.status }}</span></td>
+                <td class="col-print-status">
+                  {% if req.status == 'APPROVED' and not req.used_at %}
+                    <span class="staff-print-ready-badge">Ready to print</span>
+                  {% elif req.used_at %}
+                    <span class="staff-print-done">
+                      <span class="staff-print-done-label">Printed</span>
+                      <span class="staff-print-done-time">{{ req.used_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </span>
+                  {% elif req.status == 'PENDING' %}
+                    <span class="staff-print-pending-label">Awaiting admin</span>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="col-reason cell-reason" title="{{ req.reason or '' }}">{{ req.reason or '—' }}</td>
+                <td class="col-reject cell-reject" title="{{ req.rejection_reason or '' }}">{{ req.rejection_reason or '—' }}</td>
+                <td class="col-actions cell-actions">
+                  {% if req.record %}
+                    {% if req.status == 'APPROVED' and not req.used_at %}
+                      <a href="{{ url_for('record_detail', record_id=req.record_id) }}" class="btn btn-primary btn-view-record">Open &amp; print</a>
+                    {% else %}
+                      <a href="{{ url_for('record_detail', record_id=req.record_id) }}" class="btn btn-secondary btn-view-record">View record</a>
+                    {% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        {% if request_doc_type %}
+          <p class="empty-state-title">No print requests for this document type</p>
+          <p class="empty-state-text">Try another type or <a href="{{ url_for('my_print_requests') }}">show all document types</a>.</p>
+        {% else %}
+          <p class="empty-state-title">No print requests yet</p>
+          <p class="empty-state-text">Open <strong>Search Records</strong> or <strong>Archiving</strong>, choose a record, and use <strong>Request print</strong> to submit a request.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

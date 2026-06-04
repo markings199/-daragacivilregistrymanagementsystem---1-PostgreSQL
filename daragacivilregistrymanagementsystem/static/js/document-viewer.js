@@ -1,0 +1,194 @@
+(function () {
+
+  function parsePadding(style, side) {
+
+    return parseFloat(style[side]) || 0;
+
+  }
+
+
+
+  /** Content width inside the scrollable pane (padding excluded). */
+
+  function getPaneContentWidth(pane) {
+
+    var s = window.getComputedStyle(pane);
+
+    var pl = parsePadding(s, "paddingLeft");
+
+    var pr = parsePadding(s, "paddingRight");
+
+    return Math.max(1, Math.floor(pane.clientWidth - pl - pr));
+
+  }
+
+
+
+  function initSection(section) {
+
+    if (section.getAttribute("data-document-viewer-inited")) return;
+
+    section.setAttribute("data-document-viewer-inited", "1");
+
+
+
+    var pfx = section.getAttribute("data-viewer-prefix") || "doc";
+
+    var pane = document.getElementById(pfx + "-viewer-pane");
+
+    var wrap = document.getElementById(pfx + "-image-wrap");
+
+    var img = document.getElementById(pfx + "-viewer-image");
+
+    var valueEl = document.getElementById(pfx + "-zoom-value");
+
+    var zoomOutBtn = document.getElementById(pfx + "-zoom-out");
+
+    var zoomInBtn = document.getElementById(pfx + "-zoom-in");
+
+    var resetBtn = document.getElementById(pfx + "-zoom-reset");
+
+    if (!pane || !wrap || !img) return;
+
+
+
+    var scale = 1;
+
+    var minScale = 0.25;
+
+    var maxScale = 4;
+
+    var step = 0.25;
+
+
+
+    function applyZoom() {
+
+      /* Width matches pane inner width at 100% zoom (pane CSS padding should stay 0 for edge-to-edge fit). */
+
+      var base = getPaneContentWidth(pane);
+
+      var w = Math.max(1, Math.round(base * scale));
+
+      img.style.width = w + "px";
+
+      img.style.maxWidth = "none";
+
+      img.style.minWidth = "0";
+
+      img.style.height = "auto";
+
+      wrap.style.width = "100%";
+
+      wrap.style.transform = "none";
+
+      if (valueEl) valueEl.textContent = Math.round(scale * 100) + "%";
+
+      if (zoomOutBtn) zoomOutBtn.disabled = scale <= minScale;
+
+      if (zoomInBtn) zoomInBtn.disabled = scale >= maxScale;
+
+    }
+
+
+
+    section.__dvReapplyZoom = applyZoom;
+
+
+
+    if (zoomInBtn) {
+
+      zoomInBtn.addEventListener("click", function () {
+
+        if (scale < maxScale) {
+
+          scale = Math.min(maxScale, scale + step);
+
+          applyZoom();
+
+        }
+
+      });
+
+    }
+
+    if (zoomOutBtn) {
+
+      zoomOutBtn.addEventListener("click", function () {
+
+        if (scale > minScale) {
+
+          scale = Math.max(minScale, scale - step);
+
+          applyZoom();
+
+        }
+
+      });
+
+    }
+
+    if (resetBtn) {
+
+      resetBtn.addEventListener("click", function () {
+
+        scale = 1;
+
+        applyZoom();
+
+        pane.scrollTop = 0;
+
+        pane.scrollLeft = 0;
+
+      });
+
+    }
+
+
+
+    img.addEventListener("load", applyZoom);
+
+    applyZoom();
+
+
+
+    if (typeof ResizeObserver !== "undefined") {
+
+      var ro = new ResizeObserver(applyZoom);
+
+      ro.observe(pane);
+
+    } else {
+
+      window.addEventListener("resize", applyZoom);
+
+    }
+
+  }
+
+
+
+  function initAll() {
+
+    document
+
+      .querySelectorAll(".document-viewer-section[data-viewer-prefix]")
+
+      .forEach(initSection);
+
+  }
+
+
+
+  if (document.readyState === "loading") {
+
+    document.addEventListener("DOMContentLoaded", initAll);
+
+  } else {
+
+    initAll();
+
+  }
+
+})();
+

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Confirmed {{ doc_label }} Data{% endblock %}
+{% block step_scan %}active{% endblock %}
+{% block step_review %}active{% endblock %}
+{% block step_confirm %}active{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .confirm-meta-card {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
+      overflow: visible;
+      box-shadow: none;
+    }
+    @media (min-width: 720px) {
+      .confirm-fields-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 24px;
+      }
+    }
+    .confirm-field {
+      padding: 16px 0 0;
+      border-bottom: none;
+    }
+    .confirm-fields-grid .confirm-field:last-child {
+      border-bottom: none;
+    }
+    .confirm-field-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #475569;
+      letter-spacing: 0.01em;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    .confirm-field-value {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: #0f172a;
+      line-height: 1.45;
+      word-break: break-word;
+      letter-spacing: 0.01em;
+    }
+    .confirm-field-value:empty::after,
+    .confirm-field-value.confirm-empty::after {
+      content: "—";
+      color: #94a3b8;
+      font-weight: 500;
+      text-transform: none;
+    }
+    .confirm-actions {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .page-header.confirm-saved {
+      border-left: 4px solid #16a34a;
+      background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="page-header confirm-saved">
+    <h1 class="page-title">Saved to archiving</h1>
+    <p class="page-state">{{ doc_label }} stored successfully.</p>
+  </div>
+
+  <div class="workflow-pills">
+    <span class="pill pill-state">State: <strong>Done</strong></span>
+    <span class="pill pill-state">Next: <strong>Scan or search</strong></span>
+  </div>
+
+  {% if image_filename %}
+    <div class="scan-workflow-grid form-review-page-grid">
+      <div class="main-card scan-workflow-preview-card">
+        <h2 class="section-title">Original certificate</h2>
+        <div class="scan-preview-viewer-inner">
+          {% set image_url = url_for('serve_upload', path=image_filename) %}
+          {% set document_viewer_title = 'Certificate (zoom)' %}
+          {% set document_viewer_id_prefix = 'confirm-doc' %}
+          {% set document_viewer_section_id = 'confirm-doc-viewer' %}
+          {% include '_document_viewer.html' %}
+        </div>
+      </div>
+
+      <div class="main-card">
+        <h2 class="section-title">Confirmed {{ doc_label }} data</h2>
+        <div class="confirm-meta-card">
+          <div class="confirm-fields-grid">
+            {% for k, v in data.items() %}
+              <div class="confirm-field">
+                <div class="confirm-field-label">{{ k }}</div>
+                <div class="confirm-field-value{% if not v %} confirm-empty{% endif %}">{{ v }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="button-row confirm-actions">
+          <a href="{{ url_for('index') }}" class="btn btn-secondary">Process another</a>
+          <a href="{{ url_for('search_records') }}" class="btn btn-primary">Search Records</a>
+          <a href="{{ url_for('index') }}" class="btn btn-primary">Scan Workflow</a>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="main-card">
+      <h2 class="section-title">Confirmed {{ doc_label }} data</h2>
+      <div class="confirm-meta-card">
+        <div class="confirm-fields-grid">
+          {% for k, v in data.items() %}
+            <div class="confirm-field">
+              <div class="confirm-field-label">{{ k }}</div>
+              <div class="confirm-field-value{% if not v %} confirm-empty{% endif %}">{{ v }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="button-row confirm-actions">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Process another</a>
+        <a href="{{ url_for('search_records') }}" class="btn btn-primary">Search Records</a>
+        <a href="{{ url_for('index') }}" class="btn btn-primary">Scan Workflow</a>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

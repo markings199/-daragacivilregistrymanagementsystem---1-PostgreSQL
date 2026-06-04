@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Review Death Certificate Data{% endblock %}
+{% block step_scan %}active{% endblock %}
+{% block step_review %}active{% endblock %}
+
+{% block content %}
+  <style>
+    .field-hint { margin-top: 4px; font-size: 11px; color: #5f6b7a; }
+    .field-hint-high { color: #1f7a1f; }
+    .field-hint-medium { color: #9a6b00; }
+    .field-hint-low { color: #b23a3a; }
+  </style>
+  <div class="page-header">
+    <h1 class="page-title">Review Death Certificate</h1>
+    <p class="page-state">Correct any OCR fields, then confirm to save.</p>
+  </div>
+
+  <div class="workflow-pills">
+    <span class="pill pill-state">State: <strong>Review</strong></span>
+    <span class="pill pill-state">Next: <strong>Confirm</strong></span>
+  </div>
+
+  <form method="post" action="{{ url_for('confirm', doc_type='death') }}">
+    <input type="hidden" name="image_filename" value="{{ image_filename }}" />
+
+    <div class="scan-workflow-grid form-review-page-grid">
+      <div class="main-card scan-workflow-preview-card">
+        <h2 class="section-title">Original certificate</h2>
+        <div class="scan-preview-viewer-inner">
+          {% if image_filename %}
+            {% set image_url = url_for('serve_upload', path=image_filename) %}
+            {% set document_viewer_title = 'Certificate (zoom)' %}
+            {% set document_viewer_id_prefix = 'form-death-doc' %}
+            {% set document_viewer_section_id = 'form-death-doc-viewer' %}
+            {% include '_document_viewer.html' %}
+          {% else %}
+            <p class="scan-preview-empty">No image for this session.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="main-card form-review-meta">
+        <h2 class="section-title">Extracted metadata</h2>
+        <div class="form-meta-scroll">
+          {% set confidence = data.get('__confidence__', {}) %}
+          {% set source = data.get('__source__', {}) %}
+          <div class="confirm-grid">
+            {% for key in ['Registry Number', 'Date of Registration', 'Name of Deceased', 'Sex', 'Age', 'Civil Status', 'Nationality', 'Name of Mother', 'Date of Death', 'Place of Death', 'Cause of Death'] %}
+              {% set val = data.get(key, '') or '' %}
+              {% set conf = confidence.get(key, 'LOW') %}
+              {% set src = source.get(key, 'layout') %}
+              <div class="form-meta-field">
+                <div class="confirm-item-label">{{ key }}</div>
+                <div class="confirm-item-value">
+                  <input name="{{ key }}" value="{{ val }}" type="text" autocomplete="off" />
+                </div>
+                <div class="field-hint field-hint-{{ conf|lower }}">
+                  Confidence: {{ conf }}{% if src == 'template' %} · template fallback{% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="button-row form-review-actions">
+          <a href="{{ url_for('search_records') }}" class="btn btn-primary">Back to Search</a>
+          <button
+            type="submit"
+            class="btn btn-primary"
+            formaction="{{ url_for('autofilled_form_cancel') }}"
+            formmethod="post"
+            onclick="return confirm('Cancel this auto-filled form review? Unsaved changes will be lost.');"
+          >
+            Cancel
+          </button>
+          {% if image_filename and current_user and (current_user.role or '')|upper == 'STAFF' and not can_print %}
+            <button type="button" class="btn btn-secondary" disabled title="Staff need admin approval to print">Print (admin approval)</button>
+          {% endif %}
+          <button type="submit" class="btn btn-primary">Confirm death data</button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  {% if image_filename and can_print %}
+    {% with doc_type='death', form_meta=get_form_meta('death'), print_heading='Daraga Civil Registry — Death · review', sync_from_form=true, print_log_url='' %}
+      {% include '_document_print.html' %}
+    {% endwith %}
+  {% endif %}
+{% endblock %}

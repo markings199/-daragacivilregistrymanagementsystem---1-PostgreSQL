@@ -1,0 +1,17 @@
+{# Theme toggle — blue circle with white home icon (matches sidebar / administration branding).
+   Optional: theme_toggle_extra_class e.g. login-theme-toggle #}
+<button
+  type="button"
+  class="theme-toggle{% if theme_toggle_extra_class %} {{ theme_toggle_extra_class }}{% endif %}"
+  id="theme-toggle"
+  aria-pressed="false"
+  title="Switch to dark mode"
+>
+  <span class="theme-toggle-icon home-circle-mark theme-icon-dark" aria-hidden="true">
+    {% include '_icon_home_circle.html' %}
+  </span>
+  <span class="theme-toggle-icon home-circle-mark theme-icon-light" aria-hidden="true">
+    {% include '_icon_home_circle.html' %}
+  </span>
+  <span class="theme-toggle-label">Dark</span>
+</button>

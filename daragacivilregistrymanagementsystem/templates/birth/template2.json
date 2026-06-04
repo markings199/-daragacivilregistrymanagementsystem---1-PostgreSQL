@@ -1,0 +1,53 @@
+{
+  "id": "birth_template_2",
+  "doc_type": "birth",
+  "description": "Alternative birth layout where labels are shortened or OCR is noisy.",
+  "match": {
+    "keywords_any": [
+      "BIRTH",
+      "CHILD",
+      "MOTHER",
+      "FATHER",
+      "REGISTRY"
+    ],
+    "min_any": 3,
+    "regex_all": [
+      "(?i)\\b(BIRTH)\\b"
+    ]
+  },
+  "fields": {
+    "registry_number": {
+      "patterns": [
+        "(?:REGI(?:S|5)TR(?:Y|V)\\s*(?:NO\\.|NUMBER)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})"
+      ]
+    },
+    "name_of_child": {
+      "patterns": [
+        "(?:CHILD\\s*(?:NAME)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "date_of_birth": {
+      "patterns": [
+        "(?:DOB\\s*[:\\-]?\\s*)(?P<value>\\d{4}[\\-/]\\d{1,2}[\\-/]\\d{1,2}|\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4})",
+        "(?:DATE\\s+OF\\s+BIRTH\\s*[:\\-]?\\s*)(?P<value>.+)"
+      ]
+    },
+    "place_of_birth": {
+      "patterns": [
+        "(?:POB\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9][A-Za-z0-9 '\\-.,]{2,})",
+        "(?:PLACE\\s+OF\\s+BIRTH\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9][A-Za-z0-9 '\\-.,]{2,})"
+      ]
+    },
+    "name_of_mother": {
+      "patterns": [
+        "(?:MOTHER\\s*(?:NAME)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "name_of_father": {
+      "patterns": [
+        "(?:FATHER\\s*(?:NAME)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    }
+  }
+}
+

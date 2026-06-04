@@ -1,0 +1,8 @@
+flask
+flask_sqlalchemy
+psycopg2-binary
+paddleocr
+opencv-python
+numpy
+APScheduler>=3.10.0
+pywin32

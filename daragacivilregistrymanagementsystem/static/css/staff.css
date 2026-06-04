@@ -1,0 +1,220 @@
+/* Staff page styles */
+
+body.page-staff-requests .main {
+  background: transparent;
+}
+
+body.page-staff-requests .staff-requests-shell {
+  --staff-blue: #002080;
+  --staff-green: #008a3a;
+}
+body.page-staff-requests .staff-pills { margin-bottom: 16px; }
+body.page-staff-requests .request-doc-type-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 0 0 18px;
+  max-width: 28rem;
+}
+body.page-staff-requests .request-doc-type-filter label {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: rgba(0, 32, 128, 0.55);
+}
+body.page-staff-requests .request-doc-type-filter select {
+  flex: 1 1 220px;
+  min-width: 200px;
+  padding: 10px 12px;
+  font-size: 0.9375rem;
+  border: 1px solid var(--staff-green);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+body.page-staff-requests .request-doc-type-filter select:focus {
+  outline: none;
+  border-color: var(--staff-green);
+  box-shadow: 0 0 0 3px rgba(0, 138, 58, 0.14);
+}
+body.page-staff-requests .staff-pills .pill {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.8125rem;
+  border-color: rgba(0, 32, 128, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 32, 128, 0.04);
+}
+body.page-staff-requests .staff-pills .pill strong { color: var(--staff-blue); font-weight: 800; }
+body.page-staff-requests .staff-requests-card { border-radius: 14px; box-shadow: 0 1px 3px rgba(0, 32, 128, 0.05); padding: 0; overflow: hidden; }
+body.page-staff-requests .staff-table-wrap {
+  overflow-x: auto;
+  margin: 0;
+  -webkit-overflow-scrolling: touch;
+}
+body.page-staff-requests .staff-requests-table {
+  margin: 0;
+  width: 100%;
+}
+body.page-staff-requests .code-cell { font-variant-numeric: tabular-nums; }
+body.page-staff-requests .approval-code-display { font-size: 1rem; letter-spacing: 0.12em; color: var(--staff-green); font-weight: 900; }
+body.page-staff-requests .unlock-form { display: inline-block; }
+body.page-staff-requests .btn-unlock,
+body.page-staff-requests .btn-view-record {
+  display: inline-block;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25;
+  border-radius: 8px;
+  white-space: nowrap;
+  min-height: 0;
+  box-shadow: none;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+body.page-staff-requests .btn-unlock {
+  box-shadow: 0 2px 8px rgba(0, 32, 128, 0.18);
+}
+body.page-staff-requests .btn-unlock:hover {
+  box-shadow: 0 3px 10px rgba(0, 32, 128, 0.22);
+}
+/* —— My print requests table —— */
+body.page-staff-requests .staff-print-table-wrap {
+  border-radius: 12px;
+  border: 1px solid rgba(70, 130, 180, 0.22);
+}
+body.page-staff-requests .staff-print-requests-table {
+  min-width: 1020px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+body.page-staff-requests .staff-print-requests-table thead th {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 11px 12px;
+  white-space: nowrap;
+}
+body.page-staff-requests .staff-print-requests-table tbody td {
+  font-size: 0.875rem;
+  padding: 10px 12px;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(44, 94, 126, 0.1);
+}
+body.page-staff-requests .staff-print-requests-table tbody tr:last-child td {
+  border-bottom: none;
+}
+body.page-staff-requests .staff-print-requests-table tbody tr:hover td {
+  background: #f8fbff;
+}
+body.page-staff-requests .staff-print-requests-table .col-id { width: 42px; white-space: nowrap; }
+body.page-staff-requests .staff-print-requests-table .col-registry { width: 118px; word-break: break-word; }
+body.page-staff-requests .staff-print-requests-table .col-type { width: 78px; }
+body.page-staff-requests .staff-print-requests-table .col-print-format { width: 108px; }
+body.page-staff-requests .staff-print-requests-table .col-requested { width: 128px; white-space: nowrap; }
+body.page-staff-requests .staff-print-requests-table .col-status { width: 92px; white-space: nowrap; }
+body.page-staff-requests .staff-print-requests-table .col-print-status {
+  width: 124px;
+  min-width: 124px;
+  white-space: nowrap;
+}
+body.page-staff-requests .staff-print-requests-table .col-reason {
+  min-width: 140px;
+  max-width: 200px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+body.page-staff-requests .staff-print-requests-table .col-reject {
+  width: 100px;
+  max-width: 100px;
+  font-size: 0.8125rem;
+  color: #64748b;
+  word-break: break-word;
+}
+body.page-staff-requests .staff-print-requests-table .col-actions {
+  width: 128px;
+  min-width: 128px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+body.page-staff-requests .staff-print-requests-table .doc-type-short {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #002080;
+  white-space: nowrap;
+}
+body.page-staff-requests .print-format-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.page-staff-requests .print-format-badge--original {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+body.page-staff-requests .print-format-badge--certification {
+  background: #eef2ff;
+  color: #1e40af;
+  border: 1px solid #a5b4fc;
+}
+body.page-staff-requests .staff-print-ready-badge {
+  display: inline-block;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #166534;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  box-sizing: border-box;
+}
+body.page-staff-requests .staff-print-pending-label {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #92400e;
+}
+body.page-staff-requests .staff-print-done {
+  display: block;
+  line-height: 1.35;
+}
+body.page-staff-requests .staff-print-done-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+body.page-staff-requests .staff-print-done-time {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+body.page-staff-requests .staff-print-requests-table .status-badge {
+  display: inline-block;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+body.page-staff-requests .staff-print-requests-table .cell-actions {
+  text-align: left;
+}
+body.page-staff-requests .staff-print-requests-table .btn-view-record {
+  width: 100%;
+}

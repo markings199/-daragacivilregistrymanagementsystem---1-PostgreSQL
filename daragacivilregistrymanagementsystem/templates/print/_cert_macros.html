@@ -1,0 +1,13 @@
+{% macro cert_row(label, value, field_key='') %}
+<div class="cert-field">
+  <span class="cert-label">{{ label }}</span><span class="cert-colon"> :</span>
+  <span class="cert-value"{% if field_key %} data-cert-field="{{ field_key }}"{% endif %}>{{ value if value else ' ' }}</span>
+</div>
+{% endmacro %}
+
+{% macro cert_payment_row(label, value='') %}
+<div class="cert-field">
+  <span class="cert-label">{{ label }}</span><span class="cert-colon"> :</span>
+  <span class="cert-value">{{ value if value else ' ' }}</span>
+</div>
+{% endmacro %}

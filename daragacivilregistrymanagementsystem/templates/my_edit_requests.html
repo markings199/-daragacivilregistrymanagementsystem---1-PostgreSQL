@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}My Edit Requests{% endblock %}
+{% block body_class %}page-staff-requests{% endblock %}
+
+{% block content %}
+<div class="staff-requests-shell">
+  <div class="page-header">
+    <h1 class="page-title">My edit requests</h1>
+    <p class="page-state">Track requests to change civil records. Approved requests show a code you can use to unlock editing.</p>
+  </div>
+
+  <div class="workflow-pills staff-pills">
+    <span class="pill pill-state">Queue: <strong>My requests</strong></span>
+    <span class="pill pill-state">Next: Search or archiving to request more</span>
+  </div>
+
+  <form method="get" action="{{ url_for('my_edit_requests') }}" class="request-doc-type-filter staff-doc-type-filter">
+    <label for="staff-document-type-filter">Document type</label>
+    <select name="doc_type" id="staff-document-type-filter" aria-label="Filter by document type" onchange="this.form.submit()">
+      <option value="" {% if not request_doc_type %}selected{% endif %}>All document types</option>
+      {% for key, label in document_types.items() %}
+      <option value="{{ key }}" {% if request_doc_type == key %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <div class="main-card staff-requests-card">
+    {% if requests_list %}
+      <div class="staff-table-wrap">
+        <table class="table staff-requests-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Registry</th>
+              <th>Type</th>
+              <th>Requested at</th>
+              <th>Status</th>
+              <th>Reason</th>
+              <th>Rejection reason</th>
+              <th>Code</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for req in requests_list %}
+              <tr>
+                <td>{{ req.id }}</td>
+                <td>{{ req.record.registry_number or '—' if req.record else '—' }}</td>
+                <td>{{ document_types.get(req.record.document_type, req.record.document_type) if req.record else '—' }}</td>
+                <td>{{ req.requested_at.strftime('%Y-%m-%dT%H:%M:%S') if req.requested_at else '—' }}</td>
+                <td><span class="status-badge status-{{ req.status|lower }}">{{ req.status }}</span></td>
+                <td>{{ req.reason or '—' }}</td>
+                <td>{{ req.rejection_reason or '—' }}</td>
+                <td class="code-cell">
+                  {% if req.status == 'APPROVED' and req.approval_code %}
+                    <strong class="approval-code-display">{{ req.approval_code }}</strong>
+                    {% if req.code_used_at %}
+                      <span class="status-badge status-approved" style="margin-left: 6px;">USED</span>
+                    {% endif %}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td>
+                  {% if req.status == 'APPROVED' and req.approval_code and not req.code_used_at and req.record %}
+                    <form method="post" action="{{ url_for('record_verify_code', record_id=req.record_id) }}" class="unlock-form">
+                      <input type="hidden" name="next" value="{% if request_doc_type %}{{ url_for('my_edit_requests', doc_type=request_doc_type) }}{% else %}{{ url_for('my_edit_requests') }}{% endif %}" />
+                      <input type="hidden" name="approval_code" value="{{ req.approval_code }}" />
+                      <button type="submit" class="btn btn-primary btn-unlock">Unlock</button>
+                    </form>
+                  {% elif req.code_used_at %}
+                    <a href="{{ url_for('record_detail', record_id=req.record_id) }}" class="btn btn-secondary btn-view-record">View record</a>
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        {% if request_doc_type %}
+          <p class="empty-state-title">No requests for this document type</p>
+          <p class="empty-state-text">Try another type or <a href="{{ url_for('my_edit_requests') }}">show all document types</a>.</p>
+        {% else %}
+          <p class="empty-state-title">No edit requests yet</p>
+          <p class="empty-state-text">Open <strong>Search Records</strong> or <strong>Archiving</strong>, choose a record, and use <strong>Request edit</strong> to submit a request.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

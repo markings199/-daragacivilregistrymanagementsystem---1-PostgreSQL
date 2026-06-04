@@ -1,0 +1,5 @@
+{% if image_filename and (can_print|default(false)) %}
+    <button type="button" class="btn btn-primary" id="btn-print-form-cert">Print</button>
+{% elif image_filename and current_user and (current_user.role or '')|upper == 'STAFF' %}
+    <button type="button" class="btn btn-secondary" disabled title="Staff need admin approval to print">Print (admin approval)</button>
+{% endif %}

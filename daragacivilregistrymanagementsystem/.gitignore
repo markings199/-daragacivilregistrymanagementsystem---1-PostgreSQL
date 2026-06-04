@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Local app data (do not publish scans or registry DB)
+uploads/
+civil_registry.db
+*.db-journal
+backups/
+
+# Environment & secrets
+.env
+.env.*
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+
+# OCR debug / temp
+debug_ocr_boxes.jpg
+*.log

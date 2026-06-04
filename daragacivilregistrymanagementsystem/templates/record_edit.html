@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Edit record – {{ display_registry_number or record.registry_number or 'Record' }}{% endblock %}
+{% block body_class %}page-record-edit{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .main-card.record-edit-form-col {
+      padding: 14px 16px 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      column-gap: 14px;
+      align-items: start;
+    }
+    @media (min-width: 720px) {
+      .main-card.record-edit-form-col {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    .record-edit-form-col .section-title {
+      grid-column: 1 / -1;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--section-title, #0f2b5c);
+      margin: 0 0 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border, #e2e8f0);
+    }
+    .record-edit-form-col .metadata-edit-field {
+      margin: 0;
+      padding: 0 0 8px;
+      border-bottom: 1px solid var(--border, #f1f5f9);
+    }
+    .record-edit-form-col .button-row {
+      grid-column: 1 / -1;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border, #e2e8f0);
+    }
+    .record-edit-form-col .metadata-edit-label {
+      display: block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted, #64748b);
+      letter-spacing: 0.01em;
+      margin-bottom: 3px;
+      line-height: 1.25;
+    }
+    .record-edit-form-col .metadata-edit-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 5px 8px 6px;
+      margin: 0;
+      border: 1px solid var(--input-border, #e2e8f0);
+      border-radius: 6px;
+      background: var(--input-bg, #f8fafc);
+      color: var(--input-text, #0f172a);
+      font-size: 0.875rem;
+      font-weight: 500;
+      line-height: 1.35;
+      letter-spacing: 0.01em;
+      text-transform: none;
+      min-height: 0;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    }
+    .record-edit-form-col .metadata-edit-input:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+    .record-edit-form-col .metadata-edit-input:focus {
+      outline: none;
+      background: #fff;
+      border-color: #002080;
+      box-shadow: 0 0 0 2px rgba(0, 32, 128, 0.12);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <h1 class="page-title">Edit record</h1>
+    <p class="page-state">Registry: {{ display_registry_number or record.registry_number or '—' }} · {{ (document_types|default({})).get(record.document_type, record.document_type) }}</p>
+  </div>
+
+  <div class="workflow-pills">
+    <span class="pill pill-state">State: <strong>Edit</strong></span>
+    <span class="pill pill-state">Next: <strong>Save</strong></span>
+  </div>
+
+  <form method="post" action="{{ url_for('record_edit', record_id=record.id) }}" class="civil-form record-edit-form">
+    <div class="scan-workflow-grid form-review-page-grid">
+      <div class="main-card scan-workflow-preview-card">
+        <h2 class="section-title">Original certificate</h2>
+        <div class="scan-preview-viewer-inner">
+          {% set _img = record.image_path or record.image_front_path %}
+          {% if _img %}
+            {% set image_url = url_for('serve_upload', path=_img) %}
+            {% set document_viewer_title = 'Certificate (zoom)' %}
+            {% set document_viewer_id_prefix = 'edit-doc' %}
+            {% set document_viewer_section_id = 'record-edit-doc-viewer' %}
+            {% include '_document_viewer.html' %}
+          {% else %}
+            <p class="scan-preview-empty">No image on file for this record.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="main-card record-edit-form-col">
+        <h2 class="section-title">Edit record data</h2>
+        {% for key, val in data.items() %}
+          <div class="metadata-edit-field">
+            <label class="metadata-edit-label" for="edit_{{ loop.index }}">{{ key }}</label>
+            <input class="metadata-edit-input" id="edit_{{ loop.index }}" name="{{ key }}" value="{{ val or '' }}" type="text" autocomplete="off" />
+          </div>
+        {% endfor %}
+        <div class="button-row">
+          <a href="{{ url_for('record_detail', record_id=record.id) }}" class="btn btn-secondary">Cancel</a>
+          <button type="submit" name="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </div>
+    </div>
+  </form>
+{% endblock %}

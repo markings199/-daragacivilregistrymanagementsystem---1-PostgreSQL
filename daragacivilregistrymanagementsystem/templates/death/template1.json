@@ -1,0 +1,59 @@
+{
+  "id": "death_template_1",
+  "doc_type": "death",
+  "description": "Generic death certificate (keyword+regex matching).",
+  "match": {
+    "keywords_any": [
+      "CERTIFICATE OF DEATH",
+      "DEATH",
+      "NAME OF DECEASED",
+      "DATE OF DEATH",
+      "PLACE OF DEATH",
+      "CAUSE OF DEATH"
+    ],
+    "min_any": 3
+  },
+  "fields": {
+    "registry_number": {
+      "patterns": [
+        "(?:Registry\\s*(?:No\\.|Number)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})",
+        "(?:REGISTRY\\s*(?:NO\\.|NUMBER)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})"
+      ]
+    },
+    "name_of_deceased": {
+      "patterns": [
+        "(?:Name\\s+of\\s+Deceased\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
+        "(?:DECEASED\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "name_of_mother": {
+      "patterns": [
+        "(?:Mother(?:'?s)?\\s+(?:Maiden\\s+)?Name\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
+        "(?:Name\\s+of\\s+Mother\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
+        "(?:Maiden\\s+Name\\s+of\\s+Mother\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "sex": {
+      "patterns": [
+        "(?:Sex\\s*[:\\-]?\\s*)(?P<value>Male|Female|M|F)\\b"
+      ]
+    },
+    "date_of_death": {
+      "patterns": [
+        "(?:Date\\s+of\\s+Death\\s*[:\\-]?\\s*)(?P<value>\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4}|\\d{4}[\\-/]\\d{1,2}[\\-/]\\d{1,2}|\\d{1,2}\\s+[A-Z]{3,9}\\s+\\d{4})"
+      ]
+    },
+    "place_of_death": {
+      "patterns": [
+        "(?:Place\\s+of\\s+Death\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9][A-Za-z0-9 '\\-.,]{2,})"
+      ]
+    },
+    "cause_of_death": {
+      "patterns": [
+        "(?:Cause\\s+of\\s+Death\\s*[:\\-]?\\s*)(?P<value>[^\\n]{3,})",
+        "(?:CAUSE\\s*[:\\-]?\\s*)(?P<value>[^\\n]{3,})"
+      ]
+    }
+  }
+}
+

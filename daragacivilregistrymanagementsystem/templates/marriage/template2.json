@@ -1,0 +1,44 @@
+{
+  "id": "marriage_template_2",
+  "doc_type": "marriage",
+  "description": "Alternative marriage layout with short labels / OCR noise.",
+  "match": {
+    "keywords_any": [
+      "MARRIAGE",
+      "HUSBAND",
+      "WIFE",
+      "DATE",
+      "PLACE"
+    ],
+    "min_any": 3
+  },
+  "fields": {
+    "registry_number": {
+      "patterns": [
+        "(?:REGI(?:S|5)TR(?:Y|V)\\s*(?:NO\\.|NUMBER)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})"
+      ]
+    },
+    "husband_name": {
+      "patterns": [
+        "(?:HUSBAND\\s*(?:NAME)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "wife_name": {
+      "patterns": [
+        "(?:WIFE\\s*(?:NAME)?\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "date_of_marriage": {
+      "patterns": [
+        "(?:DOM\\s*[:\\-]?\\s*)(?P<value>\\d{4}[\\-/]\\d{1,2}[\\-/]\\d{1,2}|\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4})",
+        "(?:DATE\\s+OF\\s+MARRIAGE\\s*[:\\-]?\\s*)(?P<value>.+)"
+      ]
+    },
+    "place_of_marriage": {
+      "patterns": [
+        "(?:PLACE\\s+OF\\s+MARRIAGE\\s*[:\\-]?\\s*)(?P<value>.+)"
+      ]
+    }
+  }
+}
+

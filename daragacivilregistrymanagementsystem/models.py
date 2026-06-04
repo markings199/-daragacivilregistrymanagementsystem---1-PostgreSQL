@@ -1,0 +1,98 @@
+from datetime import datetime
+
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+
+class User(db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+    role = db.Column(db.String(32), nullable=False)  # "ADMIN" or "STAFF"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class Record(db.Model):
+    """Stored civil registry record (saved when user confirms form)."""
+    __tablename__ = "records"
+    id = db.Column(db.Integer, primary_key=True)
+    document_type = db.Column(db.String(32), nullable=False)  # birth, marriage, death
+    registry_number = db.Column(db.String(64))
+    full_name = db.Column(db.String(256))
+    event_date = db.Column(db.String(32))  # stored as string e.g. YYYY-MM-DD or "15 MAY 1990"
+    data_json = db.Column(db.Text, nullable=False)  # all form fields as JSON
+    extracted_json = db.Column(db.Text, nullable=False, default="{}")  # copy of submitted/form data for compatibility
+    corrected_json = db.Column(db.Text, nullable=False, default="{}")  # corrected/edited form data for compatibility
+    image_path = db.Column(db.String(512))  # relative path under uploads, e.g. birth/birth_foo.jpg
+    image_front_path = db.Column(db.String(512), nullable=False, default="")  # front scan path for compatibility
+    status = db.Column(db.String(32), nullable=False, default="archived")  # e.g. archived, pending
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class EditRequest(db.Model):
+    """Staff request to edit a record; admin approves and issues a 5-digit code for staff to use."""
+    __tablename__ = "edit_requests"
+    id = db.Column(db.Integer, primary_key=True)
+    record_id = db.Column(db.Integer, db.ForeignKey("records.id"), nullable=False)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status = db.Column(db.String(32), nullable=False, default="PENDING")  # PENDING, APPROVED, REJECTED
+    reason = db.Column(db.Text, nullable=False, default="")
+    fields_requested = db.Column(db.String(512), nullable=False, default="")  # comma-separated field names
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)  # for DB compatibility
+    reviewed_at = db.Column(db.DateTime)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    approval_code = db.Column(db.String(10), nullable=False, default="")  # 5-digit code when approved
+    code_used_at = db.Column(db.DateTime)  # when staff used the code to complete edit
+    rejection_reason = db.Column(db.Text, default="")  # optional reason when admin rejects
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)  # for DB compatibility
+
+    requested_by = db.relationship("User", foreign_keys=[requested_by_id])
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
+    record = db.relationship("Record", backref=db.backref("edit_requests", lazy="dynamic"))
+
+
+class PrintRequest(db.Model):
+    """Staff request to print a record; admin must approve before printing."""
+    __tablename__ = "print_requests"
+    id = db.Column(db.Integer, primary_key=True)
+    record_id = db.Column(db.Integer, db.ForeignKey("records.id"), nullable=False)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    status = db.Column(db.String(32), nullable=False, default="PENDING")  # PENDING, APPROVED, REJECTED
+    reason = db.Column(db.Text, nullable=False, default="")
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    reviewed_at = db.Column(db.DateTime)
+    reviewed_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    rejection_reason = db.Column(db.Text, default="")
+    used_at = db.Column(db.DateTime)  # set when staff completes a permitted print
+    # original = scanned certificate; certification = CR Form 1A / 2A / 3A
+    print_format = db.Column(db.String(32), nullable=False, default="original")
+
+    requested_by = db.relationship("User", foreign_keys=[requested_by_id])
+    reviewed_by = db.relationship("User", foreign_keys=[reviewed_by_id])
+    record = db.relationship("Record", backref=db.backref("print_requests", lazy="dynamic"))
+
+
+class AuditLog(db.Model):
+    """Admin audit log for key actions."""
+    __tablename__ = "audit_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    action = db.Column(db.String(128), nullable=False)
+    details = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+
+class PrintLog(db.Model):
+    """Log of staff printing documents (viewable by admin)."""
+    __tablename__ = "print_logs"
+    id = db.Column(db.Integer, primary_key=True)
+    record_id = db.Column(db.Integer, db.ForeignKey("records.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    printed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    record = db.relationship("Record", backref=db.backref("print_logs", lazy="dynamic"))
+    user = db.relationship("User", backref=db.backref("print_logs", lazy="dynamic"))

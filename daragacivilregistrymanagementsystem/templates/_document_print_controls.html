@@ -1,0 +1,44 @@
+{# Screen-only print controls (picker, approved note, Print button).
+   Same context variables as _document_print.html.
+   hide_approved_note: hide the blue approved-format banner (e.g. when shown as a pill elsewhere).
+#}
+{% set _can = can_print|default(false) %}
+{% set _locked = normalize_print_format(locked_print_format) if locked_print_format else '' %}
+{% set _has_image = image_filename or image_url %}
+{% set _show_original = _has_image and (not _locked or _locked == PRINT_FORMAT_ORIGINAL) %}
+{% set _show_cert = (not _locked or _locked == PRINT_FORMAT_CERTIFICATION) %}
+{% set _cert_label = print_format_label(PRINT_FORMAT_CERTIFICATION, doc_type) %}
+{% set _default_mode = _locked if _locked else (PRINT_FORMAT_ORIGINAL if _has_image else PRINT_FORMAT_CERTIFICATION) %}
+
+{% if _can and _show_original and _show_cert %}
+<fieldset class="print-mode-picker no-print">
+  <legend>Print options</legend>
+  <div class="print-mode-options">
+    <label>
+      <input type="radio" name="print_mode" value="original" {% if _default_mode == PRINT_FORMAT_ORIGINAL %}checked{% endif %} />
+      <span><strong>Original document</strong> — scanned certificate image</span>
+    </label>
+    <label>
+      <input type="radio" name="print_mode" value="certification" {% if _default_mode == PRINT_FORMAT_CERTIFICATION %}checked{% endif %} />
+      <span><strong>{{ _cert_label }}</strong> — official certification layout with seal</span>
+    </label>
+  </div>
+</fieldset>
+{% elif _can and _locked and not hide_approved_note|default(false) %}
+<p class="print-approved-format-note no-print">
+  <strong>Approved print:</strong> {{ print_format_label(_locked, doc_type) }}
+</p>
+{% endif %}
+
+{% if _can %}
+  <button
+    type="button"
+    class="btn btn-primary no-print btn-print-document"
+    id="btn-print-document"
+    data-print-log-url="{{ print_log_url or '' }}"
+    data-can-print="1"
+    data-sync-form="{{ '1' if sync_from_form|default(false) else '0' }}"
+    data-locked-print-format="{{ _locked }}"
+    data-default-print-mode="{{ _default_mode }}"
+  >Print</button>
+{% endif %}

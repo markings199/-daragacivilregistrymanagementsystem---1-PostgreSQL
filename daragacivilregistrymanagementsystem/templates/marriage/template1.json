@@ -1,0 +1,47 @@
+{
+  "id": "marriage_template_1",
+  "doc_type": "marriage",
+  "description": "Generic marriage certificate (husband/wife layout).",
+  "match": {
+    "keywords_any": [
+      "CERTIFICATE OF MARRIAGE",
+      "MARRIAGE",
+      "HUSBAND",
+      "WIFE",
+      "DATE OF MARRIAGE",
+      "PLACE OF MARRIAGE"
+    ],
+    "min_any": 3
+  },
+  "fields": {
+    "registry_number": {
+      "patterns": [
+        "(?:Registry\\s*(?:No\\.|Number)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})",
+        "(?:REGISTRY\\s*(?:NO\\.|NUMBER)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})"
+      ]
+    },
+    "husband_name": {
+      "patterns": [
+        "(?:Husband\\s*Name\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
+        "(?:HUSBAND\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "wife_name": {
+      "patterns": [
+        "(?:Wife\\s*Name\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
+        "(?:WIFE\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "date_of_marriage": {
+      "patterns": [
+        "(?:Date\\s+of\\s+Marriage\\s*[:\\-]?\\s*)(?P<value>\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4}|\\d{4}[\\-/]\\d{1,2}[\\-/]\\d{1,2}|\\d{1,2}\\s+[A-Z]{3,9}\\s+\\d{4})"
+      ]
+    },
+    "place_of_marriage": {
+      "patterns": [
+        "(?:Place\\s+of\\s+Marriage\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9][A-Za-z0-9 '\\-.,]{2,})"
+      ]
+    }
+  }
+}
+

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Request edit – {{ record.registry_number or 'Record' }}{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <h1 class="page-title">Request edit</h1>
+    <p class="page-state">Record: {{ record.registry_number or '—' }} · {{ record.document_type | capitalize }}</p>
+  </div>
+
+  <div class="main-card">
+    <h2 class="section-title">Submit edit request to admin</h2>
+    <p class="section-desc">Admin will review your reason and approve or reject. If approved, you will receive a 5-digit code to edit this record.</p>
+    <form method="post" action="{{ url_for('request_edit', record_id=record.id) }}">
+      <div class="field">
+        <label for="reason">Reason for edit <span style="color: #b91c1c;">*</span></label>
+        <textarea id="reason" name="reason" rows="4" required placeholder="e.g. Wrong spelling of name, incorrect date..."></textarea>
+      </div>
+      <div class="field">
+        <label for="fields_requested">Fields to change</label>
+        <input type="text" id="fields_requested" name="fields_requested" placeholder="e.g. Name of Deceased, Date of Birth (optional)" />
+      </div>
+      <div class="button-row">
+        <button type="submit" class="btn btn-primary">Send request</button>
+        <a href="{{ url_for('record_detail', record_id=record.id) }}" class="btn btn-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

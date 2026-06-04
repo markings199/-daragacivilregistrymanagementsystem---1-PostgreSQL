@@ -1,0 +1,17 @@
+{# Expects: image_url. Optional: document_viewer_title, document_viewer_section_id, document_viewer_id_prefix #}
+<div class="document-viewer-section" id="{{ document_viewer_section_id | default('document-viewer-section') }}" data-viewer-prefix="{{ document_viewer_id_prefix | default('doc') | e }}">
+  <div class="document-viewer-header">
+    <h3 class="document-viewer-title">{{ document_viewer_title | default('Document for review') }}</h3>
+    <div class="document-viewer-controls">
+      <button type="button" class="document-viewer-btn" id="{{ document_viewer_id_prefix | default('doc') }}-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+      <span class="document-viewer-zoom-value" id="{{ document_viewer_id_prefix | default('doc') }}-zoom-value">100%</span>
+      <button type="button" class="document-viewer-btn" id="{{ document_viewer_id_prefix | default('doc') }}-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+      <button type="button" class="document-viewer-btn document-viewer-reset" id="{{ document_viewer_id_prefix | default('doc') }}-zoom-reset" title="Reset zoom">Reset</button>
+    </div>
+  </div>
+  <div class="document-viewer-pane" id="{{ document_viewer_id_prefix | default('doc') }}-viewer-pane">
+    <div class="document-viewer-image-wrap" id="{{ document_viewer_id_prefix | default('doc') }}-image-wrap">
+      <img src="{{ image_url }}" alt="Scanned document" class="document-viewer-image" id="{{ document_viewer_id_prefix | default('doc') }}-viewer-image" />
+    </div>
+  </div>
+</div>

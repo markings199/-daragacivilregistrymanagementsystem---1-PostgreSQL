@@ -1,0 +1,31 @@
+{# What to print: original scan vs certification form. Requires: doc_type, field_name (default print_format) #}
+{% set _fname = field_name|default('print_format') %}
+{% set _doc = doc_type|default('birth') %}
+{% set _selected = normalize_print_format(selected|default(PRINT_FORMAT_ORIGINAL)) %}
+{% set _has_image = has_image|default(true) %}
+<fieldset class="print-format-request-field">
+  <legend>What do you want to print? <span style="color: #b91c1c;">*</span></legend>
+  <div class="print-mode-options">
+    <label>
+      <input
+        type="radio"
+        name="{{ _fname }}"
+        value="original"
+        {% if _selected == PRINT_FORMAT_ORIGINAL %}checked{% endif %}
+        {% if not _has_image %}disabled{% endif %}
+        required
+      />
+      <span><strong>Original document</strong> — scanned certificate image{% if not _has_image %} (not available for this record){% endif %}</span>
+    </label>
+    <label>
+      <input
+        type="radio"
+        name="{{ _fname }}"
+        value="certification"
+        {% if _selected == PRINT_FORMAT_CERTIFICATION or not _has_image %}checked{% endif %}
+        required
+      />
+      <span><strong>{{ print_format_label(PRINT_FORMAT_CERTIFICATION, _doc) }}</strong> — official certification layout with seal</span>
+    </label>
+  </div>
+</fieldset>

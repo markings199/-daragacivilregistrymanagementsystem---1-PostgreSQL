@@ -1,0 +1,43 @@
+{% from 'print/_cert_macros.html' import cert_row, cert_payment_row %}
+{% set meta = form_meta %}
+{% include 'print/_cert_header.html' %}
+
+{{ cert_row('Registry Number', cert_field(data, 'Registry Number'), 'Registry Number') }}
+{{ cert_row('Date of Registration', cert_field(data, 'Date of Registration'), 'Date of Registration') }}
+{{ cert_row('Name of Child', cert_field(data, 'Name of Child'), 'Name of Child') }}
+{{ cert_row('Sex', cert_field(data, 'Sex'), 'Sex') }}
+{{ cert_row('Date of Birth', cert_field(data, 'Date of Birth'), 'Date of Birth') }}
+{{ cert_row('Place of Birth', cert_field(data, 'Place of Birth'), 'Place of Birth') }}
+{{ cert_row('Name of Mother', cert_field(data, 'Name of Mother'), 'Name of Mother') }}
+{{ cert_row('Citizenship of Mother', cert_field(data, 'Citizenship of Mother'), 'Citizenship of Mother') }}
+{{ cert_row('Name of Father', cert_field(data, 'Name of Father'), 'Name of Father') }}
+{{ cert_row('Citizenship of Father', cert_field(data, 'Citizenship of Father'), 'Citizenship of Father') }}
+{{ cert_row('Date of marriage of Parents', cert_field(data, 'Date of Marriage of Parents') or cert_field(data, 'Date of marriage of Parents'), 'Date of Marriage of Parents') }}
+{{ cert_row('Place of marriage of Parents', cert_field(data, 'Place of Marriage of Parents') or cert_field(data, 'Place of marriage of Parents'), 'Place of Marriage of Parents') }}
+
+<p class="cert-issued">
+  This certification is issued to : <span class="cert-issued-line" data-cert-field="Issued To">&nbsp;</span>
+  upon his/her request.
+</p>
+
+<img class="cert-watermark" src="{{ url_for('static', filename='mcr-daraga-seal.png') }}" alt="" aria-hidden="true" />
+
+<div class="cert-signatures">
+  <div class="cert-verify-block">
+    <div>Verified by:</div>
+    <span class="cert-official-name">JOSEPH ALBERTO M. SALOMON</span>
+    <span class="cert-official-title">Administrative Aide IV</span>
+    <div class="cert-payment">
+      {{ cert_payment_row('Amount Paid', 'Php ') }}
+      {{ cert_payment_row('OR Number') }}
+      {{ cert_payment_row('Date Paid', cert_date) }}
+    </div>
+  </div>
+  <div class="cert-registrar-block">
+    <span class="cert-official-name">MICHELLE M. MARINAY</span>
+    <span class="cert-official-title">MGDH I / Municipal Civil Registrar I</span>
+  </div>
+</div>
+
+<p class="cert-footer-note">Note: A mark, erasure or alteration of any entry invalidates this certification</p>
+</div>

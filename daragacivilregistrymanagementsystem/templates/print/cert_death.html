@@ -1,0 +1,41 @@
+{% from 'print/_cert_macros.html' import cert_row, cert_payment_row %}
+{% set meta = form_meta %}
+{% include 'print/_cert_header.html' %}
+
+{{ cert_row('Registry Number', cert_field(data, 'Registry Number'), 'Registry Number') }}
+{{ cert_row('Date of Registration', cert_field(data, 'Date of Registration'), 'Date of Registration') }}
+{{ cert_row('Name of Deceased', cert_field(data, 'Name of Deceased'), 'Name of Deceased') }}
+{{ cert_row('Sex', cert_field(data, 'Sex'), 'Sex') }}
+{{ cert_row('Age', cert_field(data, 'Age'), 'Age') }}
+{{ cert_row('Civil Status', cert_field(data, 'Civil Status'), 'Civil Status') }}
+{{ cert_row('Nationality', cert_field(data, 'Nationality'), 'Nationality') }}
+{{ cert_row('Date of Death', cert_field(data, 'Date of Death'), 'Date of Death') }}
+{{ cert_row('Place of Death', cert_field(data, 'Place of Death'), 'Place of Death') }}
+{{ cert_row('Cause of Death', cert_field(data, 'Cause of Death'), 'Cause of Death') }}
+
+<p class="cert-issued">
+  This certification is issued to : <span class="cert-issued-line" data-cert-field="Issued To">&nbsp;</span>
+  upon his/her request.
+</p>
+
+<img class="cert-watermark" src="{{ url_for('static', filename='mcr-daraga-seal.png') }}" alt="" aria-hidden="true" />
+
+<div class="cert-signatures">
+  <div class="cert-verify-block">
+    <div>Verified by:</div>
+    <span class="cert-official-name">JOSEPH ALBERTO M. SALOMON</span>
+    <span class="cert-official-title">Administrative Aide IV</span>
+    <div class="cert-payment">
+      {{ cert_payment_row('Amount Paid', 'Php ') }}
+      {{ cert_payment_row('OR Number') }}
+      {{ cert_payment_row('Date Paid', cert_date) }}
+    </div>
+  </div>
+  <div class="cert-registrar-block">
+    <span class="cert-official-name">MICHELLE M. MARINAY</span>
+    <span class="cert-official-title">MGDH I / Municipal Civil Registrar I</span>
+  </div>
+</div>
+
+<p class="cert-footer-note">Note: A mark, erasure or alteration of any entry invalidates this certification</p>
+</div>

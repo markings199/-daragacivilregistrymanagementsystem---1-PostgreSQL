@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Request print – {{ record.registry_number or 'Record' }}{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/print_certification.css') }}" />
+{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <h1 class="page-title">Request print</h1>
+    <p class="page-state">Record: {{ record.registry_number or '—' }} · {{ document_types.get(record.document_type, record.document_type) }}</p>
+  </div>
+
+  <div class="main-card">
+    <h2 class="section-title">Submit print request to admin</h2>
+    <p class="section-desc">Choose whether you need the <strong>original scanned certificate</strong> or the <strong>official certification form</strong>. Admin will approve that specific print type.</p>
+    {% if has_pending %}
+      <p class="section-desc">You already have a pending print request for this record. Wait for admin approval.</p>
+      <div class="button-row">
+        <a href="{{ url_for('record_detail', record_id=record.id) }}" class="btn btn-primary">Back to record</a>
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('request_print', record_id=record.id) }}">
+        {% with doc_type=record.document_type, has_image=record.image_path, selected=PRINT_FORMAT_ORIGINAL %}
+          {% include '_print_format_field.html' %}
+        {% endwith %}
+        <div class="field">
+          <label for="reason">Reason for printing <span style="color: #b91c1c;">*</span></label>
+          <textarea id="reason" name="reason" rows="4" required placeholder="e.g. Copy for applicant, office file, verification..."></textarea>
+        </div>
+        <div class="button-row">
+          <button type="submit" class="btn btn-primary">Send request</button>
+          <a href="{{ url_for('record_detail', record_id=record.id) }}" class="btn btn-secondary">Cancel</a>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}
