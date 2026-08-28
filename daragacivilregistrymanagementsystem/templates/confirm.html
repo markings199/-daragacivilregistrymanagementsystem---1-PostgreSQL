@@ -104,8 +104,11 @@
         </div>
         <div class="button-row confirm-actions">
           <a href="{{ url_for('index') }}" class="btn btn-secondary">Process another</a>
+          {% if record_id %}
+            <a href="{{ url_for('record_detail', record_id=record_id) }}" class="btn btn-primary">Open saved record</a>
+          {% endif %}
           <a href="{{ url_for('search_records') }}" class="btn btn-primary">Search Records</a>
-          <a href="{{ url_for('index') }}" class="btn btn-primary">Scan Workflow</a>
+          <a href="{{ url_for('archiving') }}" class="btn btn-primary">Archiving</a>
         </div>
       </div>
     </div>
@@ -124,8 +127,11 @@
       </div>
       <div class="button-row confirm-actions">
         <a href="{{ url_for('index') }}" class="btn btn-secondary">Process another</a>
+        {% if record_id %}
+          <a href="{{ url_for('record_detail', record_id=record_id) }}" class="btn btn-primary">Open saved record</a>
+        {% endif %}
         <a href="{{ url_for('search_records') }}" class="btn btn-primary">Search Records</a>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">Scan Workflow</a>
+        <a href="{{ url_for('archiving') }}" class="btn btn-primary">Archiving</a>
       </div>
     </div>
   {% endif %}

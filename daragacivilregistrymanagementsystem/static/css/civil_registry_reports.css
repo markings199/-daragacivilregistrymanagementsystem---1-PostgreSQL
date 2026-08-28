@@ -1,0 +1,504 @@
+/* Official Civil Registry register forms (screen + print). Additive; unused elsewhere. */
+
+body.page-registry-reports {
+  overflow: hidden;
+}
+body.page-registry-reports .layout {
+  height: calc(100vh - var(--topbar-height));
+  min-height: 0;
+}
+body.page-registry-reports .main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 12px 10px;
+  max-width: none;
+}
+body.page-registry-reports .page-header,
+body.page-registry-reports .reports-page-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+  border: 1px solid rgba(0, 32, 128, 0.22);
+  box-shadow: 0 6px 20px rgba(0, 32, 128, 0.16);
+}
+body.page-registry-reports .reports-header-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+body.page-registry-reports .reports-header-mark svg {
+  width: 22px;
+  height: 22px;
+}
+body.page-registry-reports .reports-header-text {
+  min-width: 0;
+}
+body.page-registry-reports .page-title {
+  margin: 0 0 4px;
+  font-size: 1.22rem;
+  color: #ffffff;
+}
+body.page-registry-reports .page-state {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #dbe7ff;
+}
+body.page-registry-reports.reg-focus .topbar,
+body.page-registry-reports.reg-focus .sidebar {
+  display: none !important;
+}
+body.page-registry-reports.reg-focus .layout {
+  height: 100vh;
+  min-height: 100vh;
+}
+body.page-registry-reports.reg-focus .page-header {
+  display: none;
+}
+body.page-registry-reports.reg-focus .reg-toolbar {
+  background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: none;
+  box-shadow: 0 8px 24px rgba(0, 32, 128, 0.28);
+}
+body.page-registry-reports.reg-focus .reg-doc-label,
+body.page-registry-reports.reg-focus .reg-toolbar label {
+  color: #c7d7ff;
+}
+body.page-registry-reports.reg-focus .reg-doc-row {
+  background: rgba(0, 0, 0, 0.22);
+}
+body.page-registry-reports.reg-focus .reg-doc-btn {
+  color: #e8eeff;
+}
+body.page-registry-reports.reg-focus .reg-doc-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+body.page-registry-reports.reg-focus .reg-doc-btn.is-active {
+  background: #7dd3fc;
+  border-color: #7dd3fc;
+  color: #0f172a !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+}
+body.page-registry-reports.reg-focus .reg-toolbar select,
+body.page-registry-reports.reg-focus .reg-toolbar input {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #ffffff;
+}
+body.page-registry-reports.reg-focus .reg-toolbar select option {
+  color: #0f172a;
+  background: #ffffff;
+}
+body.page-registry-reports.reg-focus .reg-toolbar select:focus {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+}
+body.page-registry-reports.reg-focus .reg-zoom-pct {
+  color: #ffffff;
+}
+body.page-registry-reports.reg-focus .reg-toolbar .btn-secondary {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #ffffff;
+}
+body.page-registry-reports.reg-focus .reg-toolbar .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+body.page-registry-reports.reg-focus .reg-toolbar .btn-primary {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #002080;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+body.page-registry-reports .reg-toolbar .reg-btn-lead,
+body.page-registry-reports.reg-focus .reg-toolbar .reg-btn-lead {
+  background: #002080;
+  border: 1px solid #7dd3fc;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(0, 32, 128, 0.28);
+}
+body.page-registry-reports .reg-toolbar .reg-btn-lead:hover,
+body.page-registry-reports.reg-focus .reg-toolbar .reg-btn-lead:hover {
+  background: #001a66;
+  color: #ffffff !important;
+  filter: brightness(1.08);
+}
+body.page-registry-reports.reg-focus .reg-status {
+  color: #64748b;
+}
+
+.page-registry-reports .reg-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px 16px;
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 32, 128, 0.12);
+  border-top: 4px solid #002080;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(11, 42, 90, 0.07);
+}
+.page-registry-reports .reg-toolbar-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  min-width: 0;
+}
+.page-registry-reports .reg-doc-types,
+.page-registry-reports .reg-zoom-controls,
+.page-registry-reports .reg-toolbar-controls > label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.page-registry-reports .reg-doc-types {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+.page-registry-reports .reg-doc-row,
+.page-registry-reports .reg-zoom-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.page-registry-reports .reg-doc-row {
+  padding: 4px;
+  background: #f1f5fb;
+  border-radius: 12px;
+}
+.page-registry-reports .reg-doc-label {
+  width: auto;
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.page-registry-reports .reg-doc-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #1e3a67;
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+.page-registry-reports .reg-doc-btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+.page-registry-reports .reg-doc-btn.is-active {
+  background: #002080;
+  border-color: #002080;
+  color: #ffffff !important;
+  box-shadow: 0 3px 10px rgba(0, 32, 128, 0.28);
+}
+.page-registry-reports .reg-toolbar label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.page-registry-reports .reg-toolbar select,
+.page-registry-reports .reg-toolbar input {
+  min-width: 128px;
+  padding: 8px 12px;
+  border: 1px solid rgba(0, 32, 128, 0.16);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.page-registry-reports .reg-toolbar select:focus {
+  outline: none;
+  border-color: #002080;
+  box-shadow: 0 0 0 3px rgba(0, 32, 128, 0.14);
+  background: #fff;
+}
+.page-registry-reports .reg-zoom-pct {
+  min-width: 3.2rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+}
+.page-registry-reports .reg-toolbar .reg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  align-self: end;
+}
+.page-registry-reports .reg-toolbar .btn {
+  padding: 8px 13px;
+  font-size: 0.8rem;
+  border-radius: 10px;
+}
+@media (max-width: 1280px) {
+  .page-registry-reports .reg-toolbar {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+  .page-registry-reports .reg-toolbar .reg-actions {
+    justify-content: flex-end;
+    padding-top: 10px;
+    border-top: 1px solid rgba(15, 23, 42, 0.1);
+  }
+  body.page-registry-reports.reg-focus .reg-toolbar .reg-actions {
+    border-top-color: rgba(255, 255, 255, 0.2);
+  }
+}
+.page-registry-reports .reg-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 8px;
+  padding: 6px 4px;
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 600;
+}
+.page-registry-reports .reg-status-meta strong {
+  color: #002080;
+  font-weight: 800;
+}
+.page-registry-reports .reg-status-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin: 0 8px;
+  border-radius: 50%;
+  background: #94a3b8;
+  vertical-align: middle;
+}
+.page-registry-reports .reg-pager a {
+  margin-left: 10px;
+  font-weight: 800;
+  color: #002080;
+  text-decoration: none;
+}
+.page-registry-reports .reg-pager a:hover {
+  text-decoration: underline;
+}
+.page-registry-reports .reg-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(11, 42, 90, 0.08);
+  padding: 10px 12px 14px;
+}
+
+.reg-form {
+  color: #111;
+  background: #fff;
+  font-family: "Times New Roman", Times, serif;
+  min-width: 2600px;
+}
+.reg-form-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.reg-form-id {
+  font-size: 10px;
+  font-style: italic;
+}
+.reg-form-title {
+  text-align: center;
+  flex: 1;
+}
+.reg-form-title h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.reg-form-title .reg-sub {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-style: italic;
+}
+.reg-form-meta {
+  font-size: 12px;
+  text-align: right;
+  min-width: 210px;
+}
+.reg-form-meta .reg-line {
+  border-bottom: 1px solid #111;
+  min-width: 140px;
+  display: inline-block;
+  min-height: 14px;
+  padding: 0 4px;
+}
+
+.reg-table {
+  width: 100%;
+  min-width: 2600px;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-size: 10px;
+}
+.reg-table th,
+.reg-table td {
+  border: 1px solid #111;
+  vertical-align: middle;
+  text-align: center;
+  padding: 2px 3px;
+  word-break: break-word;
+}
+.reg-table thead th {
+  font-weight: 700;
+  background: #fff;
+  line-height: 1.15;
+}
+.reg-table .reg-colnum {
+  font-size: 9px;
+  font-weight: 700;
+}
+.reg-table tbody td {
+  height: 22px;
+  font-size: 10px;
+}
+.reg-table .cell-left {
+  text-align: left;
+}
+.reg-table .w-lcr { width: 6%; }
+.reg-table .w-date { width: 7%; }
+.reg-table .w-name { width: 12%; }
+.reg-table .w-sex { width: 4%; }
+.reg-table .w-tiny { width: 3.4%; }
+.reg-table .w-place { width: 11%; }
+.reg-table .w-remarks { width: 12%; }
+
+.reg-footnotes {
+  margin-top: 8px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+.reg-cert {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.reg-cert .reg-sign {
+  min-width: 240px;
+  text-align: center;
+}
+.reg-cert .reg-sign .reg-sign-line {
+  border-top: 1px solid #111;
+  margin-top: 36px;
+  padding-top: 4px;
+  font-weight: 700;
+}
+
+.reg-pair td {
+  height: 18px;
+}
+
+body.page-registry-reports.reg-focus .reg-form-title h2 {
+  font-size: 13px;
+}
+body.page-registry-reports.reg-focus .reg-table {
+  font-size: 9px;
+}
+body.page-registry-reports.reg-focus .reg-table th,
+body.page-registry-reports.reg-focus .reg-table td {
+  padding: 1px 2px;
+}
+body.page-registry-reports.reg-focus .reg-table tbody td {
+  height: 18px;
+  font-size: 9px;
+}
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm 8mm 10mm;
+  }
+  body.page-registry-reports {
+    overflow: visible;
+  }
+  body.page-registry-reports .layout,
+  body.page-registry-reports .main {
+    height: auto;
+    overflow: visible;
+    display: block;
+  }
+  body.page-registry-reports .topbar,
+  body.page-registry-reports .sidebar,
+  body.page-registry-reports .flash-container,
+  body.page-registry-reports .reg-toolbar,
+  body.page-registry-reports .reg-zoom-controls,
+  body.page-registry-reports .reg-status,
+  body.page-registry-reports .page-header,
+  body.page-registry-reports .workflow-pills,
+  body.page-registry-reports .admin-tabs {
+    display: none !important;
+  }
+  body.page-registry-reports .layout {
+    display: block;
+  }
+  body.page-registry-reports .main {
+    padding: 0;
+    max-width: none;
+  }
+  .page-registry-reports .reg-scroll {
+    overflow: visible;
+    border: none;
+    padding: 0;
+  }
+  .reg-form {
+    min-width: 0;
+    page-break-after: auto;
+    zoom: 1 !important;
+    transform: none !important;
+  }
+  .reg-table {
+    min-width: 0;
+    font-size: 6.5px;
+  }
+  .reg-table tbody td {
+    height: 16px;
+  }
+}

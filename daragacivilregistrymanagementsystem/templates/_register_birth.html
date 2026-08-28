@@ -1,0 +1,104 @@
+<div class="reg-form" id="register-birth">
+  <div class="reg-form-head">
+    <div class="reg-form-id">(Municipal Form No. 26-1, Revised 1984)</div>
+    <div class="reg-form-title">
+      <h2>Register of Live Births</h2>
+    </div>
+    <div class="reg-form-meta">
+      Municipality of <span class="reg-line">Daraga</span>
+    </div>
+  </div>
+  <table class="reg-table">
+    <thead>
+      <tr>
+        <th class="w-lcr" rowspan="2">(1)<br>LCR NUMBER</th>
+        <th class="w-date" rowspan="2">(2)<br>DATE OF REGISTRATION<br><span>(Day/Mo./Year)</span></th>
+        <th colspan="3">(3) NAME OF CHILD</th>
+        <th class="w-sex" rowspan="2">(4)<br>SEX</th>
+        <th colspan="4">DATE AND TIME OF BIRTH</th>
+        <th class="w-place" rowspan="2">(9) PLACE OF BIRTH<br><span>Name of Hospital/Institution; if not in hospital, give street/barangay</span></th>
+        <th colspan="2">TYPE OF BIRTH</th>
+        <th colspan="2">(12) MOTHER<br>(Maiden Name)</th>
+        <th class="w-tiny" rowspan="2">(13)<br>AGE</th>
+        <th rowspan="2">(14)<br>Nationality</th>
+        <th rowspan="2">(15)<br>Religion</th>
+        <th colspan="4">FATHER</th>
+        <th colspan="4">DATE AND PLACE OF MARRIAGE OF PARENTS</th>
+        <th class="w-remarks" rowspan="2">(24) REMARKS<br><span>(e.g., Delayed Registration, Supplemental Report of Birth, Legitimation by Subsequent Marriage, Acknowledged, For Statistical Purposes Only, etc.)</span></th>
+      </tr>
+      <tr>
+        <th>First</th>
+        <th>Middle</th>
+        <th>Last</th>
+        <th class="w-tiny">(5) Day</th>
+        <th class="w-tiny">(6) Mo.</th>
+        <th class="w-tiny">(7) Year</th>
+        <th class="w-tiny">(8) Time</th>
+        <th class="w-tiny">(10) Type<sup>1</sup></th>
+        <th class="w-tiny">(11) Order<sup>2</sup></th>
+        <th>First</th>
+        <th>Last</th>
+        <th>(16) Name (First, Last)</th>
+        <th class="w-tiny">(17) Age</th>
+        <th>(18) Nationality</th>
+        <th>(19) Religion</th>
+        <th class="w-tiny">(20) Day</th>
+        <th class="w-tiny">(21) Mo.</th>
+        <th class="w-tiny">(22) Year</th>
+        <th>(23) Place (Municipality, Province)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.lcr_number }}</td>
+        <td>{{ row.date_registration }}</td>
+        <td class="cell-left">{{ row.child_first }}</td>
+        <td class="cell-left">{{ row.child_middle }}</td>
+        <td class="cell-left">{{ row.child_last }}</td>
+        <td>{{ row.sex }}</td>
+        <td>{{ row.birth_day }}</td>
+        <td>{{ row.birth_month }}</td>
+        <td>{{ row.birth_year }}</td>
+        <td>{{ row.birth_time }}</td>
+        <td class="cell-left">{{ row.place_of_birth }}</td>
+        <td>{{ row.type_of_birth }}</td>
+        <td>{{ row.birth_order }}</td>
+        <td class="cell-left">{{ row.mother_first }}</td>
+        <td class="cell-left">{{ row.mother_last }}</td>
+        <td>{{ row.mother_age }}</td>
+        <td>{{ row.mother_nationality }}</td>
+        <td>{{ row.mother_religion }}</td>
+        <td class="cell-left">{{ row.father_name }}</td>
+        <td>{{ row.father_age }}</td>
+        <td>{{ row.father_nationality }}</td>
+        <td>{{ row.father_religion }}</td>
+        <td>{{ row.marriage_day }}</td>
+        <td>{{ row.marriage_month }}</td>
+        <td>{{ row.marriage_year }}</td>
+        <td class="cell-left">{{ row.place_marriage_parents }}</td>
+        <td class="cell-left">{{ row.remarks }}</td>
+      </tr>
+      {% endfor %}
+      {% for _ in range(empty_rows) %}
+      <tr>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="reg-footnotes">
+    <div><sup>1</sup> Type (Col. 10)—Enter whether single birth, twin, three or more.</div>
+    <div><sup>2</sup> Order (Col. 11)—If multiple birth in Col. 10, was child first, second, or higher order?</div>
+  </div>
+  <div class="reg-cert">
+    <div>
+      I HEREBY CERTIFY that the entries hereon are true and correct as per entries contained in the original copy of the certificate presented for registration in this office.
+    </div>
+    <div class="reg-sign">
+      <div class="reg-sign-line">LOCAL CIVIL REGISTRAR</div>
+    </div>
+  </div>
+</div>

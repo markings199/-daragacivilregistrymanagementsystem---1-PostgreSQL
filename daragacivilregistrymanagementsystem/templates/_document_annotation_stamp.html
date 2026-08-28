@@ -1,0 +1,12 @@
+{# Typed LCR annotation box. Optional: annotation dict. Falls back to document_annotation(data). #}
+{% set _ann = annotation if annotation is defined and annotation else (document_annotation(data) if data is defined else none) %}
+<div
+  class="doc-annotation-stamp{% if not _ann or not _ann.text %} is-empty{% endif %}"
+  data-annotation-stamp
+>
+  <p class="doc-annotation-text">{{ (_ann.text if _ann else '') }}</p>
+  <div class="doc-annotation-sign">
+    <div class="doc-annotation-signatory">{{ (_ann.signatory if _ann else '') }}</div>
+    <div class="doc-annotation-title">{{ (_ann.title if _ann else '') }}</div>
+  </div>
+</div>

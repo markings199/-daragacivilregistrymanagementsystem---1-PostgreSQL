@@ -1,12 +1,13 @@
-{# What to print: original scan vs certification form. Requires: doc_type, field_name (default print_format) #}
+{# What to print: original, certification, or both. Requires: doc_type, field_name (default print_format) #}
 {% set _fname = field_name|default('print_format') %}
 {% set _doc = doc_type|default('birth') %}
-{% set _selected = normalize_print_format(selected|default(PRINT_FORMAT_ORIGINAL)) %}
+{% set _selected = normalize_print_format(selected|default(PRINT_FORMAT_BOTH if has_image|default(true) else PRINT_FORMAT_CERTIFICATION)) %}
 {% set _has_image = has_image|default(true) %}
+{% set _meta = get_form_meta(_doc) %}
 <fieldset class="print-format-request-field">
-  <legend>What do you want to print? <span style="color: #b91c1c;">*</span></legend>
-  <div class="print-mode-options">
-    <label>
+  <legend>What do you want to print? <span class="print-req-required">*</span></legend>
+  <div class="print-mode-options print-mode-options--three">
+    <label class="print-option-card{% if not _has_image %} is-disabled{% endif %}">
       <input
         type="radio"
         name="{{ _fname }}"
@@ -15,9 +16,19 @@
         {% if not _has_image %}disabled{% endif %}
         required
       />
-      <span><strong>Original document</strong> — scanned certificate image{% if not _has_image %} (not available for this record){% endif %}</span>
+      <span class="print-option-card-inner">
+        <span class="print-option-radio" aria-hidden="true"></span>
+        <span class="print-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/></svg>
+        </span>
+        <span class="print-option-copy">
+          <span class="print-option-kicker">Scanned image</span>
+          <span class="print-option-title">Original document</span>
+          <span class="print-option-desc">{% if _has_image %}Print the archived certificate scan as captured{% else %}Not available — this record has no scanned image{% endif %}</span>
+        </span>
+      </span>
     </label>
-    <label>
+    <label class="print-option-card">
       <input
         type="radio"
         name="{{ _fname }}"
@@ -25,7 +36,38 @@
         {% if _selected == PRINT_FORMAT_CERTIFICATION or not _has_image %}checked{% endif %}
         required
       />
-      <span><strong>{{ print_format_label(PRINT_FORMAT_CERTIFICATION, _doc) }}</strong> — official certification layout with seal</span>
+      <span class="print-option-card-inner">
+        <span class="print-option-radio" aria-hidden="true"></span>
+        <span class="print-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>
+        </span>
+        <span class="print-option-copy">
+          <span class="print-option-kicker">CR Form No. {{ _meta.form_no }}</span>
+          <span class="print-option-title">Certification form</span>
+          <span class="print-option-desc">Official layout with municipal seal · {{ _meta.availability|replace('(', '')|replace(')', '') }}</span>
+        </span>
+      </span>
+    </label>
+    <label class="print-option-card{% if not _has_image %} is-disabled{% endif %}">
+      <input
+        type="radio"
+        name="{{ _fname }}"
+        value="both"
+        {% if _selected == PRINT_FORMAT_BOTH and _has_image %}checked{% endif %}
+        {% if not _has_image %}disabled{% endif %}
+        required
+      />
+      <span class="print-option-card-inner">
+        <span class="print-option-radio" aria-hidden="true"></span>
+        <span class="print-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="9" height="18" rx="1"/><rect x="13" y="3" width="9" height="18" rx="1"/></svg>
+        </span>
+        <span class="print-option-copy">
+          <span class="print-option-kicker">Two pages</span>
+          <span class="print-option-title">Both copies</span>
+          <span class="print-option-desc">{% if _has_image %}Print the original scan and the certification form together{% else %}Needs a scanned image on file{% endif %}</span>
+        </span>
+      </span>
     </label>
   </div>
 </fieldset>

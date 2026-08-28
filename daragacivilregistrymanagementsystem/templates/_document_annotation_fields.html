@@ -1,0 +1,114 @@
+{# Official annotation fields. Expects: annotation_form. Optional: data (for fill-from-record). #}
+{% set _af = annotation_form if annotation_form is defined else annotation_form_defaults(data if data is defined else {}) %}
+{% set _data = data if data is defined else {} %}
+<div
+  class="annotation-fields"
+  data-annotation-form
+  data-father="{{ _data.get('Name of Father', '') }}"
+  data-mother="{{ _data.get('Name of Mother', '') }}"
+  data-child="{{ _data.get('Name of Child', '') }}"
+  data-marriage-date="{{ _data.get('Date of Marriage of Parents') or _data.get('Date of Marriage') or '' }}"
+  data-marriage-place="{{ _data.get('Place of Marriage of Parents') or _data.get('Place of Marriage') or '' }}"
+>
+  <div class="annotation-fields-head">
+    <div class="annotation-fields-head-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+    </div>
+    <div class="annotation-fields-head-copy">
+      <h3 class="annotation-fields-title">Document annotation</h3>
+      <p class="annotation-fields-kicker">LCRO remarks · Municipal Form 102 / 97 / 103</p>
+    </div>
+    <span class="annotation-fields-badge">Kept with record</span>
+  </div>
+  <p class="annotation-fields-help">
+    Official <strong>Remarks / Annotations</strong> for this certificate. Saved with the record metadata.
+    It is <strong>not</strong> drawn on the scanned image.
+  </p>
+
+  <div class="annotation-fields-section">
+    <p class="annotation-fields-section-label">Type</p>
+    <div class="field annotation-fields-field">
+      <label for="annotation_kind">Annotation type</label>
+      <select id="annotation_kind" name="annotation_kind">
+        {% for value, label in annotation_kinds %}
+          <option value="{{ value }}" {% if _af.kind == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="annotation-fields-section">
+    <p class="annotation-fields-section-label">Details</p>
+    <div class="field-grid">
+      <div class="field annotation-fields-field">
+        <label for="annotation_new_name">New name of child <span class="annotation-optional">(if any)</span></label>
+        <input
+          id="annotation_new_name"
+          name="annotation_new_name"
+          type="text"
+          value="{{ _af.new_name }}"
+          autocomplete="off"
+          placeholder="e.g. EDGAR LAWRENCE MAQUIÑANA RENTOY"
+        />
+      </div>
+      <div class="field annotation-fields-field">
+        <label for="annotation_marriage_registry">Marriage registry no. <span class="annotation-optional">(if any)</span></label>
+        <input
+          id="annotation_marriage_registry"
+          name="annotation_marriage_registry"
+          type="text"
+          value="{{ _af.marriage_registry }}"
+          autocomplete="off"
+          placeholder="e.g. 2022-2001"
+        />
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation-fields-section">
+    <p class="annotation-fields-section-label">Official wording</p>
+    <div class="field annotation-fields-field">
+      <label for="annotation_text">Annotation text</label>
+      <textarea
+        id="annotation_text"
+        name="annotation_text"
+        class="annotation-text-area"
+        rows="5"
+        placeholder="LEGITIMATED BY SUBSEQUENT MARRIAGE OF PARENTS …"
+      >{{ _af.text }}</textarea>
+      <div class="annotation-fields-toolbar">
+        <button type="button" class="btn-annotation-fill" data-annotation-fill>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          Fill legitimation wording
+        </button>
+        <span class="annotation-fields-hint">Uses father, mother, marriage, and new name from this record when available.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation-fields-section annotation-fields-section--sign">
+    <p class="annotation-fields-section-label">Registrar</p>
+    <div class="field-grid">
+      <div class="field annotation-fields-field">
+        <label for="annotation_signatory">Signed by</label>
+        <input
+          id="annotation_signatory"
+          name="annotation_signatory"
+          type="text"
+          value="{{ _af.signatory }}"
+          autocomplete="off"
+        />
+      </div>
+      <div class="field annotation-fields-field">
+        <label for="annotation_title">Title</label>
+        <input
+          id="annotation_title"
+          name="annotation_title"
+          type="text"
+          value="{{ _af.title }}"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+  </div>
+</div>

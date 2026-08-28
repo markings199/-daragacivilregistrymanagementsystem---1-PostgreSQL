@@ -59,12 +59,23 @@ def form_meta(document_type: str) -> dict[str, str]:
 
 PRINT_FORMAT_ORIGINAL = "original"
 PRINT_FORMAT_CERTIFICATION = "certification"
-PRINT_FORMATS = (PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_CERTIFICATION)
+PRINT_FORMAT_BOTH = "both"
+PRINT_FORMATS = (PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_CERTIFICATION, PRINT_FORMAT_BOTH)
 
 
 def normalize_print_format(value: str | None) -> str:
     v = (value or "").strip().lower()
     return v if v in PRINT_FORMATS else PRINT_FORMAT_ORIGINAL
+
+
+def print_includes_original(print_format: str | None) -> bool:
+    v = normalize_print_format(print_format)
+    return v in (PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_BOTH)
+
+
+def print_includes_certification(print_format: str | None) -> bool:
+    v = normalize_print_format(print_format)
+    return v in (PRINT_FORMAT_CERTIFICATION, PRINT_FORMAT_BOTH)
 
 
 def certification_form_label(document_type: str) -> str:
@@ -73,14 +84,20 @@ def certification_form_label(document_type: str) -> str:
 
 
 def print_format_label(print_format: str, document_type: str = "birth") -> str:
-    if normalize_print_format(print_format) == PRINT_FORMAT_CERTIFICATION:
+    kind = normalize_print_format(print_format)
+    if kind == PRINT_FORMAT_CERTIFICATION:
         return certification_form_label(document_type)
+    if kind == PRINT_FORMAT_BOTH:
+        return "Original document and certification form (both copies)"
     return "Original document (scanned certificate)"
 
 
 def print_format_short_label(print_format: str, document_type: str = "birth") -> str:
     """Compact label for admin/staff tables."""
-    if normalize_print_format(print_format) == PRINT_FORMAT_CERTIFICATION:
+    kind = normalize_print_format(print_format)
+    if kind == PRINT_FORMAT_CERTIFICATION:
         meta = form_meta(document_type)
         return f"CR Form {meta['form_no']}"
+    if kind == PRINT_FORMAT_BOTH:
+        return "Both copies"
     return "Original scan"

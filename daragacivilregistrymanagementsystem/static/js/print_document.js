@@ -1,13 +1,15 @@
 (function () {
   "use strict";
 
+  var PRINT_MODES = { original: true, certification: true, both: true };
+
   function lockedPrintFormat() {
     var btn = document.getElementById("btn-print-document");
     if (btn) {
       var locked = (btn.getAttribute("data-locked-print-format") || "").trim();
-      if (locked === "original" || locked === "certification") return locked;
+      if (PRINT_MODES[locked]) return locked;
       var def = (btn.getAttribute("data-default-print-mode") || "").trim();
-      if (def === "original" || def === "certification") return def;
+      if (PRINT_MODES[def]) return def;
     }
     return "";
   }
@@ -16,9 +18,10 @@
     var locked = lockedPrintFormat();
     if (locked) return locked;
     var checked = document.querySelector('input[name="print_mode"]:checked');
-    if (checked) return checked.value;
+    if (checked && PRINT_MODES[checked.value]) return checked.value;
     var cert = document.getElementById("print-area-certification");
     var orig = document.getElementById("print-area-original");
+    if (orig && cert) return "both";
     if (cert && !orig) return "certification";
     return "original";
   }
@@ -26,12 +29,10 @@
   function setActivePrintSurface(mode) {
     var orig = document.getElementById("print-area-original");
     var cert = document.getElementById("print-area-certification");
-    if (orig) {
-      orig.classList.toggle("print-surface-active", mode === "original");
-    }
-    if (cert) {
-      cert.classList.toggle("print-surface-active", mode === "certification");
-    }
+    var showOrig = mode === "original" || mode === "both";
+    var showCert = mode === "certification" || mode === "both";
+    if (orig) orig.classList.toggle("print-surface-active", showOrig);
+    if (cert) cert.classList.toggle("print-surface-active", showCert);
   }
 
   function syncCertificationFromForm() {
@@ -57,7 +58,7 @@
     setActivePrintSurface(mode);
 
     var printLogUrl = btn.getAttribute("data-print-log-url");
-    var payload = { print_type: mode === "certification" ? "certification" : "original" };
+    var payload = { print_type: mode };
 
     function triggerPrint() {
       window.print();

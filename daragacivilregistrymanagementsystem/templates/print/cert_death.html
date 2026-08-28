@@ -8,7 +8,7 @@
 {{ cert_row('Sex', cert_field(data, 'Sex'), 'Sex') }}
 {{ cert_row('Age', cert_field(data, 'Age'), 'Age') }}
 {{ cert_row('Civil Status', cert_field(data, 'Civil Status'), 'Civil Status') }}
-{{ cert_row('Nationality', cert_field(data, 'Nationality'), 'Nationality') }}
+{{ cert_row('Nationality', cert_field(data, 'Nationality') or cert_field(data, 'Citizenship'), 'Nationality') }}
 {{ cert_row('Date of Death', cert_field(data, 'Date of Death'), 'Date of Death') }}
 {{ cert_row('Place of Death', cert_field(data, 'Place of Death'), 'Place of Death') }}
 {{ cert_row('Cause of Death', cert_field(data, 'Cause of Death'), 'Cause of Death') }}
@@ -26,7 +26,7 @@
     <span class="cert-official-name">JOSEPH ALBERTO M. SALOMON</span>
     <span class="cert-official-title">Administrative Aide IV</span>
     <div class="cert-payment">
-      {{ cert_payment_row('Amount Paid', 'Php ') }}
+      {{ cert_payment_row('Amount Paid', 'Php 100.00') }}
       {{ cert_payment_row('OR Number') }}
       {{ cert_payment_row('Date Paid', cert_date) }}
     </div>

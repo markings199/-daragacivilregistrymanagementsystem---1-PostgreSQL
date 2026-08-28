@@ -1,4 +1,4 @@
-{# Print: original scanned certificate OR civil registry certification form (1A/2A/3A).
+{# Print: original scan, certification form, or both (two pages).
    Required: doc_type, data, cert_date, form_meta
    Optional: image_filename, image_url, print_log_url, can_print, print_heading, sync_from_form, locked_print_format
    suppress_screen_controls: if true, only print surfaces + script (controls rendered elsewhere).
@@ -8,9 +8,9 @@
 {% set _heading = print_heading|default('Daraga Civil Registry') %}
 {% set _locked = normalize_print_format(locked_print_format) if locked_print_format else '' %}
 {% set _has_image = image_filename or image_url %}
-{% set _show_original = _has_image and (not _locked or _locked == PRINT_FORMAT_ORIGINAL) %}
-{% set _show_cert = (not _locked or _locked == PRINT_FORMAT_CERTIFICATION) %}
-{% set _default_mode = _locked if _locked else (PRINT_FORMAT_ORIGINAL if _has_image else PRINT_FORMAT_CERTIFICATION) %}
+{% set _show_original = _has_image and (not _locked or _locked in [PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_BOTH]) %}
+{% set _show_cert = (not _locked or _locked in [PRINT_FORMAT_CERTIFICATION, PRINT_FORMAT_BOTH]) %}
+{% set _default_mode = _locked if _locked else (PRINT_FORMAT_BOTH if _has_image else PRINT_FORMAT_CERTIFICATION) %}
 
 {% if not suppress_screen_controls|default(false) %}
   {% include '_document_print_controls.html' %}
@@ -19,11 +19,10 @@
 {% if _show_original %}
 <div
   id="print-area-original"
-  class="print-only-content cert-print-surface{% if _default_mode == PRINT_FORMAT_ORIGINAL %} print-surface-active{% endif %}"
+  class="print-only-content cert-print-surface{% if _default_mode in [PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_BOTH] %} print-surface-active{% endif %}"
   aria-hidden="true"
   data-print-surface="original"
 >
-  <p class="print-header-simple">{{ _heading }}</p>
   <img
     src="{{ image_url or url_for('serve_upload', path=image_filename) }}"
     alt="Certificate"
@@ -35,7 +34,7 @@
 {% if _show_cert %}
 <div
   id="print-area-certification"
-  class="print-only-content cert-print-surface{% if _default_mode == PRINT_FORMAT_CERTIFICATION %} print-surface-active{% endif %}"
+  class="print-only-content cert-print-surface{% if _default_mode in [PRINT_FORMAT_CERTIFICATION, PRINT_FORMAT_BOTH] %} print-surface-active{% endif %}"
   aria-hidden="true"
   data-print-surface="certification"
 >

@@ -134,10 +134,21 @@ def write_full_backup_zip(
                 "this archive contains uploads only.\n",
             )
         if upload_dir.exists():
-            for root, _dirs, files in os.walk(upload_dir):
+            nested_uploads = (upload_dir / "uploads").resolve()
+            for root, dirs, files in os.walk(upload_dir):
+                root_path = Path(root).resolve()
+                dirs[:] = [d for d in dirs if (root_path / d).resolve() != nested_uploads]
+                if root_path == nested_uploads:
+                    continue
                 for fname in files:
                     full = Path(root) / fname
-                    arcname = full.relative_to(base_dir)
+                    try:
+                        arcname = full.relative_to(base_dir)
+                    except ValueError:
+                        continue
+                    parts = Path(str(arcname)).parts
+                    if len(parts) >= 2 and parts[0] == "uploads" and parts[1] == "uploads":
+                        continue
                     zf.write(full, str(arcname).replace("\\", "/"))
 
 

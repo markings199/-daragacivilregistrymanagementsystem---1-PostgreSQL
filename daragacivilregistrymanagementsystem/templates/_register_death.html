@@ -1,0 +1,95 @@
+<div class="reg-form" id="register-death">
+  <div class="reg-form-head">
+    <div class="reg-form-id">(Municipal Form No. 71, Revised 1984)</div>
+    <div class="reg-form-title">
+      <h2>Register of Death / Fetal Death</h2>
+    </div>
+    <div class="reg-form-meta">
+      Municipality of <span class="reg-line">Daraga</span>
+    </div>
+  </div>
+  <table class="reg-table">
+    <thead>
+      <tr>
+        <th class="w-lcr" rowspan="2">(1)<br>LCR NUMBER</th>
+        <th class="w-date" rowspan="2">(2) DATE OF REGISTRATION<br>(Day/Mo/Yr)</th>
+        <th class="w-name" rowspan="2">(3) NAME OF THE DECEASED<br>(First, Middle, Last)</th>
+        <th class="w-sex" rowspan="2">(4)<br>SEX</th>
+        <th colspan="4">AGE</th>
+        <th rowspan="2">(9) FETAL DEATH</th>
+        <th rowspan="2">(10) CIVIL STATUS</th>
+        <th rowspan="2">(11) NATIONALITY</th>
+        <th rowspan="2">(12) USUAL RESIDENCE<br>(Street/Barangay)</th>
+        <th rowspan="2">(13) USUAL OCCUPATION<br>(if 15 years old and over)</th>
+        <th colspan="4">DATE AND TIME OF DEATH</th>
+        <th rowspan="2">(18) PLACE OF DEATH<br><span>(Name of Hospital/Clinic; if not in hospital, give street/barangay)</span></th>
+        <th colspan="2">CAUSES OF DEATH</th>
+        <th colspan="2">CERTIFYING OFFICER</th>
+        <th class="w-remarks" rowspan="2">(23) REMARKS<br><span>(e.g., Delayed Registration, Registered Under P.D. No. 651, For Statistical Purposes Only, etc.)</span></th>
+      </tr>
+      <tr>
+        <th class="w-tiny">(5) Years</th>
+        <th class="w-tiny">(6) Mos.</th>
+        <th class="w-tiny">(7) Days</th>
+        <th class="w-tiny">(8) Hrs.</th>
+        <th class="w-tiny">(14) Day</th>
+        <th class="w-tiny">(15) Mo.</th>
+        <th class="w-tiny">(16) Year</th>
+        <th class="w-tiny">(17) Time</th>
+        <th>(19) Immediate</th>
+        <th>(20) Underlying</th>
+        <th>(21) Name</th>
+        <th>(22) Title/Designation</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.lcr_number }}</td>
+        <td>{{ row.date_registration }}</td>
+        <td class="cell-left">{{ row.name }}</td>
+        <td>{{ row.sex }}</td>
+        <td>{{ row.age_years }}</td>
+        <td>{{ row.age_months }}</td>
+        <td>{{ row.age_days }}</td>
+        <td>{{ row.age_hours }}</td>
+        <td>{{ row.fetal_death }}</td>
+        <td>{{ row.civil_status }}</td>
+        <td>{{ row.nationality }}</td>
+        <td class="cell-left">{{ row.residence }}</td>
+        <td class="cell-left">{{ row.occupation }}</td>
+        <td>{{ row.death_day }}</td>
+        <td>{{ row.death_month }}</td>
+        <td>{{ row.death_year }}</td>
+        <td>{{ row.death_time }}</td>
+        <td class="cell-left">{{ row.place_of_death }}</td>
+        <td class="cell-left">{{ row.cause_immediate }}</td>
+        <td class="cell-left">{{ row.cause_underlying }}</td>
+        <td class="cell-left">{{ row.officer_name }}</td>
+        <td>{{ row.officer_title }}</td>
+        <td class="cell-left">{{ row.remarks }}</td>
+      </tr>
+      {% endfor %}
+      {% for _ in range(empty_rows) %}
+      <tr>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td></td><td></td><td></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="reg-footnotes">
+    <div>Age (Cols. 5-8) - Enter under appropriate column the age of the deceased.</div>
+    <div>Fetal Death (Col. 9) - Includes also babies with intra-uterine life of less than 7 months and died within 24 hours after birth. In case of fetal death enter "Yes", otherwise write "N.A."</div>
+    <div>Remarks (Col. 23) - In case of Fetal death, enter the maiden name of the mother.</div>
+  </div>
+  <div class="reg-cert">
+    <div>
+      I HEREBY CERTIFY that the entries herein are true and correct as per entries contained in the original copy of the certificate presented for registration in this office.
+    </div>
+    <div class="reg-sign">
+      <div class="reg-sign-line">Local Civil Registrar</div>
+    </div>
+  </div>
+</div>

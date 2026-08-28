@@ -4,8 +4,8 @@ from typing import Dict, Any, List
 
 import cv2
 
-from ocr_shared import run_ocr_on_image
-from template_engine import extract_from_ocr_text, ocr_pages_to_text
+from ocr.shared import run_ocr_on_image
+from ocr.engine import extract_from_ocr_text, ocr_pages_to_text
 
 DEBUG_TEMPLATE_MATCH = False
 

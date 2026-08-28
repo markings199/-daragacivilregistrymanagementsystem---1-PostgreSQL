@@ -1,0 +1,21 @@
+{# Shared OCR review command header. Expects: review_title. Optional: review_sub #}
+<div class="form-review-hero">
+  <div class="form-review-hero-main">
+    <span class="form-review-hero-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <path d="M14 2v6h6"/>
+        <path d="M16 13H8M16 17H8"/>
+      </svg>
+    </span>
+    <div class="form-review-hero-copy">
+      <p class="form-review-hero-kicker">OCR review</p>
+      <h1 class="page-title">{{ review_title }}</h1>
+      <p class="page-state">{{ review_sub|default('Correct any OCR fields, then confirm to save.') }}</p>
+    </div>
+    <div class="form-review-hero-pills" aria-label="Workflow">
+      <span class="form-review-chip">State <strong>Review</strong></span>
+      <span class="form-review-chip">Next <strong>Confirm</strong></span>
+    </div>
+  </div>
+</div>

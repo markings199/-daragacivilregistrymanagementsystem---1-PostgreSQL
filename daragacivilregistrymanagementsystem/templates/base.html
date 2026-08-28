@@ -26,7 +26,7 @@
         --text-muted: rgba(15, 23, 42, 0.64);
         --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.06);
         --content-max: 1180px;
-        --topbar-height: 76px;
+        --topbar-height: 64px;
       }
       html { font-size: 15px; }
       * { box-sizing: border-box; }
@@ -44,21 +44,33 @@
       }
       body { margin: 0; min-height: 100vh; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); line-height: 1.4; }
       .topbar {
+        position: relative;
         min-height: var(--topbar-height);
         height: var(--topbar-height);
-        background: linear-gradient(90deg, #0a1f44 0%, #0c2a5c 48%, #0a244d 100%);
+        background: #061633;
         color: #f8fafc;
         display: flex;
         align-items: center;
         gap: 14px;
-        padding: 0 20px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 4px 18px rgba(0, 32, 128, 0.22);
+        padding: 0 18px 0 16px;
+        border-bottom: none;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 16px rgba(6, 22, 51, 0.28);
+        z-index: 40;
+      }
+      .topbar::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #008a3a 0%, #002080 42%, #1d4ed8 100%);
+        pointer-events: none;
       }
       .topbar-brand {
         display: inline-flex;
         align-items: center;
-        gap: 12px;
+        gap: 11px;
         min-width: 0;
         text-decoration: none;
         color: inherit;
@@ -69,12 +81,12 @@
       }
       .topbar-logo-wrap {
         flex-shrink: 0;
-        width: 52px;
-        height: 52px;
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
-        padding: 3px;
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.95) 0%, rgba(226, 232, 240, 0.9) 100%);
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        padding: 2px;
+        background: #fff;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -89,22 +101,22 @@
       .topbar-brand-text {
         display: flex;
         flex-direction: column;
-        gap: 3px;
+        gap: 2px;
         min-width: 0;
-        line-height: 1.25;
+        line-height: 1.15;
       }
       .topbar-brand-name {
-        font-size: 1.2rem;
-        font-weight: 900;
-        letter-spacing: 0.06em;
+        font-size: 1.12rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
         color: #ffffff;
       }
       .topbar-title {
         font-weight: 600;
         letter-spacing: 0.02em;
-        color: rgba(248, 250, 252, 0.82);
-        font-size: 0.875rem;
+        color: rgba(226, 232, 240, 0.72);
+        font-size: 0.8rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -113,40 +125,81 @@
         margin-left: auto;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
         flex-shrink: 0;
       }
       .topbar .theme-toggle {
-        padding: 8px 14px;
-        font-size: 0.84rem;
+        padding: 4px 12px 4px 5px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin-right: 0;
+        gap: 6px;
+        min-height: 40px;
       }
       .topbar .home-circle-mark {
-        --home-circle-size: 26px;
+        --home-circle-size: 24px;
       }
       .topbar-user {
-        font-size: 0.875rem;
-        color: #f8fafc;
-        font-weight: 700;
-        padding: 9px 16px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 3px 12px 3px 4px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #f8fafc;
         white-space: nowrap;
       }
-      .topbar-user strong {
+      .topbar-user-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #002080;
+        color: #fff;
+        font-size: 0.78rem;
         font-weight: 800;
+        letter-spacing: 0.02em;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .topbar-user-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        line-height: 1.15;
+        padding-right: 2px;
+      }
+      .topbar-user-name {
+        font-size: 0.86rem;
+        font-weight: 800;
+        color: #fff;
+      }
+      .topbar-user-role {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.95);
       }
       @media (max-width: 640px) {
         :root {
-          --topbar-height: 64px;
+          --topbar-height: 56px;
         }
         .topbar {
-          padding: 0 12px;
+          padding: 0 12px 0 10px;
           gap: 10px;
         }
         .topbar-title { display: none; }
         .topbar-brand-name { font-size: 1rem; }
-        .topbar-logo-wrap { width: 42px; height: 42px; }
+        .topbar-logo-wrap { width: 38px; height: 38px; }
+        .topbar-user-role { display: none; }
+        .topbar .theme-toggle-label { display: none; }
+        .topbar .theme-toggle { padding: 4px; min-width: 40px; min-height: 40px; justify-content: center; }
       }
       .layout {
         display: flex;
@@ -154,40 +207,151 @@
         background: var(--layout-bg, var(--main-bg));
       }
       .sidebar {
-        width: 220px;
+        width: 236px;
         flex-shrink: 0;
         background: var(--sidebar-bg, linear-gradient(180deg, #eef5fc 0%, #e3ecf7 55%, #d9e5f3 100%));
         color: var(--text);
         display: flex;
         flex-direction: column;
-        padding: 14px 0;
+        padding: 12px 0 0;
         border-right: 1px solid rgba(0, 32, 128, 0.14);
         box-shadow: 4px 0 20px rgba(11, 42, 90, 0.08);
       }
       .sidebar-brand { padding: 0; border-bottom: none; }
       .sidebar-brand.sidebar-brand--panel {
-        margin: 0 10px 14px;
-        padding: 10px 12px 12px;
-        border-radius: 14px;
-        background: var(--sidebar-brand-bg, #ebf2fa);
-        border: 1px solid var(--sidebar-brand-border, rgba(0, 32, 128, 0.12));
-        box-shadow: 0 2px 10px rgba(11, 42, 90, 0.07);
-      }
-      .sidebar-brand-cluster { display: flex; align-items: center; gap: 10px; }
-      .sidebar-brand-icon.home-circle-mark {
-        box-shadow: 0 3px 12px rgba(0, 32, 128, 0.28);
-        border: 1px solid rgba(0, 32, 128, 0.15);
+        margin: 2px 12px 8px;
+        padding: 8px 4px 10px 12px;
+        border-radius: 0 10px 10px 0;
+        background: transparent;
+        border: none;
+        border-left: 3px solid #002080;
+        box-shadow: none;
       }
       .sidebar-brand-text { min-width: 0; }
-      .sidebar-brand h2 { margin: 0; font-size: 0.98rem; font-weight: 800; color: var(--sidebar-title, #002080); letter-spacing: -0.02em; line-height: 1.2; }
-      .sidebar-brand p { margin: 4px 0 0; font-size: 0.6rem; color: var(--sidebar-sub, #64748b); letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700; line-height: 1.25; }
-      .sidebar-nav { flex: 1; padding: 8px 0; }
-      .sidebar-nav a { display: block; padding: 9px 14px; margin: 2px 10px; border-radius: 12px; color: var(--sidebar-link, #1e3a67); text-decoration: none; font-size: 0.875rem; font-weight: 700; }
-      .sidebar-nav a:hover { color: var(--sidebar-link-hover, #002080); background: var(--sidebar-link-hover-bg, rgba(0, 32, 128, 0.1)); }
-      .sidebar-nav a.active { color: #ffffff; background: linear-gradient(180deg, #002080 0%, #001a66 100%); border-left: none; padding-left: 14px; box-shadow: 0 4px 14px rgba(0, 32, 128, 0.3); }
-      .sidebar-footer { padding: 12px 14px; border-top: 1px solid var(--sidebar-footer-border, rgba(0, 32, 128, 0.14)); }
-      .sidebar-footer .btn-logout { display: block; width: 100%; padding: 8px 10px; border: 1px solid var(--sidebar-logout-border, #7c9cc4); border-radius: 12px; color: var(--sidebar-logout-text, #002080); background: var(--sidebar-logout-bg, rgba(255, 255, 255, 0.85)); text-decoration: none; text-align: center; font-size: 0.8rem; font-weight: 700; }
-      .sidebar-footer .btn-logout:hover { background: var(--surface); }
+      .sidebar-brand-kicker {
+        margin: 0 0 2px;
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #64748b;
+        line-height: 1.2;
+      }
+      .sidebar-brand h2 {
+        margin: 0;
+        font-size: 0.98rem;
+        font-weight: 900;
+        color: #002080;
+        letter-spacing: -0.03em;
+        line-height: 1.15;
+      }
+      .sidebar-brand-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin: 7px 0 0;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.58rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #002080;
+        background: rgba(0, 32, 128, 0.07);
+        border: 1px solid rgba(0, 32, 128, 0.14);
+        line-height: 1.2;
+      }
+      .sidebar-brand-status::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #16a34a;
+        box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+        flex-shrink: 0;
+      }
+      .sidebar-nav { flex: 1; padding: 4px 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+      .sidebar-nav-kicker {
+        margin: 10px 8px 4px;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #64748b;
+      }
+      .sidebar-nav-kicker:first-child { margin-top: 2px; }
+      .sidebar-nav a {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        margin: 0;
+        border-radius: 8px;
+        color: var(--sidebar-link, #1e3a67);
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 700;
+        line-height: 1.25;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .sidebar-nav .nav-ic {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: currentColor;
+      }
+      .sidebar-nav .nav-ic svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .sidebar-nav .nav-label { flex: 1 1 auto; min-width: 0; }
+      .sidebar-nav a:hover { color: var(--sidebar-link-hover, #002080); background: var(--sidebar-link-hover-bg, rgba(0, 32, 128, 0.08)); }
+      .sidebar-nav a.active {
+        color: #ffffff;
+        background: #002080;
+        border-left: none;
+        padding-left: 10px;
+        box-shadow: none;
+      }
+      .sidebar-nav a.active .nav-badge {
+        background: #ffffff;
+        color: #002080;
+      }
+      .sidebar-footer { padding: 10px 12px 14px; border-top: 1px solid var(--sidebar-footer-border, rgba(0, 32, 128, 0.14)); }
+      .sidebar-footer .btn-logout {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--sidebar-logout-border, #b6c9e0);
+        border-radius: 8px;
+        color: var(--sidebar-logout-text, #002080);
+        background: var(--sidebar-logout-bg, #ffffff);
+        text-decoration: none;
+        text-align: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+      .sidebar-footer .btn-logout svg {
+        width: 16px;
+        height: 16px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .sidebar-footer .btn-logout:hover { background: #eef4fc; border-color: #002080; }
       .main { flex: 1 1 auto; background: transparent; padding: 14px 18px 20px; overflow: auto; max-width: var(--content-max); min-width: 0; }
       .main-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow-sm); }
       .page-header { margin: 0 0 14px; padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--page-header-bg, linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)); }
@@ -328,7 +492,6 @@
       .table th, .table td { padding: 9px 11px; border-bottom: 1px solid var(--border); color: var(--table-text, #1f3556); }
       .table th { color: var(--table-head-text, #0f172a); font-weight: 900; background: var(--table-head-bg, #f5f8fd); }
       .table tr:hover td { background: var(--table-row-hover, #f8fbff); }
-      .sidebar-badge, .notif-dot { display:none; }
       @media (max-width: 980px) { .layout { display:block; } .sidebar { width:100%; } }
       .ocr-loading{
         display:none;
@@ -339,7 +502,9 @@
         margin-top:14px;
         box-shadow:0 6px 20px rgba(0,32,128,0.12);
       }
-      .ocr-loading[aria-busy="true"]{
+      .ocr-loading[aria-busy="true"],
+      .ocr-loading.is-on {
+        display: block !important;
         box-shadow:0 0 0 3px rgba(0,138,58,0.25),0 10px 32px rgba(0,32,128,0.16);
       }
       .ocr-loading-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
@@ -353,22 +518,34 @@
 
       /* OCR review — extracted metadata (birth / marriage / death): compact, 2-col on wide screens */
       .main-card.form-review-meta {
-        padding: 14px 16px 16px;
+        padding: 0 0 12px;
+        overflow: hidden;
       }
-      .form-review-meta .section-title {
-        font-size: 1rem;
+      .form-review-card-head {
+        margin: 0 0 12px;
+        padding: 10px 14px;
+        background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+      }
+      .form-review-card-head .section-title,
+      .form-review-preview .form-review-card-head .section-title,
+      .form-review-meta .form-review-card-head .section-title {
+        margin: 0;
+        padding: 0;
+        border: none;
+        font-size: 0.98rem;
         font-weight: 800;
         letter-spacing: -0.02em;
-        margin: 0 0 10px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid #e2e8f0;
-        color: #0f2b5c;
+        color: #ffffff;
+      }
+      .form-review-preview .scan-preview-viewer-inner {
+        margin: 0 12px 12px;
+        border-radius: 12px;
       }
       .form-review-meta .form-meta-scroll {
         background: transparent;
         border: none;
         border-radius: 0;
-        padding: 0;
+        padding: 0 14px;
         overflow: visible;
         box-shadow: none;
       }
@@ -386,13 +563,13 @@
       }
       .form-review-meta .metadata-section-title {
         grid-column: 1 / -1;
-        font-size: 0.68rem;
+        font-size: 0.72rem;
         font-weight: 800;
         color: #002080;
-        letter-spacing: 0.04em;
-        text-transform: none;
-        margin: 10px 0 0;
-        padding: 8px 0 6px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin: 12px 0 4px;
+        padding: 8px 0 4px;
         border-top: 1px solid #e2e8f0;
         border-bottom: none;
       }
@@ -405,17 +582,44 @@
       }
       .form-review-meta .form-meta-field {
         margin: 0;
-        padding: 0 0 8px;
-        border-bottom: 1px solid #f1f5f9;
+        padding: 0 0 10px;
+        border-bottom: none;
       }
+      .form-review-meta .form-meta-field-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .form-review-meta .form-meta-field-head .confirm-item-label,
+      .form-review-meta .form-meta-field-head label {
+        margin: 0;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #334155;
+      }
+      .form-review-meta .ocr-conf {
+        flex-shrink: 0;
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        line-height: 1.5;
+      }
+      .form-review-meta .ocr-conf-high { color: #166534; background: #dcfce7; }
+      .form-review-meta .ocr-conf-medium { color: #92400e; background: #fef3c7; }
+      .form-review-meta .ocr-conf-low { color: #991b1b; background: #fee2e2; }
       .form-review-meta .metadata-section-title + .form-meta-field {
         padding-top: 2px;
       }
       .form-review-meta .confirm-item-label {
         display: block;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: #64748b;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #334155;
         line-height: 1.25;
         margin-bottom: 3px;
         letter-spacing: 0.01em;
@@ -426,13 +630,13 @@
       .form-review-meta .confirm-item-value input {
         width: 100%;
         box-sizing: border-box;
-        padding: 5px 8px 6px;
+        padding: 7px 10px;
         margin: 0;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
         background: #f8fafc;
         color: #0f172a;
-        font-size: 0.875rem;
+        font-size: 0.9rem;
         font-weight: 500;
         line-height: 1.35;
         letter-spacing: 0.01em;
@@ -457,13 +661,16 @@
         text-transform: none;
       }
       .form-review-actions {
-        margin-top: 10px;
-        padding-top: 10px;
+        margin: 12px 14px 0;
+        padding: 12px 0 0;
         border-top: 1px solid #e2e8f0;
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
         align-items: center;
+      }
+      .form-review-actions .form-review-confirm {
+        margin-left: auto;
       }
       .form-review-actions .btn {
         border-radius: 10px;
@@ -477,6 +684,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/staff.css') }}" />
     {% block extra_head %}{% endblock %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/document_annotation.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}" />
+    {% block after_theme %}{% endblock %}
   </head>
   <body class="{% block body_class %}{% endblock %}">
     <header class="topbar">
@@ -490,8 +700,8 @@
             class="topbar-logo"
             src="{{ url_for('static', filename='mcr-daraga-seal.png') }}"
             alt="Seal of the Municipality of Daraga"
-            width="46"
-            height="46"
+            width="40"
+            height="40"
           />
         </span>
         <span class="topbar-brand-text">
@@ -502,7 +712,37 @@
       <div class="topbar-right">
         {% include '_theme_toggle.html' %}
         {% if current_user %}
-          <span class="topbar-user"><strong>{{ current_user.username }}</strong> · {{ (current_user.role or 'USER')|upper }}</span>
+          <div class="notif-wrap" id="notif-wrap" data-url="{{ url_for('api_notifications') }}" data-count="0">
+            <button
+              type="button"
+              class="notif-bell"
+              id="notif-bell"
+              aria-label="Notifications"
+              aria-expanded="false"
+              aria-haspopup="true"
+              title="Notifications"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 01-3.46 0"/>
+              </svg>
+              <span class="notif-count" id="notif-count" hidden>0</span>
+            </button>
+            <div class="notif-panel" id="notif-panel" role="menu">
+              <div class="notif-panel-head">
+                <h2 class="notif-panel-title">Notifications</h2>
+              </div>
+              <div class="notif-list" id="notif-list"></div>
+              <p class="notif-empty" id="notif-empty">No new notifications</p>
+            </div>
+          </div>
+          <span class="topbar-user">
+            <span class="topbar-user-avatar" aria-hidden="true">{{ (current_user.username or 'U')[:1]|upper }}</span>
+            <span class="topbar-user-meta">
+              <span class="topbar-user-name">{{ current_user.username }}</span>
+              <span class="topbar-user-role">{{ (current_user.role or 'USER')|upper }}</span>
+            </span>
+          </span>
         {% endif %}
       </div>
     </header>
@@ -510,33 +750,58 @@
       <aside class="sidebar">
         {% block sidebar_brand %}
         <div class="sidebar-brand sidebar-brand--panel">
-          <div class="sidebar-brand-cluster">
-            <div class="sidebar-brand-icon home-circle-mark" aria-hidden="true">
-              {% include '_icon_home_circle.html' %}
-            </div>
-            <div class="sidebar-brand-text">
-              <h2>Civil Registry</h2>
-              <p>Offline system</p>
-            </div>
-          </div>
+          <p class="sidebar-brand-kicker">Municipality of Daraga</p>
+          <h2>Civil Registry</h2>
+          <span class="sidebar-brand-status">Offline · local vault</span>
         </div>
         {% endblock %}
-        <nav class="sidebar-nav">
-          <a href="{{ url_for('index') }}" class="{% if nav_active == 'scan' %}active{% endif %}">Scan Workflow</a>
-          <a href="{{ url_for('autofilled_form_latest') }}" class="{% if nav_active == 'form' %}active{% endif %}">Auto-Filled Form</a>
-          <a href="{{ url_for('archiving') }}" class="{% if nav_active == 'archiving' %}active{% endif %}">Archiving</a>
-          <a href="{{ url_for('search_records') }}" class="{% if nav_active == 'search' %}active{% endif %}">Search Records</a>
+        <nav class="sidebar-nav" aria-label="Main">
+          <p class="sidebar-nav-kicker">Workspace</p>
+          <a href="{{ url_for('index') }}" class="{% if nav_active == 'scan' %}active{% endif %}">
+            <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10"/><path d="M9 16v4"/><path d="M15 16v4"/></svg></span>
+            <span class="nav-label">Scan Workflow</span>
+          </a>
+          <a href="{{ url_for('autofilled_form_latest') }}" class="{% if nav_active == 'form' %}active{% endif %}">
+            <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>
+            <span class="nav-label">Auto-Filled Form</span>
+          </a>
+          <a href="{{ url_for('archiving') }}" class="{% if nav_active == 'archiving' %}active{% endif %}">
+            <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 001 1h12a1 1 0 001-1V8"/><path d="M10 12h4"/></svg></span>
+            <span class="nav-label">Archiving</span>
+          </a>
+          <a href="{{ url_for('search_records') }}" class="{% if nav_active == 'search' %}active{% endif %}">
+            <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg></span>
+            <span class="nav-label">Search Records</span>
+          </a>
           {% if current_user and (current_user.role or '')|upper == 'STAFF' %}
-            <a href="{{ url_for('my_edit_requests') }}" class="{% if nav_active == 'my_edit_requests' %}active{% endif %}">My Edit Requests</a>
-            <a href="{{ url_for('my_print_requests') }}" class="{% if nav_active == 'my_print_requests' %}active{% endif %}">My Print Requests</a>
+            <p class="sidebar-nav-kicker">My queue</p>
+            <a href="{{ url_for('my_edit_requests') }}" data-nav="my_edit_requests" class="{% if nav_active == 'my_edit_requests' %}active{% endif %}">
+              <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/></svg></span>
+              <span class="nav-label">My Edit Requests</span>
+              <span class="nav-badge" hidden>0</span>
+            </a>
+            <a href="{{ url_for('my_print_requests') }}" data-nav="my_print_requests" class="{% if nav_active == 'my_print_requests' %}active{% endif %}">
+              <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="6" y="14" width="12" height="8" rx="1"/><rect x="3" y="9" width="18" height="8" rx="2"/></svg></span>
+              <span class="nav-label">My Print Requests</span>
+              <span class="nav-badge" hidden>0</span>
+            </a>
           {% endif %}
           {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
-            <a href="{{ url_for('administration', tab='dashboard') }}" class="{% if nav_active == 'admin' %}active{% endif %}">Administration</a>
+            <p class="sidebar-nav-kicker">Office</p>
+            <a href="{{ url_for('civil_registry_reports') }}" class="{% if nav_active == 'reports' %}active{% endif %}">
+              <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-6"/></svg></span>
+              <span class="nav-label">Civil Registry Reports</span>
+            </a>
+            <a href="{{ url_for('administration', tab='dashboard') }}" data-nav="admin" class="{% if nav_active == 'admin' %}active{% endif %}">
+              <span class="nav-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
+              <span class="nav-label">Administration</span>
+              <span class="nav-badge" hidden>0</span>
+            </a>
           {% endif %}
         </nav>
         {% block sidebar_extra %}{% endblock %}
         <div class="sidebar-footer">
-          {% if current_user %}<a href="{{ url_for('logout') }}" class="btn-logout">Logout</a>{% endif %}
+          {% if current_user %}<a href="{{ url_for('logout') }}" class="btn-logout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Logout</a>{% endif %}
         </div>
       </aside>
       <main class="main">
@@ -553,5 +818,9 @@
       </main>
     </div>
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/document_annotation.js') }}"></script>
+    {% if current_user %}
+      <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    {% endif %}
   </body>
 </html>

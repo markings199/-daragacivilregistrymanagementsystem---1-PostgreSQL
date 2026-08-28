@@ -40,12 +40,12 @@
     },
     "place_of_birth": {
       "patterns": [
-        "(?:Place\\s+of\\s+Birth\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9][A-Za-z0-9 '\\-.,]{2,})"
+        "(?:Place\\s+of\\s+Birth\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,}?)(?:\\s+(?:TYPE OF BIRTH|5A|CITIZENSHIP|NAME OF MOTHER)|$)"
       ]
     },
     "name_of_mother": {
       "patterns": [
-        "(?:Name\\s+of\\s+Mother\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
+        "(?:(?:Maiden\\s+)?Name\\s+of\\s+Mother\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
         "(?:Mother\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
       ]
     },
@@ -53,6 +53,33 @@
       "patterns": [
         "(?:Name\\s+of\\s+Father\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})",
         "(?:Father\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{2,})"
+      ]
+    },
+    "citizenship_of_mother": {
+      "patterns": [
+        "(?:Citizenship\\s+of\\s+Mother\\s*[:\\-]?\\s*)(?P<value>[A-Za-z]{4,20})",
+        "(?:7\\.?\\s*Citizenship\\s*[:\\-]?\\s*)(?P<value>Filipino|Filipina|[A-Za-z]{4,20})"
+      ]
+    },
+    "citizenship_of_father": {
+      "patterns": [
+        "(?:Citizenship\\s+of\\s+Father\\s*[:\\-]?\\s*)(?P<value>[A-Za-z]{4,20})",
+        "(?:14\\.?\\s*Citizenship\\s*[:\\-]?\\s*)(?P<value>Filipino|Filipina|[A-Za-z]{4,20})"
+      ]
+    },
+    "date_of_marriage_of_parents": {
+      "patterns": [
+        "(?:Date\\s+and\\s+Place\\s+of\\s+Marriage\\s+of\\s+Parents\\s*[:\\-]?\\s*)(?P<value>\\d{1,2}\\s+[A-Z]{3,9}\\s+\\d{4}|\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4})"
+      ]
+    },
+    "place_of_marriage_of_parents": {
+      "patterns": [
+        "(?:Place\\s+of\\s+Marriage\\s+of\\s+Parents\\s*[:\\-]?\\s*)(?P<value>[A-Za-z][A-Za-z '\\-.,]{3,})"
+      ]
+    },
+    "date_of_registration": {
+      "patterns": [
+        "(?:Date\\s+(?:of\\s+)?Registration\\s*[:\\-]?\\s*)(?P<value>\\d{1,2}\\s+[A-Z]{3,9}\\s+\\d{4}|\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4})"
       ]
     }
   }

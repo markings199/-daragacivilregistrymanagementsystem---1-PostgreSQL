@@ -1,7 +1,64 @@
+
 import csv
 import json
 import logging
 import os
+import sys
+
+# Quiet Paddle / oneDNN before those libraries load.
+os.environ.setdefault("GLOG_minloglevel", "3")
+os.environ.setdefault("GLOG_v", "0")
+os.environ.setdefault("FLAGS_minloglevel", "3")
+os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+os.environ.setdefault("KMP_WARNINGS", "0")
+os.environ.setdefault("OMP_DISPLAY_ENV", "FALSE")
+os.environ.setdefault("WERKZEUG_DEBUG_PIN", "off")
+
+
+class _QuietConsole:
+    """Drop Windows/Paddle CLI noise such as: INFO: Could not find files for the given pattern(s)."""
+
+    _DROP = (
+        "Could not find files for the given pattern(s).",
+        "No ccache found",
+        "Debugger PIN",
+        "Debugger is active",
+        "WARNING: This is a development server",
+        "Running on all addresses",
+        "Running on http://",
+        "Press CTRL+C to quit",
+        "* Serving Flask app",
+    )
+
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+
+    def write(self, text):
+        if not text:
+            return 0
+        if any(marker in text for marker in self._DROP):
+            return len(text)
+        return self._wrapped.write(text)
+
+    def writelines(self, lines):
+        for line in lines:
+            self.write(line)
+
+    def flush(self):
+        return self._wrapped.flush()
+
+    def isatty(self):
+        return bool(getattr(self._wrapped, "isatty", lambda: False)())
+
+    def __getattr__(self, name):
+        return getattr(self._wrapped, name)
+
+
+if not isinstance(sys.stdout, _QuietConsole):
+    sys.stdout = _QuietConsole(sys.stdout)
+if not isinstance(sys.stderr, _QuietConsole):
+    sys.stderr = _QuietConsole(sys.stderr)
+
 import random
 import re
 import shutil
@@ -19,7 +76,7 @@ from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from models import db, User, Record, EditRequest, AuditLog, PrintLog, PrintRequest
-from auto_backup import (
+from services.auto_backup import (
     apply_schedule,
     delete_auto_backup,
     init_auto_backup_scheduler,
@@ -31,10 +88,10 @@ from auto_backup import (
     settings_from_form,
     write_full_backup_zip,
 )
-from ocr_birth import extract_birth_data
-from ocr_marriage import extract_marriage_data
-from ocr_death import extract_death_data
-from certification_print import (
+from ocr.birth import extract_birth_data
+from ocr.marriage import extract_marriage_data
+from ocr.death import extract_death_data
+from services.certification_print import (
     cert_field,
     cert_issue_date,
     form_meta,
@@ -43,9 +100,35 @@ from certification_print import (
     print_format_short_label,
     PRINT_FORMAT_CERTIFICATION,
     PRINT_FORMAT_ORIGINAL,
+    PRINT_FORMAT_BOTH,
+)
+from services.document_annotation import (
+    FORM_KEYS as ANNOTATION_FORM_KEYS,
+    KINDS as ANNOTATION_KINDS,
+    apply_to_data as apply_annotation_to_data,
+    form_defaults as annotation_form_defaults,
+    from_data as document_annotation_from_data,
+    from_form as annotation_from_form,
+    public_fields as public_record_fields,
+)
+from services.civil_registry_reports import (
+    BIRTH_EXCEL_HEADERS,
+    DEATH_EXCEL_HEADERS,
+    MARRIAGE_EXCEL_HEADERS,
+    birth_excel_row,
+    birth_row,
+    build_xlsx,
+    collect_filter_options,
+    death_excel_row,
+    death_row,
+    load_record_fields,
+    marriage_excel_rows,
+    marriage_row,
+    record_is_reportable,
+    row_matches_filters,
 )
 try:
-    from scanner_wia import list_scanners, scan_to_file
+    from services.scanner_wia import list_scanners, scan_to_file
 except ImportError:
     list_scanners = lambda: []
     def scan_to_file(*args, **kwargs):
@@ -58,6 +141,57 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 (UPLOAD_DIR / "temp").mkdir(exist_ok=True)
 for sub in ("birth", "marriage", "death"):
     (UPLOAD_DIR / sub).mkdir(exist_ok=True)
+
+
+def _normalize_upload_relpath(rel: str) -> str:
+    """Keep paths relative to uploads/ (birth/foo.jpg), never uploads/uploads/..."""
+    raw = (rel or "").replace("\\", "/").strip()
+    if not raw:
+        return ""
+    while raw.startswith("./"):
+        raw = raw[2:]
+    parts = [p for p in raw.split("/") if p and p != "."]
+    if any(p == ".." for p in parts):
+        return ""
+    while parts and parts[0].lower() == "uploads":
+        parts = parts[1:]
+    return "/".join(parts)
+
+
+def _upload_file_path(rel: str) -> Path | None:
+    """Resolve a stored image path under UPLOAD_DIR, or None if unsafe/empty."""
+    norm = _normalize_upload_relpath(rel)
+    if not norm:
+        return None
+    upload_root = UPLOAD_DIR.resolve()
+    full = (UPLOAD_DIR / norm).resolve()
+    try:
+        full.relative_to(upload_root)
+    except ValueError:
+        return None
+    return full
+
+
+def _flatten_nested_uploads() -> None:
+    """Move files out of uploads/uploads/ into uploads/ and remove the duplicate folder."""
+    nested = UPLOAD_DIR / "uploads"
+    if not nested.is_dir():
+        return
+    for src in nested.rglob("*"):
+        if not src.is_file():
+            continue
+        dest = UPLOAD_DIR / src.relative_to(nested)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if dest.exists():
+            continue
+        try:
+            shutil.move(str(src), str(dest))
+        except OSError:
+            pass
+    shutil.rmtree(nested, ignore_errors=True)
+
+
+_flatten_nested_uploads()
 
 
 def _default_sqlite_uri() -> str:
@@ -173,6 +307,11 @@ app.jinja_env.globals["print_format_label"] = print_format_label
 app.jinja_env.globals["print_format_short_label"] = print_format_short_label
 app.jinja_env.globals["PRINT_FORMAT_ORIGINAL"] = PRINT_FORMAT_ORIGINAL
 app.jinja_env.globals["PRINT_FORMAT_CERTIFICATION"] = PRINT_FORMAT_CERTIFICATION
+app.jinja_env.globals["PRINT_FORMAT_BOTH"] = PRINT_FORMAT_BOTH
+app.jinja_env.globals["document_annotation"] = document_annotation_from_data
+app.jinja_env.globals["public_record_fields"] = public_record_fields
+app.jinja_env.globals["annotation_form_defaults"] = annotation_form_defaults
+app.jinja_env.globals["annotation_kinds"] = ANNOTATION_KINDS
 
 
 @app.context_processor
@@ -187,7 +326,12 @@ def inject_template_globals():
         "print_format_short_label": print_format_short_label,
         "PRINT_FORMAT_ORIGINAL": PRINT_FORMAT_ORIGINAL,
         "PRINT_FORMAT_CERTIFICATION": PRINT_FORMAT_CERTIFICATION,
+        "PRINT_FORMAT_BOTH": PRINT_FORMAT_BOTH,
         "document_types": DOCUMENT_TYPES,
+        "document_annotation": document_annotation_from_data,
+        "public_record_fields": public_record_fields,
+        "annotation_form_defaults": annotation_form_defaults,
+        "annotation_kinds": ANNOTATION_KINDS,
     }
 
 
@@ -203,6 +347,11 @@ def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         if not session.get("user_id"):
+            flash("Please log in to continue.")
+            return redirect(url_for("login"))
+        user = db.session.get(User, session["user_id"])
+        if not user:
+            session.clear()
             flash("Please log in to continue.")
             return redirect(url_for("login"))
         return f(*args, **kwargs)
@@ -232,17 +381,20 @@ def _parse_ocr_input_from_request():
             return None, None, None, "Only JPG and PNG images are supported."
         subdir = UPLOAD_DIR / doc_type
         subdir.mkdir(exist_ok=True)
-        save_path = subdir / f"{doc_type}_{file.filename}"
+        original_name = Path(file.filename).name
+        stem = _sanitize_filename_part(Path(original_name).stem, 36)
+        ext = os.path.splitext(original_name)[1].lower() or ".jpg"
+        save_path = subdir / f"{doc_type}_{uuid.uuid4().hex[:10]}_{stem}{ext}"
         file.save(save_path)
         image_filename = f"{doc_type}/{save_path.name}"
     elif image_filename_form:
         safe_path = Path(image_filename_form)
         if safe_path.is_absolute() or ".." in image_filename_form:
             return None, None, None, "Invalid image path."
-        save_path = UPLOAD_DIR / image_filename_form
-        if not save_path.exists():
+        image_filename = _normalize_upload_relpath(image_filename_form)
+        save_path = _upload_file_path(image_filename)
+        if save_path is None or not save_path.exists():
             return None, None, None, "Scanned image no longer found. Please scan again."
-        image_filename = image_filename_form
     else:
         return None, None, None, "Please scan from printer or choose an image file first."
 
@@ -255,6 +407,30 @@ def _set_ocr_job(job_id: str, **fields):
         if not job:
             return
         job.update(fields)
+
+
+def _prune_ocr_jobs(max_age_hours: int = 2, max_jobs: int = 40):
+    """Drop finished OCR sessions so memory does not grow during a workday."""
+    cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+    with _OCR_JOBS_LOCK:
+        stale = []
+        for job_id, job in _OCR_JOBS.items():
+            created = job.get("created_at") or ""
+            try:
+                created_dt = datetime.fromisoformat(created)
+            except (TypeError, ValueError):
+                created_dt = cutoff
+            if created_dt < cutoff:
+                stale.append(job_id)
+        for job_id in stale:
+            _OCR_JOBS.pop(job_id, None)
+        if len(_OCR_JOBS) > max_jobs:
+            ordered = sorted(
+                _OCR_JOBS.items(),
+                key=lambda item: item[1].get("created_at") or "",
+            )
+            for job_id, _job in ordered[: len(_OCR_JOBS) - max_jobs]:
+                _OCR_JOBS.pop(job_id, None)
 
 
 def _run_ocr_job(job_id: str, doc_type: str, save_path: Path, image_filename: str):
@@ -279,12 +455,14 @@ def _run_ocr_job(job_id: str, doc_type: str, save_path: Path, image_filename: st
             data=data,
         )
     except Exception:
+        err = traceback.format_exc()
+        print(err, flush=True)
         _set_ocr_job(
             job_id,
             status="error",
             progress=100,
             message="OCR failed.",
-            error=traceback.format_exc(),
+            error=err,
         )
 
 
@@ -355,12 +533,17 @@ def index():
         if err:
             flash(err)
             return redirect(url_for("index"))
-        if doc_type == "birth":
-            data = extract_birth_data(str(save_path))
-        elif doc_type == "marriage":
-            data = extract_marriage_data(str(save_path))
-        else:
-            data = extract_death_data(str(save_path))
+        try:
+            if doc_type == "birth":
+                data = extract_birth_data(str(save_path))
+            elif doc_type == "marriage":
+                data = extract_marriage_data(str(save_path))
+            else:
+                data = extract_death_data(str(save_path))
+        except Exception:
+            traceback.print_exc()
+            flash("OCR failed while reading this document. Try a clearer scan or another image.")
+            return redirect(url_for("index"))
         return render_template(
             f"form_{doc_type}.html",
             doc_type=doc_type,
@@ -400,7 +583,7 @@ def api_scan():
     rel = os.path.relpath(path_or_error, UPLOAD_DIR)
     if rel.startswith("..") or os.path.isabs(rel):
         return {"ok": False, "error": "Invalid scan path"}, 500
-    rel = rel.replace("\\", "/")
+    rel = _normalize_upload_relpath(rel.replace("\\", "/"))
     image_url = url_for("serve_upload", path=rel)
     return {"ok": True, "image_url": image_url, "image_filename": rel}
 
@@ -413,6 +596,7 @@ def api_ocr_start():
         return {"ok": False, "error": err}, 400
 
     job_id = uuid.uuid4().hex
+    _prune_ocr_jobs()
     with _OCR_JOBS_LOCK:
         _OCR_JOBS[job_id] = {
             "status": "queued",
@@ -454,51 +638,170 @@ def api_ocr_status(job_id):
         return payload
 
 
+def _record_notice_label(record) -> str:
+    if not record:
+        return "a record"
+    kind = (record.document_type or "record").capitalize()
+    reg = (record.registry_number or "").strip()
+    if reg:
+        return f"{kind} · {reg}"
+    return f"{kind} record #{record.id}"
+
+
+def _notice_iso(dt) -> str:
+    if not dt:
+        return ""
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _collect_notifications(user) -> dict:
+    role = (user.role or "").upper()
+    items = []
+    badges = {}
+
+    if role == "ADMIN":
+        pending_edits = (
+            EditRequest.query.filter_by(status="PENDING")
+            .order_by(EditRequest.requested_at.desc())
+            .limit(12)
+            .all()
+        )
+        pending_prints = (
+            PrintRequest.query.filter_by(status="PENDING")
+            .order_by(PrintRequest.requested_at.desc())
+            .limit(12)
+            .all()
+        )
+        for req in pending_edits:
+            who = req.requested_by.username if req.requested_by else "Staff"
+            items.append({
+                "id": f"edit-{req.id}",
+                "kind": "edit",
+                "title": "New edit request",
+                "body": f"{who} asked to edit {_record_notice_label(req.record)}",
+                "url": url_for("administration", tab="edit_requests"),
+                "at": _notice_iso(req.requested_at),
+            })
+        for req in pending_prints:
+            who = req.requested_by.username if req.requested_by else "Staff"
+            items.append({
+                "id": f"print-{req.id}",
+                "kind": "print",
+                "title": "New print request",
+                "body": f"{who} asked to print {_record_notice_label(req.record)}",
+                "url": url_for("administration", tab="print_requests"),
+                "at": _notice_iso(req.requested_at),
+            })
+        badges = {
+            "admin_pending_edit_requests": EditRequest.query.filter_by(status="PENDING").count(),
+            "admin_pending_print_requests": PrintRequest.query.filter_by(status="PENDING").count(),
+        }
+        badges["total"] = badges["admin_pending_edit_requests"] + badges["admin_pending_print_requests"]
+
+    elif role == "STAFF":
+        pending_edits = (
+            EditRequest.query.filter_by(requested_by_id=user.id, status="PENDING")
+            .order_by(EditRequest.requested_at.desc())
+            .limit(8)
+            .all()
+        )
+        ready_edits = (
+            EditRequest.query.filter_by(requested_by_id=user.id, status="APPROVED")
+            .filter(EditRequest.code_used_at.is_(None))
+            .order_by(EditRequest.reviewed_at.desc())
+            .limit(8)
+            .all()
+        )
+        pending_prints = (
+            PrintRequest.query.filter_by(requested_by_id=user.id, status="PENDING")
+            .order_by(PrintRequest.requested_at.desc())
+            .limit(8)
+            .all()
+        )
+        ready_prints = (
+            PrintRequest.query.filter_by(requested_by_id=user.id, status="APPROVED")
+            .filter(PrintRequest.used_at.is_(None))
+            .order_by(PrintRequest.reviewed_at.desc())
+            .limit(8)
+            .all()
+        )
+        for req in ready_edits:
+            items.append({
+                "id": f"edit-ready-{req.id}",
+                "kind": "edit-ready",
+                "title": "Edit approved",
+                "body": f"Use your 5-digit code on {_record_notice_label(req.record)}",
+                "url": url_for("record_detail", record_id=req.record_id),
+                "at": _notice_iso(req.reviewed_at or req.requested_at),
+            })
+        for req in ready_prints:
+            items.append({
+                "id": f"print-ready-{req.id}",
+                "kind": "print-ready",
+                "title": "Print approved",
+                "body": f"Ready to print {_record_notice_label(req.record)}",
+                "url": url_for("record_detail", record_id=req.record_id),
+                "at": _notice_iso(req.reviewed_at or req.requested_at),
+            })
+        for req in pending_edits:
+            items.append({
+                "id": f"edit-wait-{req.id}",
+                "kind": "edit",
+                "title": "Edit request pending",
+                "body": f"Waiting for admin on {_record_notice_label(req.record)}",
+                "url": url_for("my_edit_requests"),
+                "at": _notice_iso(req.requested_at),
+            })
+        for req in pending_prints:
+            items.append({
+                "id": f"print-wait-{req.id}",
+                "kind": "print",
+                "title": "Print request pending",
+                "body": f"Waiting for admin on {_record_notice_label(req.record)}",
+                "url": url_for("my_print_requests"),
+                "at": _notice_iso(req.requested_at),
+            })
+        badges = {
+            "staff_my_requests_pending": EditRequest.query.filter_by(requested_by_id=user.id, status="PENDING").count(),
+            "staff_my_requests_approved_ready": (
+                EditRequest.query.filter_by(requested_by_id=user.id, status="APPROVED")
+                .filter(EditRequest.code_used_at.is_(None))
+                .count()
+            ),
+            "staff_print_pending": PrintRequest.query.filter_by(requested_by_id=user.id, status="PENDING").count(),
+            "staff_print_requests_approved_ready": (
+                PrintRequest.query.filter_by(requested_by_id=user.id, status="APPROVED")
+                .filter(PrintRequest.used_at.is_(None))
+                .count()
+            ),
+        }
+        badges["total"] = (
+            badges["staff_my_requests_approved_ready"]
+            + badges["staff_print_requests_approved_ready"]
+            + badges["staff_my_requests_pending"]
+            + badges["staff_print_pending"]
+        )
+
+    items.sort(key=lambda row: row.get("at") or "", reverse=True)
+    return {"items": items[:20], "badges": badges, "count": int(badges.get("total") or 0)}
+
+
 @app.route("/api/notifications", methods=["GET"])
 @login_required
 def api_notifications():
-    """
-    Lightweight "real-time" notifications payload for UI badges.
-    This is polled by the frontend (offline-safe, no websockets).
-    """
+    """Polled by the header bell (offline-safe, no websockets)."""
     user = get_current_user()
     if not user:
         return {"ok": False}, 401
-
     role = (user.role or "").upper()
-    payload = {"ok": True, "role": role, "badges": {}}
-
-    if role == "ADMIN":
-        pending = EditRequest.query.filter_by(status="PENDING").count()
-        pending_print = PrintRequest.query.filter_by(status="PENDING").count()
-        payload["badges"] = {
-            "admin_pending_edit_requests": pending,
-            "admin_pending_print_requests": pending_print,
-        }
-        return payload
-
-    if role == "STAFF":
-        pending = EditRequest.query.filter_by(requested_by_id=user.id, status="PENDING").count()
-        approved_ready = (
-            EditRequest.query
-            .filter_by(requested_by_id=user.id, status="APPROVED")
-            .filter(EditRequest.code_used_at.is_(None))
-            .count()
-        )
-        print_ready = (
-            PrintRequest.query
-            .filter_by(requested_by_id=user.id, status="APPROVED")
-            .filter(PrintRequest.used_at.is_(None))
-            .count()
-        )
-        payload["badges"] = {
-            "staff_my_requests_pending": pending,
-            "staff_my_requests_approved_ready": approved_ready,
-            "staff_print_requests_approved_ready": print_ready,
-        }
-        return payload
-
-    return payload
+    data = _collect_notifications(user)
+    return {
+        "ok": True,
+        "role": role,
+        "count": data["count"],
+        "items": data["items"],
+        "badges": data["badges"],
+    }
 
 
 @app.route("/workflow/autofilled-form")
@@ -552,6 +855,9 @@ def ocr_result(job_id):
         image_filename = job.get("image_filename")
         data = job.get("data") or {}
 
+    if doc_type not in DOCUMENT_TYPES:
+        flash("OCR session is invalid. Please run OCR again.")
+        return redirect(url_for("index"))
     session["last_ocr_job_id"] = job_id
     session.modified = True
 
@@ -602,7 +908,7 @@ def _is_registry_metadata_key(key: str) -> bool:
 
 def _submitted_from_request_form():
     """Build flat dict from POST; last value wins per field (fixes duplicate keys / MultiDict quirks)."""
-    skip = {"csrf_token", "submit"}
+    skip = {"csrf_token", "submit", "clear_annotation"} | set(ANNOTATION_FORM_KEYS)
     submitted = {}
     for key in request.form:
         if key in skip:
@@ -893,19 +1199,16 @@ def record_detail(record_id):
         display_registry_number = (record.registry_number or "").strip()
     user = get_current_user()
     role = (user.role or "").upper() if user else ""
-    # Staff: this user's edit requests for the record
+    # Staff: unused approved edit codes (full request history is on My Edit Requests)
     my_requests = []
-    my_print_requests = []
     can_print = False
     if role == "STAFF":
         my_requests = (
-            EditRequest.query.filter_by(record_id=record_id, requested_by_id=user.id)
+            EditRequest.query.filter_by(
+                record_id=record_id, requested_by_id=user.id, status="APPROVED"
+            )
+            .filter(EditRequest.code_used_at.is_(None))
             .order_by(EditRequest.requested_at.desc())
-            .all()
-        )
-        my_print_requests = (
-            PrintRequest.query.filter_by(record_id=record_id, requested_by_id=user.id)
-            .order_by(PrintRequest.requested_at.desc())
             .all()
         )
         can_print = user_can_print_record(user, record_id)
@@ -916,20 +1219,6 @@ def record_detail(record_id):
         approval = _staff_active_print_approval(user.id, record_id)
         if approval:
             approved_print_format = normalize_print_format(getattr(approval, "print_format", None))
-    # Admin: all edit requests for the record (same context staff sees, for oversight)
-    record_edit_requests = []
-    record_print_requests = []
-    if role == "ADMIN":
-        record_edit_requests = (
-            EditRequest.query.filter_by(record_id=record_id)
-            .order_by(EditRequest.requested_at.desc())
-            .all()
-        )
-        record_print_requests = (
-            PrintRequest.query.filter_by(record_id=record_id)
-            .order_by(PrintRequest.requested_at.desc())
-            .all()
-        )
     return render_template(
         "record_detail.html",
         record=record,
@@ -938,15 +1227,44 @@ def record_detail(record_id):
         current_user=user,
         nav_active="search",
         my_requests=my_requests,
-        my_print_requests=my_print_requests,
-        record_edit_requests=record_edit_requests,
-        record_print_requests=record_print_requests,
         document_types=DOCUMENT_TYPES,
         can_print=can_print,
         cert_date=cert_issue_date(),
         form_meta=form_meta(record.document_type),
         approved_print_format=approved_print_format,
+        annotation_form=annotation_form_defaults(data),
     )
+
+
+@app.route("/record/<int:record_id>/annotation", methods=["POST"])
+@login_required
+def record_save_annotation(record_id):
+    record = db.session.get(Record, record_id)
+    if not record:
+        flash("Record not found.")
+        return redirect(url_for("search_records"))
+    user = get_current_user()
+    if not user or (user.role or "").upper() != "ADMIN":
+        flash("Only administrators can save official document annotations.")
+        return redirect(url_for("record_detail", record_id=record_id))
+    data = _load_record_data_json(record)
+    annotation = None
+    if not (request.form.get("clear_annotation") or "").strip():
+        annotation = annotation_from_form(request.form)
+    data = apply_annotation_to_data(data, annotation)
+    payload = json.dumps(data, ensure_ascii=False)
+    record.data_json = payload
+    record.extracted_json = payload
+    record.corrected_json = payload
+    record.updated_at = datetime.utcnow()
+    db.session.commit()
+    _log_audit(
+        user.id,
+        "RECORD_ANNOTATION",
+        f"record_id={record_id} {'cleared' if not annotation else 'saved'}",
+    )
+    flash("Annotation removed." if not annotation else "Document annotation saved.")
+    return redirect(url_for("record_detail", record_id=record_id))
 
 
 @app.route("/record/<int:record_id>/log-print", methods=["POST"])
@@ -963,7 +1281,7 @@ def record_log_print(record_id):
         return jsonify({"ok": False, "error": "Admin approval is required before you can print."}), 403
     payload = request.get_json(silent=True) or {}
     print_type = (payload.get("print_type") or "original").strip().lower()
-    if print_type not in ("original", "certification"):
+    if print_type not in ("original", "certification", "both"):
         print_type = "original"
     if (user.role or "").upper() == "STAFF":
         approval = _staff_active_print_approval(user.id, record_id)
@@ -1017,7 +1335,7 @@ def request_print(record_id):
         if not reason:
             flash("Please provide a reason for the print request.")
             return redirect(url_for("request_print", record_id=record_id))
-        if print_format == PRINT_FORMAT_ORIGINAL and not (record.image_path or "").strip():
+        if print_format in (PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_BOTH) and not (record.image_path or "").strip():
             flash("This record has no scanned image on file. Choose the certification form instead.")
             return redirect(url_for("request_print", record_id=record_id))
         if pending:
@@ -1127,6 +1445,8 @@ def administration():
     death_count = Record.query.filter_by(document_type="death").count()
     total_records = birth_count + marriage_count + death_count
     users_count = User.query.count()
+    staff_count = User.query.filter(db.func.upper(User.role) == "STAFF").count()
+    admin_users_count = User.query.filter(db.func.upper(User.role) == "ADMIN").count()
     audit_recent_count = AuditLog.query.count()
     current_year = datetime.now().year
     auto_backup_settings = load_auto_backup_settings(BASE_DIR) if tab == "backup_restore" else None
@@ -1147,6 +1467,8 @@ def administration():
         death_count=death_count,
         total_records=total_records,
         users_count=users_count,
+        staff_count=staff_count,
+        admin_users_count=admin_users_count,
         audit_recent_count=audit_recent_count,
         document_types=DOCUMENT_TYPES,
         print_logs=print_logs,
@@ -1154,6 +1476,140 @@ def administration():
         request_doc_type=request_doc_type,
         auto_backup_settings=auto_backup_settings,
         auto_backup_files=auto_backup_files,
+    )
+
+
+def _civil_registry_report_context():
+    doc_type = (request.args.get("doc_type") or "birth").strip().lower()
+    if doc_type not in DOCUMENT_TYPES:
+        doc_type = "birth"
+    year = (request.args.get("year") or "").strip()
+    barangay = (request.args.get("barangay") or "").strip()
+    location = ""
+
+    q = Record.query.filter(Record.document_type == doc_type).order_by(
+        Record.created_at.asc(), Record.id.asc()
+    )
+    builders = {"birth": birth_row, "death": death_row, "marriage": marriage_row}
+    builder = builders[doc_type]
+    all_rows = []
+    for record in q.all():
+        if not record_is_reportable(record):
+            continue
+        data = load_record_fields(record)
+        all_rows.append(builder(record, data))
+    year_options, barangay_options, location_options = collect_filter_options(all_rows)
+    filtered_rows = [row for row in all_rows if row_matches_filters(row, year, barangay, location)]
+    try:
+        per_page = int(request.args.get("per_page") or 25)
+    except ValueError:
+        per_page = 25
+    if per_page not in (25, 50, 100):
+        per_page = 25
+    try:
+        page = int(request.args.get("page") or 1)
+    except ValueError:
+        page = 1
+    total = len(filtered_rows)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * per_page
+    rows = filtered_rows[start:start + per_page]
+    focus = (request.args.get("focus") or "").strip() in {"1", "true", "yes"}
+    excel_args = {"doc_type": doc_type}
+    if year:
+        excel_args["year"] = year
+    if barangay:
+        excel_args["barangay"] = barangay
+    query_args = dict(excel_args)
+    if per_page != 25:
+        query_args["per_page"] = per_page
+    if focus:
+        query_args["focus"] = "1"
+    enter_focus_args = dict(query_args)
+    enter_focus_args["focus"] = "1"
+    exit_focus_args = {k: v for k, v in query_args.items() if k != "focus"}
+    if page > 1:
+        enter_focus_args["page"] = page
+        exit_focus_args["page"] = page
+    doc_links = {
+        "birth": {**{k: v for k, v in query_args.items() if k != "doc_type"}, "doc_type": "birth"},
+        "death": {**{k: v for k, v in query_args.items() if k != "doc_type"}, "doc_type": "death"},
+        "marriage": {**{k: v for k, v in query_args.items() if k != "doc_type"}, "doc_type": "marriage"},
+    }
+    return {
+        "doc_type": doc_type,
+        "year": year,
+        "barangay": barangay,
+        "location": location,
+        "year_options": year_options,
+        "barangay_options": barangay_options,
+        "location_options": location_options,
+        "rows": rows,
+        "filtered_rows": filtered_rows,
+        "filtered_count": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "focus": focus,
+        "query_args": query_args,
+        "enter_focus_args": enter_focus_args,
+        "exit_focus_args": exit_focus_args,
+        "doc_links": doc_links,
+        "empty_rows": 0 if total >= 8 else max(0, 8 - len(rows)),
+        "page_left": 1,
+        "page_right": 2,
+        "excel_args": excel_args,
+    }
+
+
+@app.route("/administration/reports")
+@admin_required
+def civil_registry_reports():
+    """Admin-only official Birth / Death / Marriage registers from saved archive records."""
+    ctx = _civil_registry_report_context()
+    return render_template(
+        "reports.html",
+        current_user=get_current_user(),
+        nav_active="reports",
+        document_types=DOCUMENT_TYPES,
+        **ctx,
+    )
+
+
+@app.route("/administration/reports/excel")
+@admin_required
+def civil_registry_reports_excel():
+    """Excel download of the same filtered official-register rows shown on screen."""
+    ctx = _civil_registry_report_context()
+    doc_type = ctx["doc_type"]
+    rows = ctx["filtered_rows"]
+    if doc_type == "death":
+        sheets = {
+            "Register of Death": (DEATH_EXCEL_HEADERS, [death_excel_row(r) for r in rows]),
+        }
+        filename = "register_of_death.xlsx"
+    elif doc_type == "marriage":
+        excel_rows = []
+        for r in rows:
+            excel_rows.extend(marriage_excel_rows(r))
+        sheets = {
+            "Register of Marriages": (MARRIAGE_EXCEL_HEADERS, excel_rows),
+        }
+        filename = "register_of_marriages.xlsx"
+    else:
+        sheets = {
+            "Register of Live Births": (BIRTH_EXCEL_HEADERS, [birth_excel_row(r) for r in rows]),
+        }
+        filename = "register_of_live_births.xlsx"
+    if year := ctx["year"]:
+        filename = filename.replace(".xlsx", f"_{year}.xlsx")
+    payload = build_xlsx(sheets)
+    return send_file(
+        BytesIO(payload),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=filename,
     )
 
 
@@ -1222,12 +1678,19 @@ def administration_delete_user(user_id):
     req_count = EditRequest.query.filter_by(requested_by_id=user.id).count()
     reviewed_count = EditRequest.query.filter_by(reviewed_by_id=user.id).count()
     print_count = PrintLog.query.filter_by(user_id=user.id).count()
-    if req_count or reviewed_count or print_count:
+    print_req_count = PrintRequest.query.filter(
+        or_(PrintRequest.requested_by_id == user.id, PrintRequest.reviewed_by_id == user.id)
+    ).count()
+    if req_count or reviewed_count or print_count or print_req_count:
         flash(
             "Cannot delete this account because it has related history "
-            f"(requests: {req_count}, reviews: {reviewed_count}, print logs: {print_count})."
+            f"(edit requests: {req_count}, reviews: {reviewed_count}, "
+            f"print logs: {print_count}, print requests: {print_req_count})."
         )
         return redirect(url_for("administration", tab="users"))
+
+    for log in AuditLog.query.filter_by(user_id=user.id).all():
+        log.user_id = None
 
     username = user.username
     role = (user.role or "").upper()
@@ -1315,8 +1778,8 @@ def administration_backup_documents():
                 rel = (getattr(r, path_attr) or "").strip()
                 if not rel or ".." in rel or rel.startswith("/"):
                     continue
-                full_path = UPLOAD_DIR / rel
-                if full_path.exists() and full_path.is_file():
+                full_path = _upload_file_path(rel)
+                if full_path is not None and full_path.exists() and full_path.is_file():
                     base_name = Path(rel).name
                     arcname = f"documents/{r.id}_{base_name}"
                     if arcname in seen_paths:
@@ -1508,8 +1971,16 @@ def administration_restore():
                         else:
                             shutil.rmtree(item, ignore_errors=True)
                 for name in names:
-                    if name.startswith("uploads/") and not name.endswith("/"):
-                        zf.extract(name, BASE_DIR)
+                    if not name.startswith("uploads/") or name.endswith("/"):
+                        continue
+                    rel = _normalize_upload_relpath(name)
+                    dest = _upload_file_path(rel)
+                    if dest is None:
+                        continue
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(name) as src, open(dest, "wb") as dst:
+                        dst.write(src.read())
+                _flatten_nested_uploads()
             except Exception as e:
                 # Restore from backup on failure
                 if backup_db is not None and backup_db.exists():
@@ -1649,24 +2120,43 @@ def record_edit(record_id):
         flash("Record not found.")
         return redirect(url_for("search_records"))
     user = get_current_user()
-    if not user or (user.role or "").upper() != "STAFF":
-        flash("Only staff can edit records with approval.")
+    if not user:
+        flash("Please log in to continue.")
+        return redirect(url_for("login"))
+    role = (user.role or "").upper()
+    is_admin = role == "ADMIN"
+    is_staff = role == "STAFF"
+    if not is_admin and not is_staff:
+        flash("You do not have permission to edit records.")
         return redirect(url_for("record_detail", record_id=record_id))
-    allowed_request_id = session.get("allowed_edit_request_id")
-    allowed_record_id = session.get("allowed_edit_record_id")
-    if allowed_record_id != record_id or not allowed_request_id:
-        flash("Enter the 5-digit approval code on the record page first.")
-        return redirect(url_for("record_detail", record_id=record_id))
-    req = db.session.get(EditRequest, allowed_request_id)
-    if not req or req.record_id != record_id or req.code_used_at:
-        session.pop("allowed_edit_request_id", None)
-        session.pop("allowed_edit_record_id", None)
-        flash("This edit link has expired. Request a new code from admin.")
-        return redirect(url_for("record_detail", record_id=record_id))
+    req = None
+    if is_staff:
+        allowed_request_id = session.get("allowed_edit_request_id")
+        try:
+            allowed_record_id = int(session.get("allowed_edit_record_id"))
+        except (TypeError, ValueError):
+            allowed_record_id = None
+        if allowed_record_id != record_id or not allowed_request_id:
+            flash("Enter the 5-digit approval code on the record page first.")
+            return redirect(url_for("record_detail", record_id=record_id))
+        req = db.session.get(EditRequest, allowed_request_id)
+        if not req or req.record_id != record_id or req.code_used_at:
+            session.pop("allowed_edit_request_id", None)
+            session.pop("allowed_edit_record_id", None)
+            flash("This edit link has expired. Request a new code from admin.")
+            return redirect(url_for("record_detail", record_id=record_id))
     if request.method == "POST":
+        existing = _load_record_data_json(record)
         submitted = _submitted_from_request_form()
         submitted = _normalize_submitted_registry_keys(submitted)
-        if not submitted:
+        if (request.form.get("clear_annotation") or "").strip():
+            annotation = None
+        elif "annotation_text" not in request.form:
+            annotation = document_annotation_from_data(existing)
+        else:
+            annotation = annotation_from_form(request.form) or document_annotation_from_data(existing)
+        submitted = apply_annotation_to_data(submitted, annotation)
+        if not public_record_fields(submitted):
             flash("No data to save.")
             return redirect(url_for("record_edit", record_id=record_id))
         updated_registry_number = _registry_number_from_submitted(submitted)
@@ -1706,12 +2196,13 @@ def record_edit(record_id):
         record.full_name = updated_full_name
         record.event_date = updated_event_date
         record.updated_at = datetime.utcnow()
-        req.code_used_at = record.updated_at
+        if req:
+            req.code_used_at = record.updated_at
+            session.pop("allowed_edit_request_id", None)
+            session.pop("allowed_edit_record_id", None)
         db.session.commit()
         db.session.refresh(record)
-        session.pop("allowed_edit_request_id", None)
-        session.pop("allowed_edit_record_id", None)
-        _log_audit(user.id, "RECORD_EDIT", f"record_id={record_id}")
+        _log_audit(user.id, "RECORD_EDIT", f"record_id={record_id} by={role}")
         flash("Record updated successfully.")
         return redirect(url_for("record_detail", record_id=record_id))
     data = _load_record_data_json(record)
@@ -1733,6 +2224,7 @@ def record_edit(record_id):
         current_user=user,
         nav_active="search",
         document_types=DOCUMENT_TYPES,
+        annotation_form=annotation_form_defaults(data),
     )
 
 
@@ -1776,21 +2268,29 @@ def record_delete(record_id):
     if not record:
         flash("Record not found.")
         return _redirect_archiving()
-    # Delete related edit requests first (no FK cascade in SQLite)
-    EditRequest.query.filter_by(record_id=record_id).delete()
+    doc_type = record.document_type
+    # Remove related rows first. SQLite FKs are NOT NULL with no ON DELETE CASCADE,
+    # so deleting the record would otherwise try to null print_logs.record_id.
+    for log in PrintLog.query.filter_by(record_id=record_id).all():
+        db.session.delete(log)
+    for req in PrintRequest.query.filter_by(record_id=record_id).all():
+        db.session.delete(req)
+    for req in EditRequest.query.filter_by(record_id=record_id).all():
+        db.session.delete(req)
+    db.session.flush()
     # Optionally remove stored image file
     for path_attr in ("image_path", "image_front_path"):
         rel_path = getattr(record, path_attr, None) or ""
         if rel_path and not rel_path.startswith(".."):
-            full_path = UPLOAD_DIR / rel_path
-            if full_path.exists():
+            full_path = _upload_file_path(rel_path)
+            if full_path is not None and full_path.exists():
                 try:
                     full_path.unlink()
                 except OSError:
                     pass
     db.session.delete(record)
     db.session.commit()
-    _log_audit(user.id, "RECORD_DELETE", f"record_id={record_id} type={record.document_type}")
+    _log_audit(user.id, "RECORD_DELETE", f"record_id={record_id} type={doc_type}")
     flash("Record deleted successfully.", "success")
     return _redirect_archiving()
 
@@ -1849,7 +2349,10 @@ def my_print_requests():
 @login_required
 def serve_upload(path):
     """Serve uploaded certificate images (e.g. birth/foo.jpg)."""
-    return send_from_directory(UPLOAD_DIR, path)
+    rel = _normalize_upload_relpath(path)
+    if not rel:
+        return ("", 404)
+    return send_from_directory(UPLOAD_DIR, rel)
 
 
 @app.route("/confirm/<doc_type>", methods=["POST"])
@@ -1861,6 +2364,7 @@ def confirm(doc_type):
     submitted = _submitted_from_request_form()
     image_filename = submitted.pop("image_filename", None) or request.form.get("image_filename")
     submitted = _normalize_submitted_registry_keys(submitted)
+    submitted = apply_annotation_to_data(submitted, annotation_from_form(request.form))
 
     registry_number = _registry_number_from_submitted(submitted)
     full_name = _full_name_from_data(doc_type, submitted)
@@ -1884,12 +2388,14 @@ def confirm(doc_type):
             image_filename=image_filename,
             current_user=get_current_user(),
             nav_active="form",
+            can_print=user_can_print_during_review(get_current_user()),
         )
 
     # Auto-rename file for archive: LastName_FirstName_RegistryNumber_birth|marriage|death.ext
     if image_filename and not (Path(image_filename).is_absolute() or ".." in image_filename):
-        source_path = UPLOAD_DIR / image_filename
-        if source_path.exists():
+        image_filename = _normalize_upload_relpath(image_filename)
+        source_path = _upload_file_path(image_filename)
+        if source_path is not None and source_path.exists():
             new_basename = _archive_image_filename(doc_type, full_name, registry_number, image_filename)
             subdir = UPLOAD_DIR / doc_type
             subdir.mkdir(exist_ok=True)
@@ -1922,16 +2428,18 @@ def confirm(doc_type):
     )
     db.session.add(record)
     db.session.commit()
+    session.pop("last_ocr_job_id", None)
 
     flash(f"{DOCUMENT_TYPES[doc_type]} data has been saved. View it in Archiving or Search Records.")
     return render_template(
         "confirm.html",
         doc_type=doc_type,
         doc_label=DOCUMENT_TYPES[doc_type],
-        data=submitted,
+        data=public_record_fields(submitted),
         image_filename=image_filename or None,
         current_user=get_current_user(),
         nav_active="form",
+        record_id=record.id,
     )
 
 
@@ -2046,21 +2554,52 @@ def _bootstrap_users():
         for username, password, role in default_passwords:
             user = User.query.filter_by(username=username).first()
             if user:
-                user.password_hash = _safe_hash(password)
-                user.role = role
-            else:
-                user = User(
+                continue
+            db.session.add(
+                User(
                     username=username,
                     password_hash=_safe_hash(password),
                     role=role,
                 )
-                db.session.add(user)
+            )
         db.session.commit()
 
 
+def _set_console_title(title: str) -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleTitleW(title)
+    except Exception:
+        pass
+
+
+def _print_startup_banner(host: str, port: int) -> None:
+    local_url = f"http://127.0.0.1:{port}"
+    line = "=" * 62
+    print(line, flush=True)
+    print("  MUNICIPALITY OF DARAGA (LOCSIN), ALBAY", flush=True)
+    print("  Office of the Municipal Civil Registrar", flush=True)
+    print("  Civil Registry Management System", flush=True)
+    print("-" * 62, flush=True)
+    print("  Status   Ready", flush=True)
+    print(f"  Open     {local_url}", flush=True)
+    print("  Stop     Press Ctrl+C", flush=True)
+    print(line, flush=True)
+    print("", flush=True)
+
+
 if __name__ == "__main__":
-    # Suppress "development server" and "Debugger is active" warnings in the console
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.WARNING)
+    _set_console_title("Daraga Civil Registry")
+    _host = "0.0.0.0"
+    _port = 5001
+    _use_reloader = os.environ.get("FLASK_USE_RELOADER", "").strip().lower() in ("1", "true", "yes")
+    _print_startup_banner(_host, _port)
     _bootstrap_users()
     init_auto_backup_scheduler(
         app,
@@ -2069,8 +2608,22 @@ if __name__ == "__main__":
         include_sqlite_db=lambda: is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
         audit_callback=_auto_backup_audit,
     )
-    # use_reloader=False: debug mode’s file watcher spawns a child process; on Windows, Ctrl+C
-    # can leave that child listening on the port. Set FLASK_USE_RELOADER=1 to re-enable auto-reload.
-    _use_reloader = os.environ.get("FLASK_USE_RELOADER", "").strip().lower() in ("1", "true", "yes")
-    # Use a dedicated port for this system to avoid conflicts with any other local apps
-    app.run(host="0.0.0.0", port=5001, debug=True, use_reloader=_use_reloader)
+
+    def _warmup_ocr_engine():
+        try:
+            from ocr.shared import warmup_ocr
+            warmup_ocr()
+        except Exception:
+            pass
+
+    threading.Thread(target=_warmup_ocr_engine, daemon=True, name="ocr-warmup").start()
+    try:
+        import flask.cli as flask_cli
+        flask_cli.show_server_banner = lambda *args, **kwargs: None
+    except Exception:
+        pass
+    try:
+        app.run(host=_host, port=_port, debug=True, use_reloader=_use_reloader)
+    except KeyboardInterrupt:
+        print("\nDaraga Civil Registry stopped.", flush=True)
+        os._exit(0)

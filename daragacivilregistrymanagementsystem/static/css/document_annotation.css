@@ -1,0 +1,352 @@
+.document-viewer-image-wrap,
+.scan-preview-viewer-inner .document-viewer-image-wrap {
+  position: relative;
+  display: inline-block;
+  width: auto;
+  max-width: none;
+  container-type: inline-size;
+}
+
+.print-original-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  container-type: inline-size;
+}
+
+.print-original-wrap .print-cert-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.doc-annotation-stamp {
+  position: absolute;
+  top: 3.5%;
+  left: 8%;
+  right: 8%;
+  z-index: 2;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #111;
+  padding: 0.7cqw 1cqw 0.85cqw;
+  color: #111;
+  font-family: "Times New Roman", Times, serif;
+  line-height: 1.35;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+
+.doc-annotation-stamp.is-empty {
+  display: none;
+}
+
+.doc-annotation-text {
+  margin: 0;
+  font-size: 1.55cqw;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: justify;
+  letter-spacing: 0.01em;
+}
+
+.doc-annotation-sign {
+  margin-top: 0.85cqw;
+  text-align: center;
+}
+
+.doc-annotation-signatory {
+  font-size: 1.45cqw;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.doc-annotation-title {
+  margin-top: 0.15cqw;
+  font-size: 1.15cqw;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cert-annotation-block {
+  position: relative;
+  margin: 0.12in 0 0.16in;
+  border: 1px solid #111;
+  background: #fff;
+  padding: 8px 10px 10px;
+}
+
+.cert-annotation-block:has(.doc-annotation-stamp.is-empty) {
+  display: none;
+}
+
+.cert-annotation-block .doc-annotation-stamp {
+  position: static;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.cert-annotation-block .doc-annotation-text {
+  font-size: 8.5pt;
+}
+
+.cert-annotation-block .doc-annotation-signatory {
+  font-size: 9pt;
+}
+
+.cert-annotation-block .doc-annotation-title {
+  font-size: 8pt;
+}
+
+.annotation-fields {
+  margin-top: 16px;
+  padding: 0 0 14px;
+  border: 1px solid rgba(0, 32, 128, 0.16);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.annotation-fields-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+}
+
+.annotation-fields-head-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.annotation-fields-head-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.annotation-fields-head-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.annotation-fields-title {
+  margin: 0 0 2px;
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+
+.annotation-fields-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #93c5fd;
+}
+
+.annotation-fields-badge {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.annotation-fields-help {
+  margin: 0 14px 14px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid rgba(0, 32, 128, 0.1);
+  border-radius: 10px;
+}
+
+.annotation-fields-section {
+  margin: 0 14px 14px;
+  padding: 12px 12px 4px;
+  border: 1px solid rgba(0, 32, 128, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.annotation-fields-section:last-child {
+  margin-bottom: 0;
+}
+
+.annotation-fields-section-label {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #002080;
+}
+
+.annotation-fields .annotation-fields-field {
+  margin-bottom: 12px;
+}
+
+.annotation-fields .annotation-fields-field label {
+  display: block;
+  margin: 0 0 5px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1e3a67;
+}
+
+.annotation-optional {
+  font-weight: 650;
+  color: #64748b;
+}
+
+.annotation-fields select,
+.annotation-fields input[type="text"],
+.annotation-fields textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid #c5d4e8;
+  background: #fff;
+  color: #0f172a;
+}
+
+.annotation-fields select:focus,
+.annotation-fields input[type="text"]:focus,
+.annotation-fields textarea:focus {
+  outline: none;
+  border-color: #002080;
+  box-shadow: 0 0 0 3px rgba(0, 32, 128, 0.12);
+}
+
+.annotation-text-area {
+  min-height: 7.2rem;
+  font-family: "Times New Roman", Times, serif;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  resize: vertical;
+}
+
+.annotation-fields-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 8px 0 4px;
+}
+
+.btn-annotation-fill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 32, 128, 0.22);
+  background: linear-gradient(180deg, #f4f7ff 0%, #e4ecfb 100%);
+  color: #002080;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-annotation-fill svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-annotation-fill:hover {
+  background: linear-gradient(180deg, #ffffff 0%, #dce6f8 100%);
+  border-color: #002080;
+}
+
+.annotation-fields-hint {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.annotation-admin-form {
+  margin: 0 0 14px;
+}
+
+.annotation-admin-form .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+@media (max-width: 720px) {
+  .annotation-fields-head {
+    flex-wrap: wrap;
+  }
+  .annotation-fields-badge {
+    margin-left: 50px;
+  }
+}
+
+.record-annotation-card {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+}
+
+.record-annotation-card .doc-annotation-stamp {
+  position: static;
+  left: auto;
+  right: auto;
+  border: 1px solid #111;
+}
+
+.record-annotation-card .doc-annotation-text,
+.record-annotation-card .doc-annotation-signatory {
+  font-size: 0.78rem;
+}
+
+.record-annotation-card .doc-annotation-title {
+  font-size: 0.7rem;
+}
+
+@media print {
+  .doc-annotation-stamp.is-empty {
+    display: none !important;
+  }
+  .print-original-wrap .doc-annotation-stamp {
+    padding: 6px 10px 8px;
+  }
+  .print-original-wrap .doc-annotation-text {
+    font-size: 9pt;
+  }
+  .print-original-wrap .doc-annotation-signatory {
+    font-size: 9pt;
+  }
+  .print-original-wrap .doc-annotation-title {
+    font-size: 8pt;
+  }
+}

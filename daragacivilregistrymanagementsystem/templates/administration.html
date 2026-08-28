@@ -14,7 +14,7 @@
       </div>
       <div class="admin-title-text">
         <h1 class="page-title">Administration</h1>
-        <p class="page-state">{% if tab == 'dashboard' %}Manage users, edit requests, system logs, backups, and registry data.{% else %}Manage users, edit requests, logs, and backups.{% endif %}</p>
+        <p class="page-state">{% if tab == 'dashboard' %}Review queues, registry counts, users, logs, backups, and reports.{% else %}Manage users, edit requests, logs, and backups.{% endif %}</p>
       </div>
     </div>
     <div class="admin-header-actions">
@@ -36,6 +36,7 @@
     <a href="{{ url_for('administration', tab='print_logs') }}" class="admin-tab {% if tab == 'print_logs' %}active{% endif %}">Print logs</a>
     <a href="{{ url_for('administration', tab='audit') }}" class="admin-tab {% if tab == 'audit' %}active{% endif %}">Audit log</a>
     <a href="{{ url_for('administration', tab='users') }}" class="admin-tab {% if tab == 'users' %}active{% endif %}">Users</a>
+    <a href="{{ url_for('civil_registry_reports') }}" class="admin-tab">Reports</a>
     <a href="{{ url_for('administration', tab='backup_restore') }}" class="admin-tab {% if tab == 'backup_restore' %}active{% endif %}">Backup/Restore Data</a>
   </nav>
 
@@ -60,12 +61,12 @@
         <a href="{{ url_for('administration', tab='users') }}" class="admin-stat-card admin-stat-card-link">
           <span class="admin-stat-label"><span class="admin-stat-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span> Users</span>
           <span class="admin-stat-value">{{ users_count }}</span>
-          <span class="admin-stat-sub">Staff &amp; admin accounts</span>
+          <span class="admin-stat-sub">{{ staff_count }} staff · {{ admin_users_count }} admin</span>
         </a>
         <a href="{{ url_for('administration', tab='audit') }}" class="admin-stat-card admin-stat-card-link">
           <span class="admin-stat-label"><span class="admin-stat-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg></span> Audit log</span>
           <span class="admin-stat-value">{{ audit_recent_count }}</span>
-          <span class="admin-stat-sub">Activity logs recorded</span>
+          <span class="admin-stat-sub">{{ audit_recent_count }} entries in the log</span>
         </a>
       </div>
 
@@ -149,33 +150,59 @@
         <div class="admin-qa-grid">
           <a href="{{ url_for('administration', tab='edit_requests') }}" class="admin-qa-card">
             <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/></svg></span>
-            <span class="admin-qa-title">Edit requests</span>
-            <span class="admin-qa-meta">{{ pending_count }} pending · Review changes</span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Edit requests</span>
+              <span class="admin-qa-meta">{{ pending_count }} pending · approve or reject record changes</span>
+            </span>
+          </a>
+          <a href="{{ url_for('administration', tab='print_requests') }}" class="admin-qa-card">
+            <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg></span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Print requests</span>
+              <span class="admin-qa-meta">{{ pending_print_count }} pending · staff still need approval to print</span>
+            </span>
           </a>
           <a href="{{ url_for('administration', tab='print_logs') }}" class="admin-qa-card">
             <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/></svg></span>
-            <span class="admin-qa-title">Print logs</span>
-            <span class="admin-qa-meta">Staff print activity</span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Print logs</span>
+              <span class="admin-qa-meta">Who printed, when, and which record</span>
+            </span>
           </a>
           <a href="{{ url_for('administration', tab='audit') }}" class="admin-qa-card">
             <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg></span>
-            <span class="admin-qa-title">Audit log</span>
-            <span class="admin-qa-meta">Activity history</span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Audit log</span>
+              <span class="admin-qa-meta">{{ audit_recent_count }} entries · sign-in, edits, and system events</span>
+            </span>
           </a>
           <a href="{{ url_for('administration', tab='users') }}" class="admin-qa-card">
             <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
-            <span class="admin-qa-title">Users</span>
-            <span class="admin-qa-meta">{{ users_count }} accounts · Manage roles</span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Users</span>
+              <span class="admin-qa-meta">{{ users_count }} accounts · {{ staff_count }} staff, {{ admin_users_count }} admin</span>
+            </span>
+          </a>
+          <a href="{{ url_for('civil_registry_reports') }}" class="admin-qa-card">
+            <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 9.2h3V19H5zM10.6 5h2.8v14h-2.8zm5.6 8H19v6h-2.8z"/></svg></span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Reports</span>
+              <span class="admin-qa-meta">Official birth, marriage, and death registers</span>
+            </span>
           </a>
           <a href="{{ url_for('administration', tab='backup_restore') }}" class="admin-qa-card">
             <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg></span>
-            <span class="admin-qa-title">Backup / Restore</span>
-            <span class="admin-qa-meta">Export &amp; import data</span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Backup / Restore</span>
+              <span class="admin-qa-meta">Export and import the local vault</span>
+            </span>
           </a>
           <a href="{{ url_for('archiving') }}" class="admin-qa-card">
             <span class="admin-qa-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
-            <span class="admin-qa-title">Archiving</span>
-            <span class="admin-qa-meta">Browse saved records</span>
+            <span class="admin-qa-copy">
+              <span class="admin-qa-title">Archiving</span>
+              <span class="admin-qa-meta">{{ total_records }} saved records · birth {{ birth_count }}, marriage {{ marriage_count }}, death {{ death_count }}</span>
+            </span>
           </a>
         </div>
       </section>
@@ -304,7 +331,7 @@
     </script>
 
   {% elif tab == 'edit_requests' %}
-    <div class="admin-section main-card">
+    <div class="admin-section main-card admin-section--table-scroll">
       <h2 class="section-title">Edit requests</h2>
       <p class="section-desc">Approve or reject staff requests to edit civil records. Approved requests receive a 5-digit code for the staff to complete the edit.</p>
       <form method="get" action="{{ url_for('administration') }}" class="request-doc-type-filter admin-doc-type-filter">
@@ -318,19 +345,19 @@
         </select>
       </form>
       {% if edit_requests %}
-        <div class="table-wrap admin-requests-table-wrap">
-          <table class="table admin-requests-table">
+        <div class="table-wrap admin-requests-table-wrap admin-edit-requests-table-wrap">
+          <table class="table admin-requests-table admin-edit-requests-table">
             <thead>
               <tr>
-                <th class="col-id">ID</th>
-                <th class="col-record">Record</th>
-                <th class="col-view">View</th>
-                <th class="col-type">Type</th>
-                <th class="col-status">Status</th>
-                <th class="col-staff">Requested by</th>
-                <th class="col-requested">Requested at</th>
-                <th class="col-reason">Reason</th>
-                <th class="col-actions">Actions</th>
+                <th class="col-id" scope="col">ID</th>
+                <th class="col-record" scope="col">Record</th>
+                <th class="col-view" scope="col">View</th>
+                <th class="col-type" scope="col">Type</th>
+                <th class="col-status" scope="col">Status</th>
+                <th class="col-staff" scope="col">Staff</th>
+                <th class="col-requested" scope="col">Requested</th>
+                <th class="col-reason" scope="col">Reason</th>
+                <th class="col-actions" scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -340,16 +367,22 @@
                   <td class="col-record">{{ req.record.registry_number or '—' if req.record else '—' }}</td>
                   <td class="col-view">
                     {% if req.record %}
-                      <a href="{{ url_for('record_detail', record_id=req.record_id) }}" class="btn btn-secondary btn-sm">Open record</a>
+                      <a href="{{ url_for('record_detail', record_id=req.record_id) }}" class="btn btn-secondary btn-sm">Open</a>
                     {% else %}
                       —
                     {% endif %}
                   </td>
-                  <td class="col-type">{{ document_types.get(req.record.document_type, req.record.document_type) if req.record else '—' }}</td>
+                  <td class="col-type">
+                    {% if req.record %}
+                      <span class="doc-type-short doc-type-short--{{ req.record.document_type }}">{{ req.record.document_type | capitalize }}</span>
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
                   <td class="col-status"><span class="status-badge status-{{ req.status | lower }}">{{ req.status }}</span></td>
                   <td class="col-staff">{{ req.requested_by.username if req.requested_by else '—' }}</td>
                   <td class="col-requested">{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else '—' }}</td>
-                  <td class="col-reason cell-reason">{{ req.reason or '—' }}</td>
+                  <td class="col-reason cell-reason" title="{{ req.reason or '' }}">{{ req.reason or '—' }}</td>
                   <td class="col-actions cell-actions">
                     {% if req.status == 'PENDING' %}
                       <div class="request-actions">
@@ -385,7 +418,7 @@
     </div>
 
   {% elif tab == 'print_requests' %}
-    <div class="admin-section main-card">
+    <div class="admin-section main-card admin-section--table-scroll">
       <h2 class="section-title">Print requests</h2>
       <p class="section-desc">Approve or reject staff requests to print civil records. Each approved request allows one print; staff must request again for another copy.</p>
       <form method="get" action="{{ url_for('administration') }}" class="request-doc-type-filter admin-doc-type-filter">
@@ -621,7 +654,7 @@
     </div>
 
   {% elif tab == 'backup_restore' %}
-    <div class="admin-section main-card">
+    <div class="admin-section main-card backup-restore-page">
       <h2 class="section-title">Backup / Restore Data</h2>
 
       <div class="backup-restore-card backup-auto-card">

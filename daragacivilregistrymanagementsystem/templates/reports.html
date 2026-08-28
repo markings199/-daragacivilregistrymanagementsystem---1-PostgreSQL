@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Civil Registry Reports{% endblock %}
+{% block body_class %}page-registry-reports{% if focus %} reg-focus{% endif %}{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/civil_registry_reports.css') }}" />
+{% endblock %}
+
+{% block content %}
+  <div class="page-header reports-page-header">
+    <div class="reports-header-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="8" y1="13" x2="16" y2="13" />
+        <line x1="8" y1="17" x2="16" y2="17" />
+      </svg>
+    </div>
+    <div class="reports-header-text">
+      <h1 class="page-title">Civil Registry Reports</h1>
+      <p class="page-state">Official Birth, Death, and Marriage registers from saved records.</p>
+    </div>
+  </div>
+
+    <form class="reg-toolbar" method="get" action="{{ url_for('civil_registry_reports') }}">
+    {% if focus %}<input type="hidden" name="focus" value="1" />{% endif %}
+    <input type="hidden" name="doc_type" value="{{ doc_type }}" />
+    <div class="reg-toolbar-controls">
+    <div class="reg-doc-types" role="navigation" aria-label="Document type">
+      <span class="reg-doc-label">Document type</span>
+      <div class="reg-doc-row">
+        <a class="reg-doc-btn {% if doc_type == 'birth' %}is-active{% endif %}" href="{{ url_for('civil_registry_reports', **doc_links.birth) }}">Birth</a>
+        <a class="reg-doc-btn {% if doc_type == 'death' %}is-active{% endif %}" href="{{ url_for('civil_registry_reports', **doc_links.death) }}">Death</a>
+        <a class="reg-doc-btn {% if doc_type == 'marriage' %}is-active{% endif %}" href="{{ url_for('civil_registry_reports', **doc_links.marriage) }}">Marriage</a>
+      </div>
+    </div>
+    <label>
+      Year
+      <select name="year" onchange="this.form.submit()">
+        <option value="">All years</option>
+        {% for y in year_options %}
+          <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% if barangay_options %}
+    <label>
+      Barangay
+      <select name="barangay" onchange="this.form.submit()">
+        <option value="">All barangays</option>
+        {% for b in barangay_options %}
+          <option value="{{ b }}" {% if barangay == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <label>
+      Rows
+      <select name="per_page" onchange="this.form.submit()">
+        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+      </select>
+    </label>
+    {% if focus %}
+    <div class="reg-zoom-controls" aria-label="Form zoom">
+      <span class="reg-doc-label">Zoom</span>
+      <div class="reg-zoom-row">
+        <button type="button" class="btn btn-secondary" id="reg-zoom-out" title="Zoom out">−</button>
+        <button type="button" class="btn btn-primary" id="reg-zoom-fit" title="See the full register width">Fit form</button>
+        <span class="reg-zoom-pct" id="reg-zoom-pct">100%</span>
+        <button type="button" class="btn btn-secondary" id="reg-zoom-in" title="Zoom in">+</button>
+        <button type="button" class="btn btn-secondary" id="reg-zoom-100">100%</button>
+      </div>
+    </div>
+    {% endif %}
+    </div>
+    <div class="reg-actions">
+      {% if focus %}
+        <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports', doc_type=doc_type, focus=1) }}">Clear</a>
+      {% else %}
+        <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports', doc_type=doc_type) }}">Clear</a>
+      {% endif %}
+      {% if focus %}
+        <a class="btn btn-primary reg-btn-lead" href="{{ url_for('civil_registry_reports', **exit_focus_args) }}">Exit focus</a>
+      {% else %}
+        <a class="btn btn-primary reg-btn-lead" href="{{ url_for('civil_registry_reports', **enter_focus_args) }}">Focus form</a>
+      {% endif %}
+      <button type="button" class="btn btn-secondary" onclick="window.print()">Print PDF</button>
+      <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports_excel', **excel_args) }}">Excel</a>
+    </div>
+  </form>
+
+  <div class="reg-status">
+    <span class="reg-status-meta">
+      <strong>{{ filtered_count }}</strong> record{% if filtered_count != 1 %}s{% endif %}
+      <span class="reg-status-dot" aria-hidden="true"></span>
+      Page {{ page }} of {{ total_pages }}
+    </span>
+    <span class="reg-pager">
+      {% if page > 1 %}
+        <a href="{{ url_for('civil_registry_reports', page=page-1, **query_args) }}">Prev</a>
+      {% endif %}
+      {% if page < total_pages %}
+        <a href="{{ url_for('civil_registry_reports', page=page+1, **query_args) }}">Next</a>
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="reg-scroll">
+    <div class="reg-zoom-stage">
+    {% if doc_type == 'death' %}
+      {% include '_register_death.html' %}
+    {% elif doc_type == 'marriage' %}
+      {% include '_register_marriage.html' %}
+    {% else %}
+      {% include '_register_birth.html' %}
+    {% endif %}
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/civil_registry_reports.js') }}"></script>
+{% endblock %}

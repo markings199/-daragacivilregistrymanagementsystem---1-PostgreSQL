@@ -14,7 +14,7 @@
 
   <div class="main-card">
     <h2 class="section-title">Submit print request to admin</h2>
-    <p class="section-desc">Choose whether you need the <strong>original scanned certificate</strong> or the <strong>official certification form</strong>. Admin will approve that specific print type.</p>
+    <p class="section-desc">Choose the <strong>original scanned certificate</strong>, the <strong>official certification form</strong>, or <strong>both copies</strong> in one print. Admin will approve that specific print type.</p>
     {% if has_pending %}
       <p class="section-desc">You already have a pending print request for this record. Wait for admin approval.</p>
       <div class="button-row">
@@ -22,7 +22,7 @@
       </div>
     {% else %}
       <form method="post" action="{{ url_for('request_print', record_id=record.id) }}">
-        {% with doc_type=record.document_type, has_image=record.image_path, selected=PRINT_FORMAT_ORIGINAL %}
+        {% with doc_type=record.document_type, has_image=record.image_path, selected=PRINT_FORMAT_BOTH %}
           {% include '_print_format_field.html' %}
         {% endwith %}
         <div class="field">

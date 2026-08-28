@@ -9,8 +9,8 @@ from typing import Dict, Any, List
 
 import cv2
 import numpy as np
-from ocr_shared import run_ocr_on_image
-from template_engine import extract_from_ocr_text, ocr_pages_to_text
+from ocr.shared import run_ocr_on_image
+from ocr.engine import extract_from_ocr_text, ocr_pages_to_text
 
 
 # =========================================================
@@ -1031,8 +1031,9 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     split_x = infer_column_split_from_headers(items, name_label, working_xmax, img_w, img_h)
     if split_x is None:
         split_x = infer_column_split_from_name(items, name_label, working_xmax, img_w)
-    
-    print("COLUMN SPLIT POSITION:", split_x)
+
+    if DEBUG_LABELS:
+        print("COLUMN SPLIT POSITION:", split_x)
 
     # EXTRACTION
     data = {"husband": {}, "wife": {}, "shared": {}}

@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
 BASE_DIR = Path(__file__).resolve().parent
-TEMPLATE_ROOT = BASE_DIR / "templates"
+TEMPLATE_ROOT = BASE_DIR / "forms"
 
 
 def _norm(s: str) -> str:

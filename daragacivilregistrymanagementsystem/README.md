@@ -24,7 +24,20 @@ Offline web application for the **Municipality of Daraga** civil registry: scan/
    python app.py
    ```
 
-5. Open `http://127.0.0.1:5000` in your browser.
+5. Open `http://127.0.0.1:5001` in your browser.
+
+**Folder layout** (do not move `uploads/`, `backups/`, or `civil_registry.db`):
+
+| Folder | Purpose |
+|--------|---------|
+| `app.py`, `models.py` | Application entry and database models |
+| `templates/` | HTML pages (Jinja) |
+| `static/` | CSS, JavaScript, seal image |
+| `ocr/` | OCR engines and form JSON (`ocr/forms/`) |
+| `services/` | Backup, print, annotation, scanner |
+| `scripts/` | Optional tools (sample seed, OCR demo) |
+| `uploads/` | Scanned certificates (runtime data) |
+| `backups/` | Automatic and restore copies (runtime data) |
 
 > Local data (`civil_registry.db`, `uploads/`, `backups/`) is created on your machine and is **not** included in Git—only the application source is published.
 

@@ -1,32 +1,21 @@
 {% extends "base.html" %}
-
 {% block title %}Review Birth Certificate Data{% endblock %}
+{% block body_class %}page-form-review{% endblock %}
 {% block step_scan %}active{% endblock %}
 {% block step_review %}active{% endblock %}
 
 {% block content %}
-  <style>
-    .field-hint { margin-top: 4px; font-size: 11px; color: #5f6b7a; }
-    .field-hint-high { color: #1f7a1f; }
-    .field-hint-medium { color: #9a6b00; }
-    .field-hint-low { color: #b23a3a; }
-  </style>
-  <div class="page-header">
-    <h1 class="page-title">Review Birth Certificate</h1>
-    <p class="page-state">Correct any OCR fields, then confirm to save.</p>
-  </div>
-
-  <div class="workflow-pills">
-    <span class="pill pill-state">State: <strong>Review</strong></span>
-    <span class="pill pill-state">Next: <strong>Confirm</strong></span>
-  </div>
+  {% set review_title = 'Review Birth Certificate' %}
+  {% include '_form_review_hero.html' %}
 
   <form method="post" action="{{ url_for('confirm', doc_type='birth') }}">
     <input type="hidden" name="image_filename" value="{{ image_filename }}" />
 
     <div class="scan-workflow-grid form-review-page-grid">
-      <div class="main-card scan-workflow-preview-card">
-        <h2 class="section-title">Original certificate</h2>
+      <div class="main-card scan-workflow-preview-card form-review-preview">
+        <div class="form-review-card-head">
+          <h2 class="section-title">Original certificate</h2>
+        </div>
         <div class="scan-preview-viewer-inner">
           {% if image_filename %}
             {% set image_url = url_for('serve_upload', path=image_filename) %}
@@ -41,33 +30,26 @@
       </div>
 
       <div class="main-card form-review-meta">
-        <h2 class="section-title">Extracted metadata</h2>
+        <div class="form-review-card-head">
+          <h2 class="section-title">Extracted metadata</h2>
+        </div>
         <div class="form-meta-scroll">
           {% set confidence = data.get('__confidence__', {}) %}
           {% set source = data.get('__source__', {}) %}
           <div class="confirm-grid">
             {% for key in ['Registry Number', 'Date of Registration', 'Name of Child', 'Sex', 'Date of Birth', 'Place of Birth', 'Name of Mother', 'Citizenship of Mother', 'Name of Father', 'Citizenship of Father', 'Date of Marriage of Parents', 'Place of Marriage of Parents', 'Remarks'] %}
-              {% set val = data.get(key, '') or '' %}
-              {% set conf = confidence.get(key, 'LOW') %}
-              {% set src = source.get(key, 'layout') %}
-              <div class="form-meta-field">
-                <div class="confirm-item-label">{{ key }}</div>
-                <div class="confirm-item-value">
-                  <input id="field_{{ loop.index }}" name="{{ key }}" value="{{ val }}" type="text" autocomplete="off" />
-                </div>
-                <div class="field-hint field-hint-{{ conf|lower }}">
-                  Confidence: {{ conf }}{% if src == 'template' %} · template fallback{% endif %}
-                </div>
-              </div>
+              {% set field_id = 'field_' ~ loop.index %}
+              {% include '_ocr_meta_field.html' %}
             {% endfor %}
           </div>
+          {% include '_document_annotation_fields.html' %}
         </div>
 
         <div class="button-row form-review-actions">
-          <a href="{{ url_for('search_records') }}" class="btn btn-primary">Back to Search</a>
+          <a href="{{ url_for('search_records') }}" class="btn btn-secondary">Back to Search</a>
           <button
             type="submit"
-            class="btn btn-primary"
+            class="btn btn-secondary"
             formaction="{{ url_for('autofilled_form_cancel') }}"
             formmethod="post"
             onclick="return confirm('Cancel this auto-filled form review? Unsaved changes will be lost.');"
@@ -77,7 +59,7 @@
           {% if image_filename and current_user and (current_user.role or '')|upper == 'STAFF' and not can_print %}
             <button type="button" class="btn btn-secondary" disabled title="Staff need admin approval to print">Print (admin approval)</button>
           {% endif %}
-          <button type="submit" class="btn btn-primary">Confirm birth data</button>
+          <button type="submit" class="btn btn-primary form-review-confirm">Confirm birth data</button>
         </div>
       </div>
     </div>

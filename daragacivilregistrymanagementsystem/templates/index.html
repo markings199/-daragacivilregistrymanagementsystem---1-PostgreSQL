@@ -2,339 +2,384 @@
 {% block title %}Scan Workflow{% endblock %}
 {% block body_class %}page-scan-workflow{% endblock %}
 
-{% block sidebar_extra %}
-<div class="scanflow-sidebar-vault-pill" role="note">
-  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C7.58 3 4 4.79 4 7v10c0 2.21 3.58 4 8 4s8-1.79 8-4V7c0-2.21-3.58-4-8-4zm6 14c0 .55-2.69 2-6 2s-6-1.45-6-2v-2.23c1.61.78 3.72 1.23 6 1.23s4.39-.45 6-1.23V17zm0-4.55c-1.3.75-3.51 1.55-6 1.55s-4.7-.8-6-1.55V8.52c1.49.72 3.52 1.48 6 1.48s4.51-.76 6-1.48v3.93zM12 10c-2.48 0-4.51-.76-6-1.48C7.49 6.28 9.71 5 12 5s4.51 1.28 6 3.52c-1.49.72-3.51 1.48-6 1.48z"/></svg>
-  <span>Local vault · Secure</span>
-</div>
-{% endblock %}
-
 {% block extra_head %}
 <style>
   body.page-scan-workflow .main {
     padding: 12px 16px 20px;
   }
-  .scanflow-hero-wrap { margin: 0 0 12px; }
+  .scanflow-hero-wrap { margin: 0 0 10px; }
   .scanflow-hero {
-    background: linear-gradient(180deg, #ffffff 0%, #eef4fc 100%);
-    border-radius: 14px;
-    padding: 14px 18px 12px;
-    border: 1px solid rgba(0, 32, 128, 0.2);
-    box-shadow: 0 6px 22px rgba(0, 32, 128, 0.1), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+    background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+    border-radius: 12px;
+    padding: 0;
+    border: 1px solid rgba(0, 32, 128, 0.28);
+    box-shadow: 0 6px 20px rgba(0, 32, 128, 0.18);
+    overflow: hidden;
   }
-  .scanflow-hero-inner {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+  .scanflow-hero-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
     gap: 10px 16px;
+    padding: 10px 14px;
   }
-  .scanflow-hero-status {
-    grid-column: 1 / -1;
-    margin: 0;
-    padding: 10px 0 0;
-    border-top: 1px solid rgba(0, 32, 128, 0.12);
-  }
-  .scanflow-state-strip {
+  .scanflow-hero-brand {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
-    width: 100%;
+    gap: 12px;
     min-width: 0;
   }
-  .scanflow-status-chip {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 8px;
-    max-width: 100%;
-    min-width: 0;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: linear-gradient(180deg, #f4f8ff 0%, #e2ecfb 100%);
-    border: 1.5px solid #002080;
-    box-shadow: 0 2px 8px rgba(0, 32, 128, 0.1);
-  }
-  .scanflow-status-lbl {
-    font-size: 0.72rem;
-    font-weight: 800;
-    color: #475569;
-  }
-  .scanflow-status-val-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 0;
-    font-size: clamp(0.75rem, 0.35vw + 0.7rem, 0.88rem);
-    font-weight: 900;
-    letter-spacing: 0.06em;
-    color: #002080;
-  }
-  .scanflow-status-val-wrap .scanflow-status-ic {
-    width: 15px;
-    height: 15px;
+  .scanflow-hero-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     flex-shrink: 0;
-    fill: #002080;
-  }
-  .scanflow-state-check[hidden] { display: none !important; }
-
-  .scanflow-hero-left {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    min-width: 0;
-  }
-  .scanflow-hero-logo {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background: linear-gradient(165deg, #1e40af 0%, #002080 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 3px 12px rgba(0, 32, 128, 0.28);
-    border: 1px solid rgba(0, 32, 128, 0.15);
+    color: #fff;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
-  .scanflow-hero-logo svg {
-    width: 22px;
-    height: 22px;
-    fill: #ffffff;
+  .scanflow-hero-mark svg {
+    width: 18px;
+    height: 18px;
+  }
+  .scanflow-hero-kicker {
+    margin: 0 0 1px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #93c5fd;
   }
   .scanflow-hero-title {
     margin: 0 0 2px;
-    font-size: 1.2rem;
+    font-size: 1.05rem;
     font-weight: 900;
-    color: #002080;
+    color: #ffffff;
     letter-spacing: -0.02em;
     line-height: 1.15;
   }
   .scanflow-hero-tagline {
-    margin: 0 0 8px;
+    margin: 0;
     font-size: 0.75rem;
     font-weight: 600;
-    color: rgba(15, 23, 42, 0.55);
+    color: #dbe7ff;
+    line-height: 1.35;
+    max-width: 38rem;
   }
-  .scanflow-hero-badges {
+  .scanflow-hero-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
     align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
   }
-  .scanflow-badge {
+  .scanflow-role-chip,
+  .scanflow-meta-chip {
     display: inline-flex;
     align-items: center;
     gap: 5px;
     padding: 4px 10px;
     border-radius: 999px;
-    font-size: 0.65rem;
+    font-size: 0.68rem;
     font-weight: 800;
-    letter-spacing: 0.02em;
-    color: #001a66;
-    background: linear-gradient(180deg, #cfe0ff 0%, #b6d0fb 100%);
-    border: 1px solid rgba(0, 32, 128, 0.22);
-    box-shadow: 0 1px 4px rgba(0, 32, 128, 0.07);
+    letter-spacing: 0.03em;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    white-space: nowrap;
   }
-  .scanflow-badge svg {
+  .scanflow-role-chip {
+    background: #7dd3fc;
+    border-color: #7dd3fc;
+    color: #0f172a;
+    letter-spacing: 0.06em;
+  }
+  .scanflow-meta-chip svg {
     width: 12px;
     height: 12px;
     flex-shrink: 0;
     opacity: 0.9;
   }
-  .scanflow-hero-right {
+  .scanflow-hero-rail {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    align-self: center;
+    gap: 10px 16px;
+    padding: 7px 14px;
+    background: rgba(0, 10, 40, 0.28);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
   }
-  .scanflow-session-pill {
+  .scanflow-step {
     display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 6px 8px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: linear-gradient(180deg, #e8f2fc 0%, #d7e6f7 100%);
-    border: 1px solid #7c9cc4;
-    font-size: 0.72rem;
+    gap: 8px;
+    min-width: 0;
+  }
+  .scanflow-step-lbl {
+    font-size: 0.62rem;
     font-weight: 800;
-    color: #001a66;
-    box-shadow: 0 1px 6px rgba(0, 32, 128, 0.08);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #93c5fd;
   }
-  .scanflow-session-pill svg {
-    width: 13px;
-    height: 13px;
+  .scanflow-step-val {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+  }
+  .scanflow-step-val svg {
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    opacity: 0.85;
-    fill: currentColor;
+    fill: #7dd3fc;
   }
-  .scanflow-session-pill .scanflow-sep {
-    color: #94a3b8;
-    font-weight: 700;
-    user-select: none;
+  .scanflow-state-check[hidden] { display: none !important; }
+  .scanflow-rail-sep {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
   }
 
   body.page-scan-workflow .scan-workflow-stack { gap: 10px; }
   body.page-scan-workflow .scan-workflow-stack > .main-card.scanflow-form-card {
-    padding: 14px 16px 16px;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #ffffff 0%, #eef4fc 100%);
-    border: 1px solid rgba(0, 32, 128, 0.2);
-    box-shadow: 0 6px 22px rgba(0, 32, 128, 0.1), 0 1px 0 rgba(255, 255, 255, 0.55) inset;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid rgba(0, 32, 128, 0.14);
+    box-shadow: 0 4px 16px rgba(0, 32, 128, 0.08);
   }
   .scanflow-card-head {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin: 0 0 8px;
+    margin: 0;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
   .scanflow-card-head-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    background: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%);
-    border: 1px solid rgba(0, 32, 128, 0.25);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #002080;
+    color: #ffffff;
     flex-shrink: 0;
   }
-  .scanflow-card-head-icon svg { width: 18px; height: 18px; color: #ffffff; fill: currentColor; }
+  .scanflow-card-head-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; }
+  .scanflow-card-head-copy { min-width: 0; }
   .scanflow-card-head h2 {
     margin: 0;
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-weight: 900;
-    color: #002080;
+    color: #ffffff;
     letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  .scanflow-card-sub {
+    margin: 2px 0 0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #dbe7ff;
+    line-height: 1.3;
   }
 
-  .scanflow-form-card form > .scanflow-field-row {
+  .scanflow-form-body {
+    padding: 12px 14px 4px;
+  }
+  .scanflow-form-grid {
     display: grid;
-    grid-template-columns: minmax(120px, 168px) minmax(0, 1fr);
-    gap: 6px 10px;
-    align-items: flex-start;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 14px;
+    margin: 0 0 10px;
+  }
+  .scanflow-form-card form > .scanflow-field-row,
+  .scanflow-form-grid > .scanflow-field-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 5px;
     margin: 0;
-    padding: 6px 0 8px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 0;
+    border: none;
   }
   .scanflow-form-card form > .scanflow-field-row:first-of-type {
-    border-top: 1px solid #e2e8f0;
-    padding-top: 8px;
+    border-top: none;
+    padding-top: 0;
   }
   .scanflow-form-card form > .scanflow-field-row:has(+ .scanflow-actions-primary) {
-    border-bottom: none;
-    padding-bottom: 6px;
+    padding-bottom: 0;
   }
   .scanflow-field-row {
-    display: grid;
-    grid-template-columns: minmax(120px, 168px) minmax(0, 1fr);
-    gap: 6px 10px;
-    align-items: flex-start;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
   }
   .scanflow-field-label-col {
     display: flex;
     align-items: center;
     gap: 6px;
     min-width: 0;
-    padding-top: 4px;
+    padding-top: 0;
   }
   .scanflow-field-ic {
-    width: 18px;
-    height: 18px;
+    width: 15px;
+    height: 15px;
     flex-shrink: 0;
     color: #002080;
+    fill: none;
+    stroke: currentColor;
   }
   .scanflow-field-label-col label,
   .scanflow-field-label-col > span {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     font-weight: 800;
-    color: #314f79;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #475569;
   }
   .scanflow-field-control.field { margin-bottom: 0; }
   body.page-scan-workflow .scanflow-field-control select,
   body.page-scan-workflow .scanflow-field-control input[type="file"] {
-    border-radius: 10px;
-    border-color: #7c9cc4;
-    background: linear-gradient(180deg, #f5f9ff 0%, #e8f0fa 100%);
-    box-shadow: 0 1px 2px rgba(0, 32, 128, 0.05);
-    padding-top: 7px;
-    padding-bottom: 7px;
+    border-radius: 8px;
+    border: 1px solid #c5d4e8;
+    background: #f8fafc;
+    box-shadow: none;
+    padding: 7px 10px;
     font-size: 0.84rem;
+    min-height: 36px;
+  }
+  body.page-scan-workflow .scanflow-field-control select:focus,
+  body.page-scan-workflow .scanflow-field-control input[type="file"]:focus {
+    outline: 2px solid rgba(0, 32, 128, 0.28);
+    outline-offset: 1px;
+    border-color: #002080;
+    background: #fff;
   }
 
   .scanflow-scanner-btns {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
-    min-height: 0;
+    margin-top: 6px;
   }
   .btn-scanflow-ghost {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 7px 12px;
-    border-radius: 10px;
+    padding: 6px 11px;
+    border-radius: 8px;
     font-weight: 800;
-    font-size: 0.8rem;
-    background: linear-gradient(180deg, #f0f6ff 0%, #dce8f8 100%);
-    color: #0f2744;
-    border: 1px solid #6b8cbd;
-    box-shadow: 0 1px 5px rgba(0, 32, 128, 0.07);
+    font-size: 0.75rem;
+    background: #fff;
+    color: #002080;
+    border: 1px solid #b6c9e0;
+    box-shadow: none;
+    min-height: 32px;
   }
-  .btn-scanflow-ghost:hover { background: linear-gradient(180deg, #ffffff 0%, #e8f0fa 100%); border-color: #002080; }
-  .btn-scanflow-ghost svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.9; }
+  .btn-scanflow-ghost:hover { background: #eef4fc; border-color: #002080; }
+  .btn-scanflow-ghost svg { width: 14px; height: 14px; flex-shrink: 0; fill: none; stroke: currentColor; }
+
+  .scanflow-actions-primary #ocr-loading {
+    flex: 1 1 100%;
+    width: 100%;
+  }
 
   .scanflow-actions-primary {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 6px;
-    padding-top: 10px;
-    border-top: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px 0 4px;
+    border-top: 1px solid #e8eef6;
+    overflow: visible;
+  }
+  .scanflow-ocr-hint {
+    margin: 0;
+    flex: 1 1 14rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1.35;
   }
   .btn-scanflow-primary {
-    width: 100%;
+    width: auto;
+    min-width: 9.5rem;
     justify-content: center;
     gap: 8px;
-    padding: 10px 14px;
-    min-height: 40px;
-    border-radius: 12px;
-    font-size: 0.86rem;
+    padding: 8px 16px;
+    min-height: 38px;
+    border-radius: 8px;
+    font-size: 0.84rem;
     font-weight: 800;
+    margin-left: auto;
   }
-  .btn-scanflow-primary svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .btn-scanflow-primary svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; }
+  .btn-scanflow-primary.is-running .btn-ocr-idle-ic { display: none; }
+  .btn-scanflow-primary .btn-ocr-spin {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: scanflow-ocr-spin 0.7s linear infinite;
+  }
+  .btn-scanflow-primary.is-running .btn-ocr-spin { display: inline-block; }
+  @keyframes scanflow-ocr-spin {
+    to { transform: rotate(360deg); }
+  }
 
   input.scanflow-file-native::file-selector-button {
     margin-right: 10px;
-    padding: 7px 12px;
-    border-radius: 9px;
-    border: 1px solid rgba(0, 32, 128, 0.2);
-    background: linear-gradient(180deg, #e8eeff 0%, #dbe4ff 100%);
+    padding: 5px 11px;
+    border-radius: 7px;
+    border: 1px solid rgba(0, 32, 128, 0.18);
+    background: #e8eefc;
     color: #002080;
     font-weight: 800;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     cursor: pointer;
   }
   input.scanflow-file-native::-webkit-file-upload-button {
     margin-right: 10px;
-    padding: 7px 12px;
-    border-radius: 9px;
-    border: 1px solid rgba(0, 32, 128, 0.2);
-    background: linear-gradient(180deg, #e8eeff 0%, #dbe4ff 100%);
+    padding: 5px 11px;
+    border-radius: 7px;
+    border: 1px solid rgba(0, 32, 128, 0.18);
+    background: #e8eefc;
     color: #002080;
     font-weight: 800;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     cursor: pointer;
   }
 
   .scanflow-preview-below-wrap {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(0, 32, 128, 0.14);
+    margin: 8px 14px 14px;
+    padding: 12px 12px 12px;
+    border-top: none;
+    border: 1px solid #e2eaf4;
+    border-radius: 10px;
+    background: #f8fafc;
   }
   .scanflow-preview-head {
     display: flex;
@@ -342,52 +387,61 @@
     gap: 8px;
     margin-bottom: 8px;
   }
-  .scanflow-preview-head .section-title { margin: 0; font-size: 0.95rem; }
+  .scanflow-preview-head .section-title {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #002080;
+  }
   .scanflow-preview-head-ic {
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
-    background: linear-gradient(180deg, #93c5fd 0%, #60a5fa 100%);
-    border: 1px solid rgba(0, 32, 128, 0.25);
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #002080;
+    border: 1px solid #001a66;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
   }
-  .scanflow-preview-head-ic svg { width: 16px; height: 16px; fill: currentColor; }
+  .scanflow-preview-head-ic svg { width: 13px; height: 13px; fill: currentColor; }
   .scanflow-preview-shell {
-    border: 2px dashed #5c7fad;
-    border-radius: 14px;
-    padding: 10px 12px 12px;
-    background: linear-gradient(180deg, #d7e6f7 0%, #c8daf0 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+    border: 1px dashed #94a3b8;
+    border-radius: 8px;
+    padding: 8px;
+    background: #ffffff;
+    box-shadow: none;
+    min-height: 140px;
   }
   .scan-preview-empty.scanflow-preview-empty-inner {
     margin: 0;
-    padding: 20px 16px;
+    padding: 28px 16px;
     border: none;
-    border-radius: 14px;
+    border-radius: 8px;
     background: transparent;
     color: #64748b;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 600;
     text-align: center;
   }
   .scanflow-preview-placeholder-ic {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     margin: 0 auto 8px;
-    border-radius: 10px;
-    background: linear-gradient(180deg, #bfdbfe 0%, #93c5fd 100%);
-    border: 1px solid rgba(0, 32, 128, 0.22);
+    border-radius: 8px;
+    background: #eef2f7;
+    border: 1px solid #e2e8f0;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #0f2744;
+    color: #64748b;
   }
-  .scanflow-preview-placeholder-ic svg { width: 22px; height: 22px; }
+  .scanflow-preview-placeholder-ic svg { width: 18px; height: 18px; }
   .scanflow-preview-filename {
-    margin: 10px 0 0;
-    font-size: 0.88rem;
+    margin: 8px 0 0;
+    font-size: 0.78rem;
     font-weight: 700;
     color: #475569;
   }
@@ -396,28 +450,29 @@
   body.page-scan-workflow .scan-preview-viewer-inner {
     margin-top: 0;
     border: none;
-    border-radius: 14px;
-    background: #e8f0fe;
-    box-shadow: inset 0 0 0 1px rgba(0, 32, 128, 0.08);
+    border-radius: 8px;
+    background: #f1f5f9;
+    box-shadow: none;
   }
   body.page-scan-workflow .scan-preview-viewer-inner .document-viewer-title {
     font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
-    font-size: 0.95rem;
-    color: #1d4ed8;
+    font-size: 0.8rem;
+    color: #1e3a67;
   }
   body.page-scan-workflow .scan-preview-viewer-inner .document-viewer-pane {
-    background: #dbeafe;
-    border-color: #bfdbfe;
+    background: #ffffff;
+    border-color: #e2e8f0;
     padding: 0;
   }
 
   @media (max-width: 900px) {
-    .scanflow-hero-inner { grid-template-columns: 1fr; }
-    .scanflow-hero-right { justify-self: start; }
-    .scanflow-hero-title { font-size: 1.05rem; }
+    .scanflow-hero-title { font-size: 1rem; }
+    .scanflow-rail-sep { display: none; }
+    .scanflow-form-grid { grid-template-columns: 1fr; }
     .scanflow-field-row,
     .scanflow-form-card form > .scanflow-field-row { grid-template-columns: 1fr; }
     .scanflow-field-label-col { padding-top: 0; }
+    .btn-scanflow-primary { width: 100%; margin-left: 0; }
   }
   @media (max-width: 980px) {
     body.page-scan-workflow .sidebar { width: 100%; box-shadow: none; }
@@ -425,72 +480,164 @@
 </style>
 {% endblock %}
 
+{% block after_theme %}
+<style>
+  /* Loaded last so the OCR progress panel cannot stay hidden. */
+  #ocr-loading {
+    display: none !important;
+  }
+  body.ocr-busy #ocr-loading,
+  #ocr-loading.is-on,
+  #ocr-loading[aria-busy="true"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: 76px;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 12px 14px 14px;
+    border: 2px solid #002080;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 45%, #ffffff 100%);
+    box-shadow: 0 6px 20px rgba(0, 32, 128, 0.12);
+  }
+  body.ocr-busy #ocr-loading .ocr-loading-head,
+  #ocr-loading.is-on .ocr-loading-head {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  body.ocr-busy #ocr-loading .ocr-loading-track,
+  #ocr-loading.is-on .ocr-loading-track {
+    display: block !important;
+    width: 100%;
+    height: 14px;
+    border-radius: 999px;
+    background: #dbe4ef;
+    overflow: hidden;
+  }
+  body.ocr-busy #ocr-loading .ocr-loading-fill,
+  #ocr-loading.is-on .ocr-loading-fill {
+    display: block !important;
+    height: 100%;
+    min-height: 14px;
+    background: linear-gradient(90deg, #0d9488 0%, #16a34a 55%, #22c55e 100%);
+  }
+
+  /* Old layout: one column — form, OCR bar + progress, then Document preview */
+  body.page-scan-workflow.ocr-busy .scanflow-form-card {
+    display: block;
+  }
+  body.page-scan-workflow.ocr-busy .scanflow-form-card > form {
+    display: block;
+  }
+  body.page-scan-workflow.ocr-busy .scanflow-preview-below-wrap {
+    display: block !important;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: none;
+  }
+  body.page-scan-workflow.ocr-busy .scanflow-actions-primary {
+    position: static;
+    margin-top: 12px;
+    padding-top: 10px;
+    background: transparent;
+  }
+  @media (max-height: 900px) {
+    body.page-scan-workflow .scanflow-hero-wrap {
+      margin-bottom: 8px;
+    }
+    body.page-scan-workflow .scanflow-hero-main {
+      padding: 8px 12px;
+    }
+    body.page-scan-workflow .scan-workflow-stack > .main-card.scanflow-form-card {
+      padding: 0;
+    }
+    body.ocr-busy #ocr-loading,
+    #ocr-loading.is-on {
+      min-height: 64px;
+      padding: 10px 12px 12px;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="scanflow-hero-wrap">
-  <div class="scanflow-hero">
-    <div class="scanflow-hero-inner">
-    <div class="scanflow-hero-left">
-      <div class="scanflow-hero-logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 7h-3v10h-5v-6h-2v6H6V10H3l9-7z"/></svg>
-      </div>
-      <div>
-        <h1 class="scanflow-hero-title">Daraga Civil Registry</h1>
-        <p class="scanflow-hero-tagline">Scan Workflow – Scan or upload, then run OCR.</p>
-        <div class="scanflow-hero-badges">
-          <span class="scanflow-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-            OFFLINE · SECURE
-          </span>
-          <span class="scanflow-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
-            Local vault
-          </span>
+  <header class="scanflow-hero">
+    <div class="scanflow-hero-main">
+      <div class="scanflow-hero-brand">
+        <div class="scanflow-hero-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="12" rx="2"/>
+            <path d="M7 20h10"/>
+            <path d="M9 16v4"/>
+            <path d="M15 16v4"/>
+            <path d="M7 10h10"/>
+          </svg>
+        </div>
+        <div>
+          <p class="scanflow-hero-kicker">Municipality of Daraga · Civil Registry</p>
+          <h1 class="scanflow-hero-title">Scan workflow</h1>
+          <p class="scanflow-hero-tagline">
+            {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
+              Administrator — scan or upload a document, then run OCR.
+            {% else %}
+              Scan or upload a civil registry document, then run OCR.
+            {% endif %}
+          </p>
         </div>
       </div>
-    </div>
-    <div class="scanflow-hero-right">
-      <div class="scanflow-session-pill">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-        <span>SESSION: REG-{% if current_user %}{{ (current_user.username or 'USER')|upper|replace(' ', '') }}-{{ '%03d'|format((current_user.id|default(0)|int) % 1000) }}{% else %}LOCAL-000{% endif %}</span>
-        <span class="scanflow-sep">|</span>
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-        <span>Offline mode</span>
+      <div class="scanflow-hero-meta">
+        <span class="scanflow-role-chip">{% if current_user %}{{ (current_user.role or 'STAFF')|upper }}{% else %}GUEST{% endif %}</span>
+        <span class="scanflow-meta-chip" title="Session">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          REG-{% if current_user %}{{ (current_user.username or 'USER')|upper|replace(' ', '') }}-{{ '%03d'|format((current_user.id|default(0)|int) % 1000) }}{% else %}LOCAL-000{% endif %}
+        </span>
+        <span class="scanflow-meta-chip">Offline · local vault</span>
       </div>
     </div>
-    <div class="scanflow-hero-status" role="status" aria-live="polite">
-      <div class="scanflow-state-strip">
-        <div class="scanflow-status-chip">
-          <span class="scanflow-status-lbl">State:</span>
-          <span class="scanflow-status-val-wrap">
-            <svg class="scanflow-status-ic scanflow-state-check" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-            <span id="workflow-state">—</span>
-          </span>
-        </div>
-        <div class="scanflow-status-chip">
-          <span class="scanflow-status-lbl">Next:</span>
-          <span class="scanflow-status-val-wrap">
-            <svg class="scanflow-status-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-9v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2zm-2 0H5v12h12V4z"/></svg>
-            <span id="workflow-next">Scan</span>
-          </span>
-        </div>
+    <div class="scanflow-hero-rail" role="status" aria-live="polite">
+      <div class="scanflow-step">
+        <span class="scanflow-step-lbl">State</span>
+        <span class="scanflow-step-val">
+          <svg class="scanflow-state-check" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          <span id="workflow-state">—</span>
+        </span>
+      </div>
+      <span class="scanflow-rail-sep" aria-hidden="true"></span>
+      <div class="scanflow-step">
+        <span class="scanflow-step-lbl">Next</span>
+        <span class="scanflow-step-val">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-9v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2zm-2 0H5v12h12V4z"/></svg>
+          <span id="workflow-next">Scan</span>
+        </span>
       </div>
     </div>
-    </div>
-  </div>
+  </header>
 </div>
 
 <div class="scan-workflow-stack">
   <div class="main-card scanflow-form-card">
     <div class="scanflow-card-head">
       <div class="scanflow-card-head-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
       </div>
-      <h2>Scan to Archive</h2>
+      <div class="scanflow-card-head-copy">
+        <h2>Scan to archive</h2>
+        <p class="scanflow-card-sub">Select the document, scan or upload, then run OCR.</p>
+      </div>
     </div>
     <form method="post" action="{{ url_for('index') }}" enctype="multipart/form-data" id="scan-form">
+      <div class="scanflow-form-body">
+      <div class="scanflow-form-grid">
       <div class="scanflow-field-row">
         <div class="scanflow-field-label-col">
-          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
           <label for="document_type">Document type</label>
         </div>
         <div class="scanflow-field-control field">
@@ -504,49 +651,43 @@
 
       <div class="scanflow-field-row">
         <div class="scanflow-field-label-col">
-          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 012-2h10"/></svg>
           <label for="num_scans">Number of scans</label>
         </div>
         <div class="scanflow-field-control field">
           <select id="num_scans" name="num_scans">
-            <option value="1">1 - Front only</option>
-            <option value="2">2 - Front and back</option>
+            <option value="1">1 — Front only</option>
+            <option value="2">2 — Front and back</option>
           </select>
         </div>
+      </div>
       </div>
 
       <div class="scanflow-field-row">
         <div class="scanflow-field-label-col">
-          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm11 11H5v-4c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v4z"/></svg>
+          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 21h10"/><path d="M7 13h.01"/></svg>
           <label for="scanner-device-select">Scanner / device</label>
         </div>
         <div class="scanflow-field-control field">
           <select id="scanner-device-select" disabled>
-            <option value="">- Click "Detect scanner" to list devices -</option>
+            <option value="">Click Detect scanner to list devices</option>
           </select>
+          <div class="scanflow-scanner-btns">
+            <button type="button" class="btn-scanflow-ghost" id="detect-scanner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+              Detect scanner
+            </button>
+            <button type="button" class="btn-scanflow-ghost" id="scan-from-device">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 21h10"/></svg>
+              Scan from printer
+            </button>
+          </div>
         </div>
       </div>
 
       <div class="scanflow-field-row">
         <div class="scanflow-field-label-col">
-          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-          <span>Device</span>
-        </div>
-        <div class="scanflow-scanner-btns">
-          <button type="button" class="btn-scanflow-ghost" id="detect-scanner">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            Detect scanner
-          </button>
-          <button type="button" class="btn-scanflow-ghost" id="scan-from-device">
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 14H8v-4h8v4zm2-4v-2H6v2H4v-4c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v4h-2z"/></svg>
-            Scan from printer
-          </button>
-        </div>
-      </div>
-
-      <div class="scanflow-field-row">
-        <div class="scanflow-field-label-col">
-          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3z"/></svg>
+          <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
           <label for="image">Upload image</label>
         </div>
         <div class="scanflow-field-control field">
@@ -555,27 +696,25 @@
       </div>
 
       <div class="scanflow-actions-primary">
-        <button type="button" class="btn btn-primary btn-scanflow-primary" id="btn-scan">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2h-3.17L15 3H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-          1) Scan (from file)
-        </button>
+        <p class="scanflow-ocr-hint">OCR reads the image and opens the form for review. Nothing is saved until you confirm.</p>
         <button type="submit" class="btn btn-primary btn-scanflow-primary" id="btn-ocr">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-          <span class="btn-ocr-label">3) OCR</span>
+          <svg class="btn-ocr-idle-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+          <span class="btn-ocr-spin" aria-hidden="true"></span>
+          <span class="btn-ocr-label">Run OCR</span>
         </button>
-      </div>
-
-      <div id="ocr-loading" class="ocr-loading" aria-live="polite" aria-busy="false">
-        <div class="ocr-loading-head">
-          <p class="ocr-loading-title">OCR is processing...</p>
-          <span id="ocr-progress-text" class="ocr-loading-percent">1%</span>
-        </div>
-        <div class="ocr-loading-track">
-          <div id="ocr-progress-fill" class="ocr-loading-fill"></div>
+        <div id="ocr-loading" class="ocr-loading" aria-live="polite" aria-busy="false">
+          <div class="ocr-loading-head">
+            <p class="ocr-loading-title">OCR is processing...</p>
+            <span id="ocr-progress-text" class="ocr-loading-percent">1%</span>
+          </div>
+          <div class="ocr-loading-track">
+            <div id="ocr-progress-fill" class="ocr-loading-fill"></div>
+          </div>
         </div>
       </div>
 
       <input type="hidden" name="image_filename" id="image_filename" value="" />
+      </div>
     </form>
 
     <div class="scan-workflow-preview-below scanflow-preview-below-wrap">
@@ -590,7 +729,7 @@
           <span class="scanflow-preview-placeholder-ic" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
           </span>
-          Document preview appears after scan or file load.
+          Upload or scan a file to preview it here, then run OCR.
           <div id="scan-preview-filename" class="scanflow-preview-filename" hidden></div>
         </div>
         <div id="scan-preview-viewer-wrap" class="scan-preview-viewer-inner" hidden>
@@ -635,30 +774,66 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  var ocrFakeTimer = null;
+  var ocrShownProgress = 8;
+
   function updateOcrProgress(value) {
+    if (!ocrProgressFill || !ocrProgressText) return;
     var safeValue = Math.max(1, Math.min(100, value));
+    ocrShownProgress = safeValue;
     ocrProgressFill.style.width = safeValue + '%';
     ocrProgressText.textContent = safeValue + '%';
   }
 
   function startOcrLoading() {
-    updateOcrProgress(1);
-    ocrLoading.style.display = 'block';
-    ocrLoading.setAttribute('aria-busy', 'true');
-    btnOcr.disabled = true;
-    var ocrLbl = btnOcr.querySelector('.btn-ocr-label');
-    if (ocrLbl) ocrLbl.textContent = 'OCR Running...';
+    ocrShownProgress = 12;
+    updateOcrProgress(12);
+    if (ocrLoading) {
+      ocrLoading.classList.add('is-on');
+      ocrLoading.removeAttribute('hidden');
+      ocrLoading.style.setProperty('display', 'block', 'important');
+      ocrLoading.setAttribute('aria-busy', 'true');
+    }
+    document.body.classList.add('ocr-busy');
+    if (btnOcr) {
+      btnOcr.disabled = true;
+      btnOcr.classList.add('is-running');
+      var ocrLbl = btnOcr.querySelector('.btn-ocr-label');
+      if (ocrLbl) ocrLbl.textContent = 'Running OCR…';
+    }
     document.getElementById('workflow-state').textContent = 'OCR PROCESSING';
     document.getElementById('workflow-next').textContent = 'Please wait';
     syncStateCheckIcon();
+    if (ocrLoading && ocrLoading.scrollIntoView) {
+      requestAnimationFrame(function () {
+        ocrLoading.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        reapplyScanPreviewZoom();
+      });
+    }
+    if (ocrFakeTimer) clearInterval(ocrFakeTimer);
+    ocrFakeTimer = setInterval(function () {
+      if (ocrShownProgress >= 90) return;
+      updateOcrProgress(Math.min(90, ocrShownProgress + 7));
+    }, 500);
   }
 
   function resetOcrLoading() {
-    btnOcr.disabled = false;
-    var ocrLbl2 = btnOcr.querySelector('.btn-ocr-label');
-    if (ocrLbl2) ocrLbl2.textContent = '3) OCR';
-    ocrLoading.style.display = 'none';
-    ocrLoading.setAttribute('aria-busy', 'false');
+    if (ocrFakeTimer) {
+      clearInterval(ocrFakeTimer);
+      ocrFakeTimer = null;
+    }
+    document.body.classList.remove('ocr-busy');
+    if (btnOcr) {
+      btnOcr.disabled = false;
+      btnOcr.classList.remove('is-running');
+      var ocrLbl2 = btnOcr.querySelector('.btn-ocr-label');
+      if (ocrLbl2) ocrLbl2.textContent = 'Run OCR';
+    }
+    if (ocrLoading) {
+      ocrLoading.classList.remove('is-on');
+      ocrLoading.style.setProperty('display', 'none', 'important');
+      ocrLoading.setAttribute('aria-busy', 'false');
+    }
     syncStateCheckIcon();
   }
 
@@ -695,14 +870,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
   syncStateCheckIcon();
 
-  fileInput.addEventListener('change', function() {
-    if (this.files.length) {
-      document.getElementById('image_filename').value = '';
-      setPreviewFilename(this.files[0].name);
-    } else {
-      setPreviewFilename('');
-    }
-  });
+  function markReadyForOcr() {
+    document.getElementById('workflow-state').textContent = 'READY';
+    document.getElementById('workflow-next').textContent = 'Click OCR';
+    syncStateCheckIcon();
+  }
 
   document.getElementById('detect-scanner').onclick = function() {
     fetch('{{ url_for("api_scanners") }}').then(function(r){ return r.json(); }).then(function(data) {
@@ -733,27 +905,23 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(function(data) {
         document.getElementById('image_filename').value = data.image_filename || '';
         fileInput.value = '';
-        document.getElementById('workflow-state').textContent = 'SCANNED';
-        document.getElementById('workflow-next').textContent = 'OCR';
-        syncStateCheckIcon();
         var hint = data.image_filename || 'Scanned page';
         if (data.image_url) {
           showScanPreview(data.image_url, hint);
         }
+        markReadyForOcr();
       })
       .catch(function(err){ alert(err && err.error ? err.error : 'Scan failed'); });
   };
 
-  document.getElementById('btn-scan').onclick = function() {
-    if (!(fileInput.files && fileInput.files.length)) { alert('Please choose a file first.'); return; }
-    document.getElementById('image_filename').value = '';
-    var url = URL.createObjectURL(fileInput.files[0]);
-    var name = fileInput.files[0].name;
-    showScanPreview(url, name);
-    document.getElementById('workflow-state').textContent = 'SCANNED';
-    document.getElementById('workflow-next').textContent = 'OCR';
-    syncStateCheckIcon();
-  };
+  fileInput.addEventListener('change', function() {
+    if (this.files && this.files.length) {
+      document.getElementById('image_filename').value = '';
+      var url = URL.createObjectURL(this.files[0]);
+      showScanPreview(url, this.files[0].name);
+      markReadyForOcr();
+    }
+  });
 
   scanForm.onsubmit = function(e) {
     e.preventDefault();
@@ -771,8 +939,11 @@ document.addEventListener('DOMContentLoaded', function() {
           fetch('{{ url_for("api_ocr_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', jobId))
             .then(function(r){ return r.json().then(function(j){ return r.ok ? j : Promise.reject(j); }); })
             .then(function(statusData) {
-              updateOcrProgress(statusData.progress || 1);
+              var serverPct = Number(statusData.progress || 0);
+              if (serverPct > ocrShownProgress) updateOcrProgress(serverPct);
               if (statusData.status === 'done' && statusData.redirect_url) {
+                if (ocrFakeTimer) clearInterval(ocrFakeTimer);
+                updateOcrProgress(100);
                 clearInterval(pollTimer);
                 window.location.href = statusData.redirect_url;
               } else if (statusData.status === 'error') {
@@ -781,7 +952,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(statusData.error || 'OCR failed.');
               }
             })
-            .catch(function(){ clearInterval(pollTimer); resetOcrLoading(); });
+            .catch(function(){ /* keep the progress panel visible if one poll fails */ });
         }, 450);
       })
       .catch(function(err){ resetOcrLoading(); alert(err && err.error ? err.error : 'Unable to start OCR.'); });

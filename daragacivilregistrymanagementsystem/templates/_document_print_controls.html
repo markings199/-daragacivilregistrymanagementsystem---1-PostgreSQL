@@ -1,44 +1,106 @@
 {# Screen-only print controls (picker, approved note, Print button).
    Same context variables as _document_print.html.
-   hide_approved_note: hide the blue approved-format banner (e.g. when shown as a pill elsewhere).
 #}
 {% set _can = can_print|default(false) %}
 {% set _locked = normalize_print_format(locked_print_format) if locked_print_format else '' %}
 {% set _has_image = image_filename or image_url %}
-{% set _show_original = _has_image and (not _locked or _locked == PRINT_FORMAT_ORIGINAL) %}
-{% set _show_cert = (not _locked or _locked == PRINT_FORMAT_CERTIFICATION) %}
-{% set _cert_label = print_format_label(PRINT_FORMAT_CERTIFICATION, doc_type) %}
-{% set _default_mode = _locked if _locked else (PRINT_FORMAT_ORIGINAL if _has_image else PRINT_FORMAT_CERTIFICATION) %}
-
-{% if _can and _show_original and _show_cert %}
-<fieldset class="print-mode-picker no-print">
-  <legend>Print options</legend>
-  <div class="print-mode-options">
-    <label>
-      <input type="radio" name="print_mode" value="original" {% if _default_mode == PRINT_FORMAT_ORIGINAL %}checked{% endif %} />
-      <span><strong>Original document</strong> — scanned certificate image</span>
-    </label>
-    <label>
-      <input type="radio" name="print_mode" value="certification" {% if _default_mode == PRINT_FORMAT_CERTIFICATION %}checked{% endif %} />
-      <span><strong>{{ _cert_label }}</strong> — official certification layout with seal</span>
-    </label>
-  </div>
-</fieldset>
-{% elif _can and _locked and not hide_approved_note|default(false) %}
-<p class="print-approved-format-note no-print">
-  <strong>Approved print:</strong> {{ print_format_label(_locked, doc_type) }}
-</p>
-{% endif %}
+{% set _show_original = _has_image and (not _locked or _locked in [PRINT_FORMAT_ORIGINAL, PRINT_FORMAT_BOTH]) %}
+{% set _show_cert = (not _locked or _locked in [PRINT_FORMAT_CERTIFICATION, PRINT_FORMAT_BOTH]) %}
+{% set _meta = get_form_meta(doc_type) %}
+{% set _default_mode = _locked if _locked else (PRINT_FORMAT_BOTH if _has_image else PRINT_FORMAT_CERTIFICATION) %}
+{% set _picker = _show_original and _show_cert and not _locked %}
 
 {% if _can %}
-  <button
-    type="button"
-    class="btn btn-primary no-print btn-print-document"
-    id="btn-print-document"
-    data-print-log-url="{{ print_log_url or '' }}"
-    data-can-print="1"
-    data-sync-form="{{ '1' if sync_from_form|default(false) else '0' }}"
-    data-locked-print-format="{{ _locked }}"
-    data-default-print-mode="{{ _default_mode }}"
-  >Print</button>
+<div class="print-panel no-print{% if compact_print_panel|default(false) %} print-panel--compact{% endif %}">
+  {% if _picker %}
+  <div class="print-panel-head">
+    <div class="print-panel-head-text">
+      <h2 class="print-panel-title">Print options</h2>
+      <p class="print-panel-subtitle">Choose one copy, or print both in one job</p>
+    </div>
+  </div>
+  <fieldset class="print-mode-picker">
+    <legend class="print-sr-only">Print options</legend>
+    <div class="print-mode-options print-mode-options--three">
+      <label class="print-option-card">
+        <input type="radio" name="print_mode" value="original" {% if _default_mode == PRINT_FORMAT_ORIGINAL %}checked{% endif %} />
+        <span class="print-option-card-inner">
+          <span class="print-option-radio" aria-hidden="true"></span>
+          <span class="print-option-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h6"/></svg>
+          </span>
+          <span class="print-option-copy">
+            <span class="print-option-kicker">Scanned image</span>
+            <span class="print-option-title">Original document</span>
+            <span class="print-option-desc">Print the archived certificate scan as captured</span>
+          </span>
+        </span>
+      </label>
+      <label class="print-option-card">
+        <input type="radio" name="print_mode" value="certification" {% if _default_mode == PRINT_FORMAT_CERTIFICATION %}checked{% endif %} />
+        <span class="print-option-card-inner">
+          <span class="print-option-radio" aria-hidden="true"></span>
+          <span class="print-option-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/><path d="M8 13h8M8 17h5"/></svg>
+          </span>
+          <span class="print-option-copy">
+            <span class="print-option-kicker">CR Form No. {{ _meta.form_no }}</span>
+            <span class="print-option-title">Certification form</span>
+            <span class="print-option-desc">Official layout with municipal seal · {{ _meta.availability|replace('(', '')|replace(')', '') }}</span>
+          </span>
+        </span>
+      </label>
+      <label class="print-option-card">
+        <input type="radio" name="print_mode" value="both" {% if _default_mode == PRINT_FORMAT_BOTH %}checked{% endif %} />
+        <span class="print-option-card-inner">
+          <span class="print-option-radio" aria-hidden="true"></span>
+          <span class="print-option-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="9" height="18" rx="1"/><rect x="13" y="3" width="9" height="18" rx="1"/></svg>
+          </span>
+          <span class="print-option-copy">
+            <span class="print-option-kicker">Two pages</span>
+            <span class="print-option-title">Both copies</span>
+            <span class="print-option-desc">Print the original scan and the certification form together</span>
+          </span>
+        </span>
+      </label>
+    </div>
+  </fieldset>
+  <div class="print-panel-actions">
+    <button
+      type="button"
+      class="btn btn-primary btn-print-document"
+      id="btn-print-document"
+      data-print-log-url="{{ print_log_url or '' }}"
+      data-can-print="1"
+      data-sync-form="{{ '1' if sync_from_form|default(false) else '0' }}"
+      data-locked-print-format="{{ _locked }}"
+      data-default-print-mode="{{ _default_mode }}"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+      Print
+    </button>
+  </div>
+  {% else %}
+  <div class="print-panel-compact-row">
+    <div class="print-panel-head-text">
+      <h2 class="print-panel-title">Print</h2>
+      <p class="print-panel-subtitle">{{ print_format_label(_default_mode, doc_type) }}</p>
+    </div>
+    <button
+      type="button"
+      class="btn btn-primary btn-print-document"
+      id="btn-print-document"
+      data-print-log-url="{{ print_log_url or '' }}"
+      data-can-print="1"
+      data-sync-form="{{ '1' if sync_from_form|default(false) else '0' }}"
+      data-locked-print-format="{{ _locked }}"
+      data-default-print-mode="{{ _default_mode }}"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+      Print
+    </button>
+  </div>
+  {% endif %}
+</div>
 {% endif %}

@@ -1,0 +1,12 @@
+{% set val = data.get(key, '') or '' %}
+{% set conf = confidence.get(key, 'LOW') %}
+{% set src = source.get(key, 'layout') %}
+<div class="form-meta-field">
+  <div class="form-meta-field-head">
+    <span class="confirm-item-label">{% if field_id is defined and field_id %}<label for="{{ field_id }}">{{ key }}</label>{% else %}{{ key }}{% endif %}</span>
+    <span class="ocr-conf ocr-conf-{{ conf|lower }}">{{ conf }}{% if src == 'template' %} · template{% endif %}</span>
+  </div>
+  <div class="confirm-item-value">
+    <input {% if field_id is defined and field_id %}id="{{ field_id }}" {% endif %}name="{{ key }}" value="{{ val }}" type="text" autocomplete="off" />
+  </div>
+</div>
