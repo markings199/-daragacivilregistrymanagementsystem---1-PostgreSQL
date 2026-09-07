@@ -1,81 +1,83 @@
-{% from 'print/_cert_macros.html' import cert_row, cert_payment_row %}
+{% from 'print/_cert_macros.html' import cert_line_row %}
 {% set meta = form_meta %}
 {% include 'print/_cert_header.html' %}
 
 <table class="cert-marriage-hw" aria-label="Husband and wife">
+  <colgroup>
+    <col class="cert-hw-col-label" />
+    <col class="cert-hw-col-colon" />
+    <col class="cert-hw-col-party" />
+    <col class="cert-hw-col-gap" />
+    <col class="cert-hw-col-party" />
+  </colgroup>
   <thead>
     <tr>
       <th></th>
+      <th></th>
       <th>HUSBAND</th>
+      <th></th>
       <th>WIFE</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td class="cert-hw-label">Name :</td>
-      <td data-cert-field="Husband Name">{{ cert_field(data, 'Husband Name') or ' ' }}</td>
-      <td data-cert-field="Wife Name">{{ cert_field(data, 'Wife Name') or ' ' }}</td>
+      <td class="cert-hw-label">Name</td>
+      <td class="cert-hw-colon">:</td>
+      <td class="cert-hw-value" data-cert-field="Husband Name">{{ cert_field(data, 'Husband Name') or '\xa0' }}</td>
+      <td class="cert-hw-gap"></td>
+      <td class="cert-hw-value" data-cert-field="Wife Name">{{ cert_field(data, 'Wife Name') or '\xa0' }}</td>
     </tr>
     <tr>
-      <td class="cert-hw-label">Age :</td>
-      <td data-cert-field="Husband Age">{{ cert_field(data, 'Husband Age') or ' ' }}</td>
-      <td data-cert-field="Wife Age">{{ cert_field(data, 'Wife Age') or ' ' }}</td>
+      <td class="cert-hw-label">Age</td>
+      <td class="cert-hw-colon">:</td>
+      <td class="cert-hw-value" data-cert-field="Husband Age">{{ cert_field(data, 'Husband Age') or '\xa0' }}</td>
+      <td class="cert-hw-gap"></td>
+      <td class="cert-hw-value" data-cert-field="Wife Age">{{ cert_field(data, 'Wife Age') or '\xa0' }}</td>
     </tr>
     <tr>
-      <td class="cert-hw-label">Citizenship :</td>
-      <td data-cert-field="Husband Citizenship">{{ cert_field(data, 'Husband Citizenship') or ' ' }}</td>
-      <td data-cert-field="Wife Citizenship">{{ cert_field(data, 'Wife Citizenship') or ' ' }}</td>
+      <td class="cert-hw-label">Citizenship</td>
+      <td class="cert-hw-colon">:</td>
+      <td class="cert-hw-value" data-cert-field="Husband Citizenship">{{ cert_field(data, 'Husband Citizenship') or '\xa0' }}</td>
+      <td class="cert-hw-gap"></td>
+      <td class="cert-hw-value" data-cert-field="Wife Citizenship">{{ cert_field(data, 'Wife Citizenship') or '\xa0' }}</td>
     </tr>
     <tr>
-      <td class="cert-hw-label">Civil Status :</td>
-      <td data-cert-field="Husband Civil Status">{{ cert_field(data, 'Husband Civil Status') or ' ' }}</td>
-      <td data-cert-field="Wife Civil Status">{{ cert_field(data, 'Wife Civil Status') or ' ' }}</td>
+      <td class="cert-hw-label">Civil Status</td>
+      <td class="cert-hw-colon">:</td>
+      <td class="cert-hw-value" data-cert-field="Husband Civil Status">{{ cert_field(data, 'Husband Civil Status') or '\xa0' }}</td>
+      <td class="cert-hw-gap"></td>
+      <td class="cert-hw-value" data-cert-field="Wife Civil Status">{{ cert_field(data, 'Wife Civil Status') or '\xa0' }}</td>
     </tr>
     <tr>
-      <td class="cert-hw-label">Father :</td>
-      <td data-cert-field="Husband Father">{{ cert_field(data, 'Husband Father') or ' ' }}</td>
-      <td data-cert-field="Wife Father">{{ cert_field(data, 'Wife Father') or ' ' }}</td>
+      <td class="cert-hw-label">Father</td>
+      <td class="cert-hw-colon">:</td>
+      <td class="cert-hw-value" data-cert-field="Husband Father">{{ cert_field(data, 'Husband Father') or '\xa0' }}</td>
+      <td class="cert-hw-gap"></td>
+      <td class="cert-hw-value" data-cert-field="Wife Father">{{ cert_field(data, 'Wife Father') or '\xa0' }}</td>
     </tr>
     <tr>
-      <td class="cert-hw-label">Mother :</td>
-      <td data-cert-field="Husband Mother">{{ cert_field(data, 'Husband Mother') or ' ' }}</td>
-      <td data-cert-field="Wife Mother">{{ cert_field(data, 'Wife Mother') or ' ' }}</td>
+      <td class="cert-hw-label">Mother</td>
+      <td class="cert-hw-colon">:</td>
+      <td class="cert-hw-value" data-cert-field="Husband Mother">{{ cert_field(data, 'Husband Mother') or '\xa0' }}</td>
+      <td class="cert-hw-gap"></td>
+      <td class="cert-hw-value" data-cert-field="Wife Mother">{{ cert_field(data, 'Wife Mother') or '\xa0' }}</td>
     </tr>
   </tbody>
 </table>
 
-{{ cert_row('Registry Number', cert_field(data, 'Registry Number'), 'Registry Number') }}
-{{ cert_row('Date of Registration', cert_field(data, 'Date of Registration'), 'Date of Registration') }}
-{{ cert_row('Date of Marriage', cert_field(data, 'Date of Marriage'), 'Date of Marriage') }}
-{{ cert_row('Place of Marriage', cert_field(data, 'Place of Marriage'), 'Place of Marriage') }}
-
-<p class="cert-issued">
-  This certification is issued to: <span class="cert-issued-line" data-cert-field="Issued To">&nbsp;</span>
-  upon his/her request.
-</p>
-
-<img class="cert-watermark" src="{{ url_for('static', filename='mcr-daraga-seal.png') }}" alt="" aria-hidden="true" />
-
-<p class="cert-marriage-for">FOR AND IN BEHALF OF THE MCR:</p>
-
-<div class="cert-signatures">
-  <div class="cert-verify-block">
-    <div>Verified by:</div>
-    <span class="cert-official-name">JOSEPH ALBERTO M. SALOMON</span>
-    <span class="cert-official-title">Administrative Aide IV</span>
-    <div class="cert-payment">
-      {{ cert_payment_row('Amount Paid', 'Php 100.00') }}
-      {{ cert_payment_row('OR Number') }}
-      {{ cert_payment_row('Date Paid', cert_date) }}
-    </div>
-  </div>
-  <div class="cert-registrar-block">
-    <span class="cert-official-name">MICHELLE M. MARINAY</span>
-    <span class="cert-official-title">MGDH I / Municipal Civil Registrar I</span>
-    <span class="cert-official-name cert-official-name--spaced">ROSARIO M. AVES</span>
-    <span class="cert-official-title">Registration Officer II</span>
-  </div>
-</div>
-
-<p class="cert-footer-note">Note: A mark, erasure or alteration of any entry invalidates this certification</p>
-</div>
+<table class="cert-line-table cert-line-table--marriage" aria-label="Facts of marriage">
+  <colgroup>
+    <col class="cert-line-label-col" />
+    <col class="cert-line-colon-col" />
+    <col class="cert-line-value-col" />
+  </colgroup>
+  {{ cert_line_row('Registry Number', cert_field(data, 'Registry Number'), 'Registry Number', true, 'cert-fill--short') }}
+  {{ cert_line_row('Date of Registration', cert_field(data, 'Date of Registration'), 'Date of Registration', true, 'cert-fill--short') }}
+  {{ cert_line_row('Date of Marriage', cert_field(data, 'Date of Marriage'), 'Date of Marriage', true, 'cert-fill--short') }}
+  {{ cert_line_row('Place of Marriage', cert_field(data, 'Place of Marriage'), 'Place of Marriage', true, 'cert-fill--long') }}
+  {{ cert_line_row('This certification is issued to', '', 'Issued To', false, 'cert-fill--long') }}
+  <tr>
+    <td class="cert-issued-upon" colspan="3">upon his/her request.</td>
+  </tr>
+</table>
+{% include 'print/_cert_footer.html' %}

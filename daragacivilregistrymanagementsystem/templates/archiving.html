@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Archiving{% endblock %}
 {% block body_class %}page-archiving{% endblock %}
 
@@ -176,39 +176,42 @@
     font-weight: 600;
     line-height: 1.3;
   }
-  .archive-sections { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; }
-  .archive-section { border-radius: 12px; overflow: hidden; }
+  .archive-sections { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
+  .archive-section { border-radius: 10px; overflow: hidden; }
   .archive-section-title-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 6px;
-    padding: 7px 12px;
-    border-radius: 8px;
+    margin-bottom: 4px;
+    padding: 5px 10px;
+    border-radius: 7px;
     background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
   }
   .archive-section-title {
     margin: 0;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 800;
     color: #ffffff;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
+    line-height: 1;
   }
   .archive-section-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 8px;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 7px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.18);
     border: 1px solid rgba(255, 255, 255, 0.35);
     color: #ffffff;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
   }
   .archive-empty {
     padding: 10px 12px;
@@ -226,9 +229,68 @@
   .archive-doc-filter {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     gap: 8px 12px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+  }
+  .archive-registry-search {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-weight: 800;
+    color: #002080;
+    font-size: 0.68rem;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .archive-registry-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .archive-registry-wrap input[type="search"] {
+    width: 11.5rem;
+    max-width: 100%;
+    padding: 5px 8px;
+    min-height: 30px;
+    border-radius: 8px;
+    border: 1px solid #7fb2ff;
+    background: #fff;
+    color: #1f3f73;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .archive-registry-wrap input[type="search"]:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
+  }
+  .archive-registry-btn {
+    min-height: 30px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+  }
+  .archive-registry-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .archive-registry-clear {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #002080;
+    text-decoration: none;
+    padding-bottom: 6px;
+  }
+  .archive-registry-clear:hover { text-decoration: underline; }
+  .archive-filter-hint {
+    margin: 0 0 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
   }
   .archive-doc-filter label {
     display: inline-flex;
@@ -245,71 +307,157 @@
   .archive-doc-filter select {
     width: 100%;
     max-width: 280px;
-    padding: 7px 10px;
-    min-height: 36px;
-    border-radius: 10px;
+    padding: 5px 8px;
+    min-height: 30px;
+    border-radius: 8px;
     border: 1px solid #7fb2ff;
     background: #fff;
     color: #1f3f73;
-    font-size: 0.84rem;
+    font-size: 0.8rem;
     cursor: pointer;
   }
   .archive-doc-filter select:focus {
     outline: 2px solid rgba(127, 178, 255, 0.45);
     outline-offset: 1px;
   }
+  body.page-archiving .archive-sections .table-wrap {
+    max-height: min(38vh, 420px);
+    overflow-x: auto;
+    overflow-y: auto;
+    border-radius: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #e8eef5;
+  }
+  body.page-archiving .archive-sections .table-wrap::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  body.page-archiving .archive-sections .table-wrap::-webkit-scrollbar-track {
+    background: #e8eef5;
+    border-radius: 999px;
+  }
+  body.page-archiving .archive-sections .table-wrap::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 999px;
+  }
+  body.page-archiving .archive-sections .table-wrap::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+  body.page-archiving .archive-sections:has(.archive-section:only-of-type) .table-wrap {
+    max-height: calc(100vh - 17rem);
+  }
   body.page-archiving .archive-sections .table {
-    table-layout: fixed;
+    table-layout: auto;
     width: 100%;
-    font-size: 0.82rem;
+    min-width: 640px;
+    font-size: 0.78rem;
+    line-height: 1.25;
+    border-collapse: collapse;
+  }
+  body.page-archiving .archive-sections .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 5px 8px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #eef2f8;
+    border-bottom: 1px solid #d5dee9;
   }
   body.page-archiving .archive-sections .table th,
   body.page-archiving .archive-sections .table td {
     vertical-align: middle;
-    padding: 6px 10px;
+    padding: 4px 8px;
+  }
+  body.page-archiving .archive-sections .table tbody td {
+    border-bottom: 1px solid #e8eef5;
+  }
+  body.page-archiving .archive-sections .table tbody tr:nth-child(even) td {
+    background: #f7f9fc;
+  }
+  body.page-archiving .archive-sections .table tbody tr:hover td {
+    background: #eef4ff;
   }
   body.page-archiving .archive-sections .table th:nth-child(1),
   body.page-archiving .archive-sections .table td:nth-child(1) {
     text-align: left;
-    width: 15%;
-    word-break: break-word;
+    width: 16%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   body.page-archiving .archive-sections .table th:nth-child(2),
   body.page-archiving .archive-sections .table td:nth-child(2) {
     text-align: left;
-    width: 46%;
-    word-break: break-word;
+    width: 48%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   body.page-archiving .archive-sections .table th:nth-child(3),
   body.page-archiving .archive-sections .table td:nth-child(3) {
     text-align: left;
-    width: 22%;
-    word-break: break-word;
+    width: 18%;
+    white-space: nowrap;
   }
   body.page-archiving .archive-sections .table th:nth-child(4),
   body.page-archiving .archive-sections .table td:nth-child(4) {
     text-align: center;
-    width: 17%;
+    width: 18%;
     white-space: nowrap;
   }
   body.page-archiving .archive-sections .table td:nth-child(4) .archive-delete-form {
-    display: inline-block;
+    display: inline;
+    margin: 0 0 0 4px;
     vertical-align: middle;
-    margin: 0;
   }
   body.page-archiving .archive-sections .table td:nth-child(4) .btn {
     vertical-align: middle;
-    min-height: 28px;
-    padding: 4px 10px;
-    font-size: 0.75rem;
+    min-height: 24px;
+    height: 24px;
+    padding: 0 8px;
+    font-size: 0.7rem;
+    border-radius: 6px;
+    line-height: 1;
+  }
+</style>
+{% endblock %}
+
+{% block after_theme %}
+<style>
+  html[data-theme="dark"] body.page-archiving a.archiving-hero-btn {
+    background: #0b1a3a !important;
+    border: 1px solid rgba(255, 255, 255, 0.75) !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+  html[data-theme="dark"] body.page-archiving a.archiving-hero-btn:hover {
+    background: #16325c !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+  }
+  body.page-archiving .archive-sections .table thead th,
+  body.page-archiving .archive-sections .table tbody td {
+    padding: 4px 8px;
+  }
+  html[data-theme="dark"] body.page-archiving .archive-sections .table thead th {
+    background: linear-gradient(135deg, #1a4a9e 0%, #2563b8 100%) !important;
+  }
+  html[data-theme="dark"] body.page-archiving .archive-sections .table tbody tr:nth-child(even) td {
+    background: rgba(148, 163, 184, 0.08);
+  }
+  html[data-theme="dark"] body.page-archiving .archive-sections .table tbody tr:hover td {
+    background: var(--table-row-hover);
   }
 </style>
 {% endblock %}
 
 {% block content %}
-{% set birth_total = birth_records|length %}
-{% set marriage_total = marriage_records|length %}
-{% set death_total = death_records|length %}
+{% set birth_shown = birth_records|length %}
+{% set marriage_shown = marriage_records|length %}
+{% set death_shown = death_records|length %}
 
 <div class="archiving-hero">
   <div class="archiving-hero-head">
@@ -350,7 +498,7 @@
 </div>
 
 <div class="main-card archive-sections" id="archive-sections">
-  <form method="get" action="{{ url_for('archiving') }}" class="archive-doc-filter">
+  <form method="get" action="{{ url_for('archiving') }}" class="archive-doc-filter" id="archive-filter-form">
     <label for="archive-doc-type">Document type</label>
     <select name="doc_type" id="archive-doc-type" onchange="this.form.submit()">
       <option value="" {% if not archive_doc_type %}selected{% endif %}>Select type</option>
@@ -358,13 +506,36 @@
       <option value="marriage" {% if archive_doc_type == 'marriage' %}selected{% endif %}>Marriage Certificate</option>
       <option value="death" {% if archive_doc_type == 'death' %}selected{% endif %}>Death Certificate</option>
     </select>
+    <label class="archive-registry-search" for="archive-registry">
+      Registry no.
+      <span class="archive-registry-wrap">
+        <input
+          id="archive-registry"
+          type="search"
+          name="registry"
+          value="{{ archive_registry_q or '' }}"
+          maxlength="80"
+          placeholder="e.g. 2025-03321"
+          autocomplete="off"
+          {% if not archive_doc_type %}disabled{% endif %}
+          aria-label="Search by registry number"
+        />
+        <button type="submit" class="btn btn-secondary archive-registry-btn" {% if not archive_doc_type %}disabled{% endif %}>Find</button>
+      </span>
+    </label>
+    {% if archive_registry_q and archive_doc_type %}
+      <a class="archive-registry-clear" href="{{ url_for('archiving', doc_type=archive_doc_type) }}">Clear search</a>
+    {% endif %}
   </form>
+  {% if not archive_doc_type %}
+    <p class="archive-filter-hint">Choose a document type first to search by registry number. Lists stay visible below.</p>
+  {% endif %}
 
   {% if not archive_doc_type or archive_doc_type == 'birth' %}
   <section class="archive-section">
     <div class="archive-section-title-row">
       <h2 class="archive-section-title">Birth Certificates</h2>
-      <span class="archive-section-count">{{ birth_total }}</span>
+      <span class="archive-section-count">{{ birth_shown }}</span>
     </div>
     {% if birth_records %}
       <div class="table-wrap">
@@ -381,6 +552,7 @@
                 {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
                 <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" onsubmit="return confirm('Permanently delete this birth record?');" style="display:inline;">
                   {% if archive_doc_type %}<input type="hidden" name="doc_type" value="{{ archive_doc_type }}">{% endif %}
+                  {% if archive_registry_q %}<input type="hidden" name="registry" value="{{ archive_registry_q }}">{% endif %}
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
                 {% endif %}
@@ -392,8 +564,13 @@
       </div>
     {% else %}
       <div class="archive-empty">
-        <p>No birth records yet.</p>
-        <p class="archive-empty-hint">Use Scan Workflow → Birth → OCR → Confirm to save.</p>
+        {% if archive_registry_q and archive_doc_type == 'birth' %}
+          <p>No birth record matches registry number “{{ archive_registry_q }}”.</p>
+          <p class="archive-empty-hint">Check the number, or <a href="{{ url_for('archiving', doc_type='birth') }}">clear search</a>.</p>
+        {% else %}
+          <p>No birth records yet.</p>
+          <p class="archive-empty-hint">Use Scan Workflow → Birth → OCR → Confirm to save.</p>
+        {% endif %}
       </div>
     {% endif %}
   </section>
@@ -403,7 +580,7 @@
   <section class="archive-section">
     <div class="archive-section-title-row">
       <h2 class="archive-section-title">Marriage Certificates</h2>
-      <span class="archive-section-count">{{ marriage_total }}</span>
+      <span class="archive-section-count">{{ marriage_shown }}</span>
     </div>
     {% if marriage_records %}
       <div class="table-wrap">
@@ -420,6 +597,7 @@
                 {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
                 <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" onsubmit="return confirm('Permanently delete this marriage record?');" style="display:inline;">
                   {% if archive_doc_type %}<input type="hidden" name="doc_type" value="{{ archive_doc_type }}">{% endif %}
+                  {% if archive_registry_q %}<input type="hidden" name="registry" value="{{ archive_registry_q }}">{% endif %}
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
                 {% endif %}
@@ -431,8 +609,13 @@
       </div>
     {% else %}
       <div class="archive-empty">
-        <p>No marriage records yet.</p>
-        <p class="archive-empty-hint">Use Scan Workflow → Marriage → OCR → Confirm to save.</p>
+        {% if archive_registry_q and archive_doc_type == 'marriage' %}
+          <p>No marriage record matches registry number “{{ archive_registry_q }}”.</p>
+          <p class="archive-empty-hint">Check the number, or <a href="{{ url_for('archiving', doc_type='marriage') }}">clear search</a>.</p>
+        {% else %}
+          <p>No marriage records yet.</p>
+          <p class="archive-empty-hint">Use Scan Workflow → Marriage → OCR → Confirm to save.</p>
+        {% endif %}
       </div>
     {% endif %}
   </section>
@@ -442,7 +625,7 @@
   <section class="archive-section">
     <div class="archive-section-title-row">
       <h2 class="archive-section-title">Death Certificates</h2>
-      <span class="archive-section-count">{{ death_total }}</span>
+      <span class="archive-section-count">{{ death_shown }}</span>
     </div>
     {% if death_records %}
       <div class="table-wrap">
@@ -459,6 +642,7 @@
                 {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
                 <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" onsubmit="return confirm('Permanently delete this death record?');" style="display:inline;">
                   {% if archive_doc_type %}<input type="hidden" name="doc_type" value="{{ archive_doc_type }}">{% endif %}
+                  {% if archive_registry_q %}<input type="hidden" name="registry" value="{{ archive_registry_q }}">{% endif %}
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                 </form>
                 {% endif %}
@@ -470,8 +654,13 @@
       </div>
     {% else %}
       <div class="archive-empty">
-        <p>No death records yet.</p>
-        <p class="archive-empty-hint">Use Scan Workflow → Death → OCR → Confirm to save.</p>
+        {% if archive_registry_q and archive_doc_type == 'death' %}
+          <p>No death record matches registry number “{{ archive_registry_q }}”.</p>
+          <p class="archive-empty-hint">Check the number, or <a href="{{ url_for('archiving', doc_type='death') }}">clear search</a>.</p>
+        {% else %}
+          <p>No death records yet.</p>
+          <p class="archive-empty-hint">Use Scan Workflow → Death → OCR → Confirm to save.</p>
+        {% endif %}
       </div>
     {% endif %}
   </section>

@@ -37,7 +37,7 @@
           {% set confidence = data.get('__confidence__', {}) %}
           {% set source = data.get('__source__', {}) %}
           <div class="confirm-grid">
-            {% for key in ['Registry Number', 'Date of Registration', 'Name of Child', 'Sex', 'Date of Birth', 'Place of Birth', 'Name of Mother', 'Citizenship of Mother', 'Name of Father', 'Citizenship of Father', 'Date of Marriage of Parents', 'Place of Marriage of Parents', 'Remarks'] %}
+            {% for key in ['Registry Number', 'Page Number', 'Book Number', 'Date of Registration', 'Name of Child', 'Sex', 'Date of Birth', 'Place of Birth', 'Name of Mother', 'Citizenship of Mother', 'Name of Father', 'Citizenship of Father', 'Date of Marriage of Parents', 'Place of Marriage of Parents', 'Remarks'] %}
               {% set field_id = 'field_' ~ loop.index %}
               {% include '_ocr_meta_field.html' %}
             {% endfor %}

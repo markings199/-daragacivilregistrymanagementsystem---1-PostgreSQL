@@ -11,28 +11,25 @@ FORM_META: dict[str, dict[str, str]] = {
         "form_no": "1 A",
         "availability": "(Birth-Available)",
         "register": "Births",
-        "intro": (
-            "We certify that among others, the following facts of birth appear "
-            "in the Register of Births on page <strong>xx</strong> of book number <strong>xx</strong>."
-        ),
+        "office": "OFFICE OF THE LOCAL CIVIL REGISTRAR",
+        "facts_of": "birth",
+        "intro_style": "page_of_book",
     },
     "death": {
         "form_no": "2A",
         "availability": "(Death Available)",
         "register": "Deaths",
-        "intro": (
-            "We certify that among others, the following facts of death appear "
-            "in the Register of Deaths on page <strong>xx</strong> of book number <strong>xx</strong>."
-        ),
+        "office": "OFFICE OF THE MUNICIPAL CIVIL REGISTRAR",
+        "facts_of": "death",
+        "intro_style": "page_of_book",
     },
     "marriage": {
         "form_no": "3A",
         "availability": "(Marriage Available)",
         "register": "Marriages",
-        "intro": (
-            "We certify that, among others, the following facts of marriage appear "
-            "in the Register of Marriages on Page <strong>xx</strong> Book <strong>xx</strong>."
-        ),
+        "office": "OFFICE OF THE MUNICIPAL CIVIL REGISTRAR",
+        "facts_of": "marriage",
+        "intro_style": "page_book",
     },
 }
 

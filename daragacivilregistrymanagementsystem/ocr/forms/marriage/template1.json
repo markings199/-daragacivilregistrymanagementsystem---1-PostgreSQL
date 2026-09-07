@@ -17,7 +17,13 @@
     "registry_number": {
       "patterns": [
         "(?:Registry\\s*(?:No\\.|Number)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})",
-        "(?:REGISTRY\\s*(?:NO\\.|NUMBER)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})"
+        "(?:REGISTRY\\s*(?:NO\\.|NUMBER)\\s*[:\\-]?\\s*)(?P<value>[A-Za-z0-9\\-\\/]{3,})",
+        "(?P<value>\\d{4}\\s*[-/]\\s*\\d{3,8})"
+      ]
+    },
+    "date_of_registration": {
+      "patterns": [
+        "(?:Date\\s+of\\s+Registration\\s*[:\\-]?\\s*)(?P<value>\\d{1,2}[\\-/]\\d{1,2}[\\-/]\\d{2,4}|\\d{1,2}\\s+[A-Za-z]{3,9}\\s+\\d{4})"
       ]
     },
     "husband_name": {

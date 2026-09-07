@@ -4,32 +4,35 @@ body.page-registry-reports {
   overflow: hidden;
 }
 body.page-registry-reports .layout {
-  height: calc(100vh - var(--topbar-height));
+  flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 body.page-registry-reports .main {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
   padding: 8px 12px 10px;
   max-width: none;
 }
 body.page-registry-reports .page-header,
 body.page-registry-reports .reports-page-header {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin: 0 0 10px;
-  padding: 14px 16px;
-  border-radius: 14px;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 6px;
+  padding: 7px 12px;
+  border-radius: 10px;
   background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
   border: 1px solid rgba(0, 32, 128, 0.22);
-  box-shadow: 0 6px 20px rgba(0, 32, 128, 0.16);
+  box-shadow: 0 4px 14px rgba(0, 32, 128, 0.14);
 }
 body.page-registry-reports .reports-header-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -39,21 +42,24 @@ body.page-registry-reports .reports-header-mark {
   border: 1px solid rgba(255, 255, 255, 0.22);
 }
 body.page-registry-reports .reports-header-mark svg {
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
 }
 body.page-registry-reports .reports-header-text {
   min-width: 0;
 }
 body.page-registry-reports .page-title {
-  margin: 0 0 4px;
-  font-size: 1.22rem;
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  line-height: 1.2;
   color: #ffffff;
 }
 body.page-registry-reports .page-state {
-  margin: 0;
-  font-size: 0.82rem;
+  margin: 1px 0 0;
+  font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.3;
   color: #dbe7ff;
 }
 body.page-registry-reports.reg-focus .topbar,
@@ -71,7 +77,10 @@ body.page-registry-reports.reg-focus .reg-toolbar {
   background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-top: none;
-  box-shadow: 0 8px 24px rgba(0, 32, 128, 0.28);
+  box-shadow: 0 6px 16px rgba(0, 32, 128, 0.24);
+  padding: 7px 10px;
+  gap: 0;
+  border-radius: 10px;
 }
 body.page-registry-reports.reg-focus .reg-doc-label,
 body.page-registry-reports.reg-focus .reg-toolbar label {
@@ -102,10 +111,14 @@ body.page-registry-reports.reg-focus .reg-toolbar select option {
   color: #0f172a;
   background: #ffffff;
 }
-body.page-registry-reports.reg-focus .reg-toolbar select:focus {
+body.page-registry-reports.reg-focus .reg-toolbar select:focus,
+body.page-registry-reports.reg-focus .reg-toolbar input:focus {
   background: rgba(255, 255, 255, 0.18);
   border-color: #ffffff;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+}
+body.page-registry-reports.reg-focus .reg-toolbar input::placeholder {
+  color: rgba(255, 255, 255, 0.65);
 }
 body.page-registry-reports.reg-focus .reg-zoom-pct {
   color: #ffffff;
@@ -142,23 +155,20 @@ body.page-registry-reports.reg-focus .reg-status {
 }
 
 .page-registry-reports .reg-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 10px 16px;
-  margin: 0 0 8px;
-  padding: 12px 14px;
+  display: block;
+  margin: 0 0 6px;
+  padding: 6px 8px 7px;
   background: #ffffff;
   border: 1px solid rgba(0, 32, 128, 0.12);
-  border-top: 4px solid #002080;
-  border-radius: 14px;
-  box-shadow: 0 6px 20px rgba(11, 42, 90, 0.07);
+  border-top: 3px solid #002080;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(11, 42, 90, 0.06);
 }
 .page-registry-reports .reg-toolbar-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 10px 14px;
+  gap: 5px 8px;
   min-width: 0;
 }
 .page-registry-reports .reg-doc-types,
@@ -167,7 +177,7 @@ body.page-registry-reports.reg-focus .reg-status {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
+  gap: 3px;
 }
 .page-registry-reports .reg-doc-types {
   padding: 0;
@@ -179,33 +189,34 @@ body.page-registry-reports.reg-focus .reg-status {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 .page-registry-reports .reg-doc-row {
-  padding: 4px;
+  padding: 2px;
   background: #f1f5fb;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .page-registry-reports .reg-doc-label {
   width: auto;
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
   color: #64748b;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .page-registry-reports .reg-doc-btn {
   display: inline-flex;
   align-items: center;
-  padding: 7px 14px;
-  border-radius: 9px;
+  padding: 4px 9px;
+  border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
   color: #1e3a67;
   text-decoration: none;
-  font-size: 0.8125rem;
+  font-size: 0.74rem;
   font-weight: 800;
+  min-height: 26px;
 }
 .page-registry-reports .reg-doc-btn:hover {
   background: rgba(255, 255, 255, 0.8);
@@ -219,34 +230,57 @@ body.page-registry-reports.reg-focus .reg-status {
 .page-registry-reports .reg-toolbar label {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  font-size: 0.68rem;
+  gap: 3px;
+  font-size: 0.62rem;
   font-weight: 800;
   color: #64748b;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 .page-registry-reports .reg-toolbar select,
 .page-registry-reports .reg-toolbar input {
-  min-width: 128px;
-  padding: 8px 12px;
+  min-width: 96px;
+  min-height: 28px;
+  padding: 4px 8px;
   border: 1px solid rgba(0, 32, 128, 0.16);
-  border-radius: 10px;
+  border-radius: 7px;
   background: #f8fafc;
   color: #0f172a;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
-.page-registry-reports .reg-toolbar select:focus {
+.page-registry-reports .reg-find-field {
+  min-width: 12rem;
+  flex: 1 1 16rem;
+  max-width: none;
+}
+.page-registry-reports .reg-find-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
+}
+.page-registry-reports .reg-find-wrap input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+.page-registry-reports .reg-find-btn {
+  min-height: 28px;
+  padding: 4px 9px;
+  flex-shrink: 0;
+}
+.page-registry-reports .reg-toolbar select:focus,
+.page-registry-reports .reg-toolbar input:focus {
   outline: none;
   border-color: #002080;
-  box-shadow: 0 0 0 3px rgba(0, 32, 128, 0.14);
+  box-shadow: 0 0 0 2px rgba(0, 32, 128, 0.14);
   background: #fff;
 }
 .page-registry-reports .reg-zoom-pct {
-  min-width: 3.2rem;
+  min-width: 2.6rem;
   text-align: center;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--text, #0f172a);
 }
@@ -255,37 +289,31 @@ body.page-registry-reports.reg-focus .reg-status {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  align-self: end;
+  gap: 6px;
+  margin-left: auto;
 }
 .page-registry-reports .reg-toolbar .btn {
-  padding: 8px 13px;
-  font-size: 0.8rem;
-  border-radius: 10px;
+  padding: 4px 9px;
+  min-height: 28px;
+  font-size: 0.74rem;
+  border-radius: 7px;
 }
-@media (max-width: 1280px) {
-  .page-registry-reports .reg-toolbar {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
+@media (max-width: 1100px) {
   .page-registry-reports .reg-toolbar .reg-actions {
-    justify-content: flex-end;
-    padding-top: 10px;
-    border-top: 1px solid rgba(15, 23, 42, 0.1);
-  }
-  body.page-registry-reports.reg-focus .reg-toolbar .reg-actions {
-    border-top-color: rgba(255, 255, 255, 0.2);
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 .page-registry-reports .reg-status {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
-  margin: 0 0 8px;
-  padding: 6px 4px;
-  font-size: 0.8rem;
+  margin: 0 0 6px;
+  padding: 2px 2px 4px;
+  font-size: 0.76rem;
   color: #64748b;
   font-weight: 600;
 }
@@ -303,7 +331,7 @@ body.page-registry-reports.reg-focus .reg-status {
   vertical-align: middle;
 }
 .page-registry-reports .reg-pager a {
-  margin-left: 10px;
+  margin-left: 8px;
   font-weight: 800;
   color: #002080;
   text-decoration: none;
@@ -311,16 +339,61 @@ body.page-registry-reports.reg-focus .reg-status {
 .page-registry-reports .reg-pager a:hover {
   text-decoration: underline;
 }
+.page-registry-reports .reg-pager-current {
+  margin-left: 8px;
+  font-weight: 800;
+  color: #fff;
+  background: #002080;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.page-registry-reports .reg-pager-gap {
+  margin-left: 8px;
+  color: #94a3b8;
+}
 .page-registry-reports .reg-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: scroll;
+  overflow-y: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: #fff;
   border: 1px solid rgba(15, 23, 42, 0.16);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(11, 42, 90, 0.08);
-  padding: 10px 12px 14px;
+  padding: 10px 12px 18px;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: #002080 #e8eef8;
+}
+.page-registry-reports .reg-scroll::-webkit-scrollbar {
+  height: 14px;
+  width: 12px;
+}
+.page-registry-reports .reg-scroll::-webkit-scrollbar-track {
+  background: #e8eef8;
+  border-top: 1px solid rgba(0, 32, 128, 0.12);
+}
+.page-registry-reports .reg-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1a4a9e 0%, #002080 100%);
+  border-radius: 999px;
+  border: 3px solid #e8eef8;
+  min-width: 48px;
+}
+.page-registry-reports .reg-scroll::-webkit-scrollbar-thumb:hover {
+  background: #001a66;
+}
+.page-registry-reports .reg-scroll::-webkit-scrollbar-corner {
+  background: #e8eef8;
+}
+.page-registry-reports .reg-zoom-stage {
+  display: inline-block;
+  min-width: 100%;
+  vertical-align: top;
 }
 
 .reg-form {
@@ -408,16 +481,234 @@ body.page-registry-reports.reg-focus .reg-status {
 .reg-table .w-place { width: 11%; }
 .reg-table .w-remarks { width: 12%; }
 
+#register-birth.reg-form,
+#register-birth .reg-table {
+  min-width: 1680px;
+}
+#register-birth .reg-table {
+  table-layout: fixed;
+  width: 100%;
+}
+#register-birth .reg-table col.c-lcr { width: 7%; }
+#register-birth .reg-table col.c-date { width: 8%; }
+#register-birth .reg-table col.c-name { width: 6.2%; }
+#register-birth .reg-table col.c-sex { width: 4.2%; }
+#register-birth .reg-table col.c-num { width: 3.2%; }
+#register-birth .reg-table col.c-year { width: 3.6%; }
+#register-birth .reg-table col.c-time { width: 4.2%; }
+#register-birth .reg-table col.c-place { width: 14%; }
+#register-birth .reg-table col.c-type { width: 4%; }
+#register-birth .reg-table col.c-age { width: 3%; }
+#register-birth .reg-table col.c-nat { width: 5.5%; }
+#register-birth .reg-table col.c-father { width: 10%; }
+#register-birth .reg-table th,
+#register-birth .reg-table td {
+  word-break: normal;
+  overflow-wrap: anywhere;
+  hyphens: none;
+  padding: 3px 4px;
+  line-height: 1.2;
+  text-align: center;
+  vertical-align: middle;
+}
+#register-birth .reg-table tbody td {
+  height: 22px;
+  text-transform: uppercase;
+}
+#register-birth .cell-place {
+  white-space: normal;
+  text-align: center;
+}
+#register-birth .w-father16 {
+  width: 10%;
+}
+
+#register-death.reg-form,
+#register-death .reg-table {
+  min-width: 1880px;
+}
+#register-death .reg-table {
+  table-layout: fixed;
+  width: 100%;
+}
+#register-death .reg-table col.c-lcr { width: 5.4%; }
+#register-death .reg-table col.c-date { width: 6.2%; }
+#register-death .reg-table col.c-name { width: 9.5%; }
+#register-death .reg-table col.c-sex { width: 3.2%; }
+#register-death .reg-table col.c-tiny { width: 2.4%; }
+#register-death .reg-table col.c-fetal { width: 4%; }
+#register-death .reg-table col.c-status { width: 5.2%; }
+#register-death .reg-table col.c-nat { width: 5.2%; }
+#register-death .reg-table col.c-res { width: 6.8%; }
+#register-death .reg-table col.c-occ { width: 6.2%; }
+#register-death .reg-table col.c-year { width: 3.2%; }
+#register-death .reg-table col.c-time { width: 3.4%; }
+#register-death .reg-table col.c-place { width: 7.4%; }
+#register-death .reg-table col.c-cause { width: 6.2%; }
+#register-death .reg-table col.c-officer { width: 6%; }
+#register-death .reg-table col.c-title { width: 5.4%; }
+#register-death .reg-table col.c-remarks { width: 5.6%; }
+#register-death .reg-table th,
+#register-death .reg-table td {
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+  padding: 1px 2px;
+  line-height: 1.1;
+  text-align: center;
+  vertical-align: middle;
+  overflow: hidden;
+}
+#register-death .reg-table tbody tr {
+  height: 22px;
+}
+#register-death .reg-table tbody td {
+  height: 22px;
+  max-height: 22px;
+  white-space: nowrap;
+  text-overflow: clip;
+  text-transform: uppercase;
+}
+#register-death .reg-table tbody td.cell-left {
+  text-align: left;
+}
+#register-death .reg-form-title h2 {
+  font-size: 15px;
+}
+#register-death .reg-cert {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+}
+#register-death .reg-cert > div:first-child {
+  flex: 1;
+}
+
+#register-marriage.reg-form,
+#register-marriage .reg-table {
+  min-width: 1960px;
+}
+#register-marriage .reg-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+#register-marriage .reg-table col.c-regdate { width: 4.6%; }
+#register-marriage .reg-table col.c-regno { width: 5.2%; }
+#register-marriage .reg-table col.c-party { width: 9.2%; }
+#register-marriage .reg-table col.c-age { width: 2.2%; }
+#register-marriage .reg-table col.c-nat { width: 4.4%; }
+#register-marriage .reg-table col.c-status { width: 5.4%; }
+#register-marriage .reg-table col.c-res { width: 5.4%; }
+#register-marriage .reg-table col.c-pname { width: 5.2%; }
+#register-marriage .reg-table col.c-pnat { width: 3.8%; }
+#register-marriage .reg-table col.c-place { width: 5.8%; }
+#register-marriage .reg-table col.c-mdate { width: 4.8%; }
+#register-marriage .reg-table col.c-witname { width: 5.2%; }
+#register-marriage .reg-table col.c-witres { width: 4.4%; }
+#register-marriage .reg-table col.c-cname { width: 4.4%; }
+#register-marriage .reg-table col.c-cres { width: 4%; }
+#register-marriage .reg-table col.c-crel { width: 4.6%; }
+#register-marriage .reg-table col.c-sname { width: 4.4%; }
+#register-marriage .reg-table col.c-stitle { width: 3.6%; }
+#register-marriage .reg-table col.c-saddr { width: 4%; }
+#register-marriage .reg-table col.c-receipt { width: 4.6%; }
+#register-marriage .reg-table col.c-remarks { width: 4.4%; }
+#register-marriage .reg-table th,
+#register-marriage .reg-table td {
+  box-sizing: border-box;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+  padding: 1px 2px;
+  line-height: 1.08;
+  text-align: center;
+  vertical-align: middle;
+  overflow: hidden;
+}
+#register-marriage .reg-table tbody tr:last-child td {
+  border-bottom: 1px solid #111;
+}
+#register-marriage .reg-table thead th {
+  font-size: 8px;
+}
+#register-marriage .reg-table thead th span {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 7px;
+}
+#register-marriage .reg-table tbody tr {
+  height: 18px;
+}
+#register-marriage .reg-table tbody td {
+  height: 18px;
+  max-height: 18px;
+  white-space: nowrap;
+  text-overflow: clip;
+  text-transform: uppercase;
+  font-size: 8px;
+}
+#register-marriage .reg-table tbody td.cell-left {
+  text-align: left;
+}
+#register-marriage .reg-party {
+  display: inline;
+  font-weight: 700;
+  margin-right: 4px;
+}
+#register-marriage .reg-form-title h2 {
+  font-size: 15px;
+}
+#register-marriage .reg-sheet-body {
+  width: 100%;
+  padding-bottom: 6px;
+  overflow: visible;
+}
+#register-marriage .reg-table-close {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid #111;
+}
+#register-marriage .reg-form-foot {
+  margin-top: 12px;
+  padding-top: 8px;
+}
+#register-marriage .reg-footnotes {
+  margin-top: 0;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+#register-marriage .reg-cert {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  align-items: end;
+  column-gap: 36px;
+  margin-top: 4px;
+}
+#register-marriage .reg-cert-copy {
+  text-align: left;
+}
+#register-marriage .reg-sign {
+  min-width: 0;
+  text-align: center;
+  padding-bottom: 0;
+}
+#register-marriage .reg-sign .reg-sign-line {
+  margin-top: 28px;
+}
+
 .reg-footnotes {
   margin-top: 8px;
   font-size: 10px;
   line-height: 1.35;
 }
 .reg-cert {
-  margin-top: 14px;
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
+  margin-top: 10px;
+  display: block;
   font-size: 11px;
   line-height: 1.4;
 }
@@ -450,11 +741,37 @@ body.page-registry-reports.reg-focus .reg-table tbody td {
   height: 18px;
   font-size: 9px;
 }
+body.page-registry-reports.reg-focus #register-birth .reg-table th,
+body.page-registry-reports.reg-focus #register-birth .reg-table td {
+  padding: 3px 4px;
+}
+body.page-registry-reports.reg-focus #register-birth .reg-table tbody td {
+  height: 22px;
+  min-height: 22px;
+}
+body.page-registry-reports.reg-focus #register-death .reg-table th,
+body.page-registry-reports.reg-focus #register-death .reg-table td {
+  padding: 1px 2px;
+}
+body.page-registry-reports.reg-focus #register-death .reg-table tbody td {
+  height: 18px;
+  max-height: 18px;
+  font-size: 8px;
+}
+body.page-registry-reports.reg-focus #register-marriage .reg-table th,
+body.page-registry-reports.reg-focus #register-marriage .reg-table td {
+  padding: 1px 2px;
+}
+body.page-registry-reports.reg-focus #register-marriage .reg-table tbody td {
+  height: 16px;
+  max-height: 16px;
+  font-size: 7px;
+}
 
 @media print {
   @page {
-    size: landscape;
-    margin: 8mm 8mm 10mm;
+    size: legal landscape;
+    margin: 7mm 8mm 10mm;
   }
   body.page-registry-reports {
     overflow: visible;
@@ -488,6 +805,11 @@ body.page-registry-reports.reg-focus .reg-table tbody td {
     border: none;
     padding: 0;
   }
+  .page-registry-reports .reg-zoom-stage {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
   .reg-form {
     min-width: 0;
     page-break-after: auto;
@@ -496,9 +818,196 @@ body.page-registry-reports.reg-focus .reg-table tbody td {
   }
   .reg-table {
     min-width: 0;
-    font-size: 6.5px;
+    font-size: 8px;
   }
   .reg-table tbody td {
-    height: 16px;
+    height: 18px;
+  }
+  #register-birth.reg-form,
+  #register-birth .reg-table {
+    min-width: 0;
+    width: 100%;
+  }
+  #register-birth .reg-table {
+    font-size: 8px;
+  }
+  #register-birth .reg-table tbody td {
+    height: 17px;
+    font-size: 8px;
+  }
+  #register-birth .cell-place {
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: anywhere;
+  }
+  #register-birth .reg-form-title h2 {
+    font-size: 13px;
+  }
+  #register-birth .reg-footnotes,
+  #register-birth .reg-cert {
+    font-size: 8px;
+  }
+  #register-death.reg-form,
+  #register-death .reg-table {
+    min-width: 0;
+    width: 100%;
+  }
+  #register-death {
+    page-break-inside: avoid;
+  }
+  #register-death .reg-form-head {
+    margin-bottom: 2px;
+  }
+  #register-death .reg-form-title h2 {
+    font-size: 12px;
+  }
+  #register-death .reg-form-id,
+  #register-death .reg-form-meta {
+    font-size: 8px;
+  }
+  #register-death .reg-table {
+    font-size: 7px;
+  }
+  #register-death .reg-table thead th {
+    font-size: 6.5px;
+    line-height: 1.05;
+    padding: 1px;
+  }
+  #register-death .reg-table tbody tr,
+  #register-death .reg-table tbody td {
+    height: 5.2mm;
+    max-height: 5.2mm;
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  #register-death .reg-table tbody td {
+    font-size: 7px;
+    padding: 0 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  #register-death .reg-footnotes {
+    margin-top: 3px;
+    font-size: 7px;
+    line-height: 1.2;
+  }
+  #register-death .reg-cert {
+    margin-top: 4px;
+    font-size: 7.5px;
+    line-height: 1.25;
+  }
+  #register-death .reg-cert .reg-sign .reg-sign-line {
+    margin-top: 10px;
+  }
+  #register-marriage.reg-form,
+  #register-marriage .reg-table {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  #register-marriage {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+    padding-bottom: 0;
+  }
+  #register-marriage .reg-form-head {
+    flex: 0 0 auto;
+    margin-bottom: 1mm;
+    gap: 6px;
+  }
+  #register-marriage .reg-form-title h2 {
+    font-size: 11px;
+  }
+  #register-marriage .reg-form-title .reg-sub {
+    font-size: 8px;
+    margin: 0;
+  }
+  #register-marriage .reg-form-id,
+  #register-marriage .reg-form-meta {
+    font-size: 7px;
+    min-width: 0;
+  }
+  #register-marriage .reg-sheet-body {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  #register-marriage .reg-table {
+    height: auto;
+    max-height: none;
+    font-size: 6px;
+    border-bottom: 1.25pt solid #000;
+  }
+  #register-marriage .reg-table-close {
+    border-top: 1.25pt solid #000;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+  #register-marriage .reg-table thead th {
+    font-size: 5.5px;
+    line-height: 1.05;
+    padding: 0 1px;
+    overflow: hidden;
+  }
+  #register-marriage .reg-table thead th span {
+    font-size: 5px;
+  }
+  #register-marriage .reg-table tbody tr {
+    height: 2.7mm;
+  }
+  #register-marriage .reg-table tbody td {
+    box-sizing: border-box;
+    height: 2.7mm !important;
+    max-height: none !important;
+    line-height: 2.4mm !important;
+    font-size: 6px !important;
+    padding: 0 1px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
+    word-break: keep-all;
+    overflow-wrap: normal;
+    page-break-inside: auto;
+    border: 0.75pt solid #000;
+  }
+  #register-marriage .reg-table tbody tr:last-child td {
+    overflow: visible !important;
+    border-bottom: 1.25pt solid #000 !important;
+  }
+  #register-marriage .reg-form-foot {
+    flex: 0 0 24mm;
+    margin-top: 0;
+    padding-top: 2.5mm;
+    box-sizing: border-box;
+  }
+  #register-marriage .reg-footnotes {
+    margin-top: 0;
+    margin-bottom: 3.5mm;
+    font-size: 7px;
+    line-height: 1.3;
+  }
+  #register-marriage .reg-cert {
+    display: grid;
+    grid-template-columns: 1fr 55mm;
+    align-items: end;
+    column-gap: 10mm;
+    margin-top: 0;
+    font-size: 7px;
+    line-height: 1.3;
+    gap: 0;
+  }
+  #register-marriage .reg-sign .reg-sign-line {
+    margin-top: 8mm;
+    padding-top: 1.5mm;
   }
 }

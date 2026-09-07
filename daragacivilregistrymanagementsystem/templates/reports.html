@@ -55,12 +55,26 @@
       </select>
     </label>
     {% endif %}
+    <label class="reg-find-field">
+      Find
+      <span class="reg-find-wrap">
+        <input
+          type="search"
+          id="reg-find-q"
+          name="q"
+          value="{{ find_q or '' }}"
+          maxlength="80"
+          placeholder="Name or registry number"
+          autocomplete="off"
+          aria-label="Find person or LCR number in this register"
+        />
+        <button type="submit" class="btn btn-secondary reg-find-btn">Find</button>
+      </span>
+    </label>
     <label>
       Rows
-      <select name="per_page" onchange="this.form.submit()">
-        <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
-        <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+      <select name="per_page" disabled title="Record book shows 25 rows per page">
+        <option value="25" selected>25 per page</option>
       </select>
     </label>
     {% if focus %}
@@ -68,14 +82,13 @@
       <span class="reg-doc-label">Zoom</span>
       <div class="reg-zoom-row">
         <button type="button" class="btn btn-secondary" id="reg-zoom-out" title="Zoom out">−</button>
-        <button type="button" class="btn btn-primary" id="reg-zoom-fit" title="See the full register width">Fit form</button>
+        <button type="button" class="btn btn-primary" id="reg-zoom-fit" title="See the full register width">Fit</button>
         <span class="reg-zoom-pct" id="reg-zoom-pct">100%</span>
         <button type="button" class="btn btn-secondary" id="reg-zoom-in" title="Zoom in">+</button>
         <button type="button" class="btn btn-secondary" id="reg-zoom-100">100%</button>
       </div>
     </div>
     {% endif %}
-    </div>
     <div class="reg-actions">
       {% if focus %}
         <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports', doc_type=doc_type, focus=1) }}">Clear</a>
@@ -90,18 +103,37 @@
       <button type="button" class="btn btn-secondary" onclick="window.print()">Print PDF</button>
       <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports_excel', **excel_args) }}">Excel</a>
     </div>
+    </div>
   </form>
 
   <div class="reg-status">
     <span class="reg-status-meta">
-      <strong>{{ filtered_count }}</strong> record{% if filtered_count != 1 %}s{% endif %}
+      {% if find_q %}
+        <strong>{{ filtered_count }}</strong> match{% if filtered_count != 1 %}es{% endif %}
+        for “{{ find_q }}”
+        <span class="reg-status-dot" aria-hidden="true"></span>
+        of {{ book_count }} in this register
+      {% else %}
+        <strong>{{ filtered_count }}</strong> record{% if filtered_count != 1 %}s{% endif %}
+      {% endif %}
       <span class="reg-status-dot" aria-hidden="true"></span>
       Page {{ page }} of {{ total_pages }}
+      <span class="reg-status-dot" aria-hidden="true"></span>
+      Drag the bottom bar, or hold Shift and scroll, to move right
     </span>
     <span class="reg-pager">
       {% if page > 1 %}
         <a href="{{ url_for('civil_registry_reports', page=page-1, **query_args) }}">Prev</a>
       {% endif %}
+      {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+          <span class="reg-pager-current">{{ p }}</span>
+        {% elif p <= 3 or p > total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
+          <a href="{{ url_for('civil_registry_reports', page=p, **query_args) }}">{{ p }}</a>
+        {% elif p == 4 or p == total_pages - 2 %}
+          <span class="reg-pager-gap">…</span>
+        {% endif %}
+      {% endfor %}
       {% if page < total_pages %}
         <a href="{{ url_for('civil_registry_reports', page=page+1, **query_args) }}">Next</a>
       {% endif %}

@@ -103,30 +103,6 @@
 {% endblock %}
 
 {% block content %}
-  {% set _doc_type_labels = {'birth': 'Birth Certificate', 'marriage': 'Marriage Certificate', 'death': 'Death Certificate'} %}
-  {% set _type_label = (document_types|default(_doc_type_labels)).get(record.document_type, record.document_type | capitalize) %}
-
-  <div class="form-review-hero">
-    <div class="form-review-hero-main">
-      <span class="form-review-hero-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-          <path d="M14 2v6h6"/>
-          <path d="M16 13H8M16 17H8"/>
-        </svg>
-      </span>
-      <div class="form-review-hero-copy">
-        <p class="form-review-hero-kicker">Archived record</p>
-        <h1 class="page-title">Record</h1>
-        <p class="page-state">{{ _type_label }} · Registry {{ display_registry_number or '—' }}</p>
-      </div>
-      <div class="form-review-hero-pills" aria-label="Record summary">
-        <span class="form-review-chip">Registry <strong>{{ display_registry_number or '—' }}</strong></span>
-        <span class="form-review-chip">Type <strong>{{ _type_label }}</strong></span>
-      </div>
-    </div>
-  </div>
-
   <div class="scan-workflow-grid record-detail-page-grid">
     <div class="main-card scan-workflow-preview-card form-review-preview record-detail-preview">
       <div class="form-review-card-head">

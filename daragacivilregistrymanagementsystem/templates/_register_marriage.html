@@ -1,11 +1,11 @@
 <div class="reg-form" id="register-marriage">
   <div class="reg-form-head">
     <div class="reg-form-id">
-      MUNICIPAL FORM No. 25 - (Revised, 1938)<br>
-      Formulario Municipal No. 25 - (Revisado, 1938)
+      MUNICIPAL Form No. 25 - (Revised, 1958)<br>
+      Formulario Municipal No. 25 - (Revisado, 1958)
     </div>
     <div class="reg-form-title">
-      <h2>Register of Marriages</h2>
+      <h2>REGISTER OF MARRIAGES</h2>
       <p class="reg-sub">Registro de Casamientos</p>
     </div>
     <div class="reg-form-meta">
@@ -13,49 +13,76 @@
       Municipality of <span class="reg-line">Daraga</span>
     </div>
   </div>
+  <div class="reg-sheet-body">
   <table class="reg-table">
+    <colgroup>
+      <col class="c-regdate">
+      <col class="c-regno">
+      <col class="c-party">
+      <col class="c-age">
+      <col class="c-age">
+      <col class="c-nat">
+      <col class="c-status">
+      <col class="c-res">
+      <col class="c-pname">
+      <col class="c-pnat">
+      <col class="c-pname">
+      <col class="c-pnat">
+      <col class="c-place">
+      <col class="c-mdate">
+      <col class="c-witname">
+      <col class="c-witres">
+      <col class="c-cname">
+      <col class="c-cres">
+      <col class="c-crel">
+      <col class="c-sname">
+      <col class="c-stitle">
+      <col class="c-saddr">
+      <col class="c-receipt">
+      <col class="c-remarks">
+    </colgroup>
     <thead>
       <tr>
-        <th rowspan="2">Date of Registration<br>Fecha del Registro</th>
-        <th rowspan="2">Register Number<br>Número de Registro</th>
-        <th rowspan="2">Names of the Contracting Parties<br>Nombres de los Contrayentes</th>
+        <th rowspan="2">Date of Registration<br><span>Fecha del Registro</span></th>
+        <th rowspan="2">Register Number<br><span>Número de Registro</span></th>
+        <th rowspan="2">Names of the Contracting Parties<br><span>Nombres de los Contrayentes</span></th>
         <th colspan="2">AGE / EDAD</th>
-        <th rowspan="2">Nationality<br>Nacionalidad</th>
-        <th rowspan="2">Single, Widowed or Divorced<br>Soltero, Viudo o Divorciado</th>
-        <th rowspan="2">Residence<br>Residencia</th>
+        <th rowspan="2">Nationality<br><span>Nacionalidad</span></th>
+        <th rowspan="2">Single, Widowed or Divorced<br><span>Soltero, Viudo o Divorciado</span></th>
+        <th rowspan="2">Residence<br><span>Residencia</span></th>
         <th colspan="2">FATHER / PADRE</th>
         <th colspan="2">MOTHER / MADRE</th>
-        <th rowspan="2">Place of Marriage<br>Lugar del Casamiento</th>
-        <th rowspan="2">Date of Marriage<br>Fecha del Casamiento</th>
+        <th rowspan="2">Place of Marriage<br><span>Lugar del Casamiento</span></th>
+        <th rowspan="2">Date of Marriage<br><span>Fecha del Casamiento</span></th>
         <th colspan="2">WITNESSES / TESTIGOS</th>
-        <th colspan="3">PERSON GIVING THE CONSENT<br>PERSONA QUE HA OTORGADO EL CONSENTIMIENTO</th>
+        <th colspan="3">PERSON GIVING THE CONSENT<br><span>PERSONA QUE HA OTORGADO EL CONSENTIMIENTO</span></th>
         <th colspan="3">SOLEMNIZED BY / CELEBRADO POR</th>
-        <th rowspan="2">Date of Receipt of Marriage Certificate<br>Fecha de Recibo del Certificado de Matrimonio</th>
+        <th rowspan="2">Date of Receipt of Marriage Certificate<br><span>Fecha de Recibo del Certificado de Matrimonio</span></th>
         <th rowspan="2">REMARKS / OBSERVACIONES</th>
       </tr>
       <tr>
-        <th>Years<br>Años</th>
-        <th>Months<br>Meses</th>
-        <th>Name<br>Nombre</th>
-        <th>Nationality<br>Nacionalidad</th>
-        <th>Name<br>Nombre</th>
-        <th>Nationality<br>Nacionalidad</th>
+        <th>Yr<br><span>Años</span></th>
+        <th>Mo<br><span>Mes</span></th>
+        <th>Name / Nombre</th>
+        <th>Nationality<br><span>Nacionalidad</span></th>
+        <th>Name / Nombre</th>
+        <th>Nationality<br><span>Nacionalidad</span></th>
         <th>Name / Nombre</th>
         <th>Residence / Residencia</th>
         <th>Name / Nombre</th>
         <th>Residence / Residencia</th>
-        <th>Relation to the Minor Contracting Party<br>Relación con el Contratante Menor</th>
+        <th>Relation to the Minor Contracting Party<br><span>Relación con el Contratante Menor</span></th>
         <th>Name / Nombre</th>
         <th>Title / Título</th>
         <th>Address / Dirección</th>
       </tr>
     </thead>
     <tbody>
-      {% for row in rows %}
+    {% for row in rows %}
       <tr class="reg-pair">
         <td rowspan="2">{{ row.date_registration }}</td>
         <td rowspan="2">{{ row.register_number }}</td>
-        <td class="cell-left"><strong>Husband / Marido</strong> {{ row.husband_name }}</td>
+        <td class="cell-left"><span class="reg-party">Husband / Marido</span> {{ row.husband_name }}</td>
         <td>{{ row.husband_age_years }}</td>
         <td>{{ row.husband_age_months }}</td>
         <td>{{ row.husband_nationality }}</td>
@@ -67,8 +94,8 @@
         <td>{{ row.husband_mother_nat }}</td>
         <td class="cell-left" rowspan="2">{{ row.place_of_marriage }}</td>
         <td rowspan="2">{{ row.date_of_marriage }}</td>
-        <td class="cell-left" rowspan="2">{{ row.witness1_name }}{% if row.witness2_name %}<br>{{ row.witness2_name }}{% endif %}</td>
-        <td class="cell-left" rowspan="2">{{ row.witness1_res }}{% if row.witness2_res %}<br>{{ row.witness2_res }}{% endif %}</td>
+        <td class="cell-left">{{ row.witness1_name }}</td>
+        <td class="cell-left">{{ row.witness1_res }}</td>
         <td class="cell-left" rowspan="2">{{ row.consent_name }}</td>
         <td class="cell-left" rowspan="2">{{ row.consent_res }}</td>
         <td rowspan="2">{{ row.consent_rel }}</td>
@@ -79,7 +106,7 @@
         <td class="cell-left" rowspan="2">{{ row.remarks }}</td>
       </tr>
       <tr>
-        <td class="cell-left"><strong>Wife / Esposa</strong> {{ row.wife_name }}</td>
+        <td class="cell-left"><span class="reg-party">Wife / Esposa</span> {{ row.wife_name }}</td>
         <td>{{ row.wife_age_years }}</td>
         <td>{{ row.wife_age_months }}</td>
         <td>{{ row.wife_nationality }}</td>
@@ -89,36 +116,47 @@
         <td>{{ row.wife_father_nat }}</td>
         <td class="cell-left">{{ row.wife_mother }}</td>
         <td>{{ row.wife_mother_nat }}</td>
+        <td class="cell-left">{{ row.witness2_name }}</td>
+        <td class="cell-left">{{ row.witness2_res }}</td>
       </tr>
-      {% endfor %}
-      {% for _ in range(empty_rows) %}
+    {% endfor %}
+    {% for _ in range(empty_rows) %}
       <tr class="reg-pair">
-        <td rowspan="2"></td><td rowspan="2"></td>
-        <td class="cell-left"><strong>Husband / Marido</strong></td>
+        <td rowspan="2"></td>
+        <td rowspan="2"></td>
+        <td class="cell-left"><span class="reg-party">Husband / Marido</span></td>
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-        <td rowspan="2"></td><td rowspan="2"></td>
-        <td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td>
-        <td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td>
-        <td rowspan="2"></td><td rowspan="2"></td>
+        <td rowspan="2"></td>
+        <td rowspan="2"></td>
+        <td></td><td></td>
+        <td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td>
+        <td rowspan="2"></td><td rowspan="2"></td><td rowspan="2"></td>
+        <td rowspan="2"></td>
+        <td rowspan="2"></td>
       </tr>
       <tr>
-        <td class="cell-left"><strong>Wife / Esposa</strong></td>
+        <td class="cell-left"><span class="reg-party">Wife / Esposa</span></td>
         <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+        <td></td><td></td>
       </tr>
-      {% endfor %}
+    {% endfor %}
     </tbody>
   </table>
+  <div class="reg-table-close" aria-hidden="true"></div>
+  </div>
+  <div class="reg-form-foot">
   <div class="reg-footnotes">
     This form should be filled and sent by the Local Civil Registrar to the Civil Registrar-General during the first ten days of each month.<br>
     Write plainly, with unfading ink. This is a permanent record.
   </div>
   <div class="reg-cert">
-    <div>
+    <div class="reg-cert-copy">
       I hereby certify that this is a true copy of the Civil Register of this municipality containing entries of all the marriages that occurred therein during the month of ____________________, 20____.<br>
       <em>Certifico que esta es copia fiel del Registro Civil de este municipio, y contiene las partidas de todos los matrimonios celebrados en el mismo durante el mes de ____________________, 20____.</em>
     </div>
     <div class="reg-sign">
       <div class="reg-sign-line">Local Civil Registrar / Registrador Civil Local</div>
     </div>
+  </div>
   </div>
 </div>

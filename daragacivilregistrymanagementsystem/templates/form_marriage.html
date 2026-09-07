@@ -38,7 +38,7 @@
           {% set source = data.get('__source__', {}) %}
           <div class="confirm-grid">
             <div class="metadata-section-title">Shared</div>
-            {% for key in ['Registry Number', 'Date of Registration', 'Date of Marriage', 'Place of Marriage'] %}
+            {% for key in ['Registry Number', 'Page Number', 'Book Number', 'Date of Registration', 'Date of Marriage', 'Place of Marriage'] %}
               {% set field_id = none %}
               {% include '_ocr_meta_field.html' %}
             {% endfor %}

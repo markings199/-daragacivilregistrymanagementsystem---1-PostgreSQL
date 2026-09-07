@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}OCR in progress{% endblock %}
+{% block body_class %}page-ocr-wait{% endblock %}
+
+{% block extra_head %}
+<style>
+  .ocr-wait-card {
+    max-width: 36rem;
+    margin: 24px auto;
+    padding: 18px 16px 16px;
+    border: 1px solid var(--border, #dbe4ef);
+    border-radius: 12px;
+    background: var(--surface, #fff);
+  }
+  .ocr-wait-card h1 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    color: #0f2b5c;
+  }
+  .ocr-wait-card p {
+    margin: 0 0 14px;
+    font-size: 0.84rem;
+    color: #475569;
+    line-height: 1.4;
+  }
+  .ocr-wait-preview {
+    margin: 0 0 14px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border, #e2e8f0);
+    background: #0b1220;
+    max-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ocr-wait-preview img {
+    max-width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+  }
+  [data-theme="dark"] .ocr-wait-card h1 { color: #f8fafc; }
+  [data-theme="dark"] .ocr-wait-card p { color: #cbd5e1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ocr-wait-card">
+  <h1>OCR is still running</h1>
+  <p>You can use other pages. This job keeps going in the background. This page will open the form when reading finishes.</p>
+  {% if wait_ocr and wait_ocr.image_url %}
+    <div class="ocr-wait-preview">
+      <img src="{{ wait_ocr.image_url }}" alt="Document being read" />
+    </div>
+  {% endif %}
+  <div id="ocr-loading" class="ocr-loading is-on" aria-live="polite" aria-busy="true">
+    <div class="ocr-loading-head">
+      <span class="ocr-loading-pulse" aria-hidden="true"></span>
+      <p class="ocr-loading-title">OCR is processing…</p>
+      <span id="ocr-progress-text" class="ocr-loading-percent">{{ wait_ocr.progress if wait_ocr else 1 }}%</span>
+    </div>
+    <div class="ocr-loading-track">
+      <div id="ocr-progress-fill" class="ocr-loading-fill" style="width: {{ wait_ocr.progress if wait_ocr else 1 }}%"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

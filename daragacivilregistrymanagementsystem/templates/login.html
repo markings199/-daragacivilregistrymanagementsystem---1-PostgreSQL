@@ -81,10 +81,11 @@
         display: flex;
         flex-direction: column;
         justify-content: center;
-        align-items: flex-start;
+        align-items: center;
+        text-align: center;
         gap: 0;
         margin: 0;
-        padding: 40px 40px 36px;
+        padding: 32px 28px 30px;
         background:
           linear-gradient(180deg, rgba(0, 138, 58, 0.18) 0%, transparent 28%),
           linear-gradient(160deg, #061633 0%, #0a2148 55%, #002080 100%);
@@ -102,7 +103,7 @@
       }
       .logo-ring {
         width: fit-content;
-        margin: 0 0 22px;
+        margin: 0 auto 14px;
         padding: 5px;
         border-radius: 50%;
         background: #fff;
@@ -110,54 +111,57 @@
         flex-shrink: 0;
       }
       .brand-logo {
-        width: 128px;
-        height: 128px;
+        width: 148px;
+        height: 148px;
         display: block;
         object-fit: contain;
         border-radius: 50%;
       }
       .brand-copy {
         min-width: 0;
+        width: 100%;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
+        text-align: center;
         gap: 0;
       }
       .eyebrow {
-        font-size: 0.82rem;
+        font-size: 0.88rem;
         font-weight: 800;
         letter-spacing: 0.16em;
         text-transform: uppercase;
         color: #86efac;
-        margin: 0 0 10px;
+        margin: 0 0 6px;
       }
       .login-title {
-        font-size: 2.15rem;
+        font-size: 2.35rem;
         font-weight: 800;
-        letter-spacing: -0.035em;
+        letter-spacing: -0.03em;
         color: #ffffff;
         margin: 0;
-        line-height: 1.12;
-        max-width: 14ch;
+        line-height: 1.15;
+        max-width: 16ch;
       }
       .login-sub {
-        font-size: 1rem;
-        color: rgba(226, 232, 240, 0.86);
-        margin: 14px 0 0;
-        line-height: 1.45;
-        max-width: 28ch;
+        font-size: 1.05rem;
+        color: rgba(226, 232, 240, 0.88);
+        margin: 8px 0 0;
+        line-height: 1.4;
+        max-width: 26ch;
       }
       .brand-chip {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        margin-top: 22px;
-        padding: 7px 12px;
+        margin-top: 14px;
+        padding: 6px 12px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.16);
         color: #e2e8f0;
-        font-size: 0.78rem;
+        font-size: 0.8rem;
         font-weight: 700;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -285,20 +289,22 @@
           min-height: 0;
         }
         .brand {
-          padding: 28px 28px 26px;
+          padding: 22px 24px 20px;
         }
         .brand::after { display: none; }
-        .logo-ring { margin-bottom: 16px; }
-        .brand-logo { width: 96px; height: 96px; }
-        .login-title { font-size: 1.75rem; max-width: none; }
+        .logo-ring { margin-bottom: 10px; }
+        .brand-logo { width: 112px; height: 112px; }
+        .login-title { font-size: 1.85rem; max-width: none; }
+        .login-sub { font-size: 1rem; }
+        .brand-chip { margin-top: 10px; }
         .login-card-inner { padding: 28px 28px 26px; }
       }
       @media (max-width: 480px) {
         body { padding: 16px; }
-        .brand { padding: 22px 20px; }
+        .brand { padding: 18px 18px 16px; }
         .login-card-inner { padding: 22px 20px 20px; }
-        .brand-logo { width: 84px; height: 84px; }
-        .login-title { font-size: 1.5rem; }
+        .brand-logo { width: 96px; height: 96px; }
+        .login-title { font-size: 1.6rem; }
         .form-title { font-size: 1.4rem; }
       }
     </style>
@@ -315,8 +321,8 @@
                 class="brand-logo"
                 src="{{ url_for('static', filename='mcr-daraga-seal.png') }}"
                 alt="Seal of the Municipal Civil Registry of Daraga, Albay"
-                width="128"
-                height="128"
+                width="148"
+                height="148"
               />
             </div>
             <div class="brand-copy">

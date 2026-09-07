@@ -112,10 +112,12 @@
       <div class="main-card record-edit-form-col">
         <h2 class="section-title">Edit record data</h2>
         {% for key, val in public_record_fields(data).items() %}
+          {% if not (record.document_type == 'death' and key == 'Name of Mother') %}
           <div class="metadata-edit-field">
-            <label class="metadata-edit-label" for="edit_{{ loop.index }}">{{ key }}</label>
+            <label class="metadata-edit-label" for="edit_{{ loop.index }}">{{ metadata_display_label(key) }}</label>
             <input class="metadata-edit-input" id="edit_{{ loop.index }}" name="{{ key }}" value="{{ val or '' }}" type="text" autocomplete="off" />
           </div>
+          {% endif %}
         {% endfor %}
         {% include '_document_annotation_fields.html' %}
         <div class="button-row">

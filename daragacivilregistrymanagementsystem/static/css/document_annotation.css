@@ -101,10 +101,10 @@
 }
 
 .annotation-fields {
-  margin-top: 16px;
-  padding: 0 0 14px;
+  margin-top: 10px;
+  padding: 0 0 10px;
   border: 1px solid rgba(0, 32, 128, 0.16);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
   box-shadow: none;
   overflow: hidden;
@@ -113,16 +113,16 @@
 .annotation-fields-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 0 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 7px 12px;
   background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
 }
 
 .annotation-fields-head-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -134,8 +134,8 @@
 }
 
 .annotation-fields-head-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .annotation-fields-head-copy {
@@ -144,28 +144,30 @@
 }
 
 .annotation-fields-title {
-  margin: 0 0 2px;
-  font-size: 1.12rem;
+  margin: 0;
+  font-size: 0.98rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  line-height: 1.2;
   color: #ffffff;
 }
 
 .annotation-fields-kicker {
-  margin: 0;
-  font-size: 0.68rem;
+  margin: 1px 0 0;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  line-height: 1.25;
   color: #93c5fd;
 }
 
 .annotation-fields-badge {
   flex-shrink: 0;
   margin-left: auto;
-  padding: 5px 10px;
+  padding: 4px 9px;
   border-radius: 999px;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -175,21 +177,21 @@
 }
 
 .annotation-fields-help {
-  margin: 0 14px 14px;
-  padding: 10px 12px;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  margin: 0 12px 8px;
+  padding: 6px 10px;
+  font-size: 0.74rem;
+  line-height: 1.35;
   color: #475569;
   background: #f8fafc;
   border: 1px solid rgba(0, 32, 128, 0.1);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .annotation-fields-section {
-  margin: 0 14px 14px;
-  padding: 12px 12px 4px;
+  margin: 0 12px 8px;
+  padding: 8px 10px 2px;
   border: 1px solid rgba(0, 32, 128, 0.1);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.78);
 }
 
@@ -198,22 +200,30 @@
 }
 
 .annotation-fields-section-label {
-  margin: 0 0 8px;
-  font-size: 0.68rem;
+  margin: 0 0 4px;
+  font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #002080;
 }
 
+.annotation-fields .field-grid {
+  gap: 8px 10px;
+}
+
 .annotation-fields .annotation-fields-field {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.annotation-fields .annotation-fields-field:last-child {
+  margin-bottom: 6px;
 }
 
 .annotation-fields .annotation-fields-field label {
   display: block;
-  margin: 0 0 5px;
-  font-size: 0.78rem;
+  margin: 0 0 3px;
+  font-size: 0.75rem;
   font-weight: 800;
   color: #1e3a67;
 }
@@ -228,7 +238,10 @@
 .annotation-fields textarea {
   width: 100%;
   box-sizing: border-box;
-  border-radius: 10px;
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 0.82rem;
+  border-radius: 8px;
   border: 1px solid #c5d4e8;
   background: #fff;
   color: #0f172a;
@@ -243,10 +256,10 @@
 }
 
 .annotation-text-area {
-  min-height: 7.2rem;
+  min-height: 4.6rem;
   font-family: "Times New Roman", Times, serif;
-  font-size: 0.92rem;
-  line-height: 1.45;
+  font-size: 0.86rem;
+  line-height: 1.4;
   text-transform: uppercase;
   letter-spacing: 0.01em;
   resize: vertical;
@@ -256,20 +269,20 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px 14px;
-  margin: 8px 0 4px;
+  gap: 6px 10px;
+  margin: 6px 0 2px;
 }
 
 .btn-annotation-fill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border-radius: 10px;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 8px;
   border: 1px solid rgba(0, 32, 128, 0.22);
   background: linear-gradient(180deg, #f4f7ff 0%, #e4ecfb 100%);
   color: #002080;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
   cursor: pointer;
 }

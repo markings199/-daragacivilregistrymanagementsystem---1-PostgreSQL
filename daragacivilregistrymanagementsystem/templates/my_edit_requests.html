@@ -64,8 +64,8 @@
                 </td>
                 <td>{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else '—' }}</td>
                 <td><span class="status-badge status-{{ req.status|lower }}">{{ req.status }}</span></td>
-                <td>{{ req.reason or '—' }}</td>
-                <td>{{ req.rejection_reason or '—' }}</td>
+                <td class="col-reason" title="{{ req.reason or '' }}">{{ req.reason or '—' }}</td>
+                <td class="col-reject" title="{{ req.rejection_reason or '' }}">{{ req.rejection_reason or '—' }}</td>
                 <td class="code-cell">
                   {% if req.status == 'APPROVED' and req.approval_code %}
                     <div class="code-cell-stack">

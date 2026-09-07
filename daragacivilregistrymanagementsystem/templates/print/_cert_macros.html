@@ -1,13 +1,42 @@
 {% macro cert_row(label, value, field_key='') %}
 <div class="cert-field">
-  <span class="cert-label">{{ label }}</span><span class="cert-colon"> :</span>
+  <span class="cert-label">{{ label }}</span><span class="cert-colon">:</span>
   <span class="cert-value"{% if field_key %} data-cert-field="{{ field_key }}"{% endif %}>{{ value if value else ' ' }}</span>
 </div>
 {% endmacro %}
 
-{% macro cert_payment_row(label, value='') %}
-<div class="cert-field">
-  <span class="cert-label">{{ label }}</span><span class="cert-colon"> :</span>
-  <span class="cert-value">{{ value if value else ' ' }}</span>
+{% macro cert_pay_row(label, value='', peso=false) %}
+<tr>
+  <td class="cert-pay-label">{{ label }}</td>
+  <td class="cert-pay-colon">:</td>
+  <td class="cert-pay-blank">{% if peso %}P{% endif %}{{ value if value else '\xa0' }}</td>
+</tr>
+{% endmacro %}
+
+{% macro cert_inline_blank(value, field_key) %}
+<span class="cert-inline-u"{% if field_key %} data-cert-field="{{ field_key }}"{% endif %}>{{ value if value else ' ' }}</span>
+{% endmacro %}
+
+{% macro cert_line_row(label, value, field_key='', upper=false, fill_class='') %}
+<tr class="{{ 'cert-line-row--wide' if fill_class == 'cert-fill--long' else '' }}">
+  <td class="cert-line-label">{{ label }}</td>
+  <td class="cert-line-colon">:</td>
+  {% if fill_class %}
+  <td class="cert-line-value{% if upper %} cert-line-value--upper{% endif %} cert-line-value--fill">
+    <span class="cert-fill {{ fill_class }}"{% if field_key %} data-cert-field="{{ field_key }}"{% endif %}{% if field_key == 'Issued To' %} contenteditable="true" spellcheck="false"{% endif %}>{{ value if value else '\xa0' }}</span>
+  </td>
+  {% else %}
+  <td class="cert-line-value{% if upper %} cert-line-value--upper{% endif %}"{% if field_key %} data-cert-field="{{ field_key }}"{% endif %}{% if field_key == 'Issued To' %} contenteditable="true" spellcheck="false"{% endif %}>{{ value if value else '\xa0' }}</td>
+  {% endif %}
+</tr>
+{% endmacro %}
+
+{% macro cert_issued() %}
+<div class="cert-issued-wrap">
+  <div class="cert-issued-row">
+    <span class="cert-issued-phrase">This certification is issued to:</span>
+    <span class="cert-issued-blank" contenteditable="true" spellcheck="false" data-cert-field="Issued To">&nbsp;</span>
+  </div>
+  <div class="cert-issued-upon">upon his/her request.</div>
 </div>
 {% endmacro %}

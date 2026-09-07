@@ -93,8 +93,35 @@ NAME_BANNED_WORDS = {
     "PLACE", "BIRTH", "DEATH", "MARRIAGE", "NO", "NUMBER",
     "REPUBLIC", "PHILIPPINES", "PHILIPPINE", "STATISTICS",
     "AUTHORITY", "GENERAL", "MANILA", "CERTIFICATE", "REGISTRATION",
-    "COPY", "OFFICIAL", "LOCAL", "REGISTRATION"
+    "COPY", "OFFICIAL", "LOCAL", "REGISTRATION", "CONTRACTING",
+    "PARTIES", "HUSBAND", "WIFE", "AGE", "SEX", "STATUS",
 }
+
+NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
+NAME_PARTICLES = {"DE", "DEL", "DELA", "DA", "VAN", "VON", "SAN", "SANTA", "LA", "LAS", "LOS", "Y", "DI"}
+
+CITIZENSHIP_CANON = {
+    "FILIPINO": "FILIPINO",
+    "FILPINO": "FILIPINO",
+    "FLIPINO": "FILIPINO",
+    "FILIPINA": "FILIPINO",
+    "AMERICAN": "AMERICAN",
+    "CHINESE": "CHINESE",
+    "JAPANESE": "JAPANESE",
+    "KOREAN": "KOREAN",
+    "BRITISH": "BRITISH",
+    "INDIAN": "INDIAN",
+    "AUSTRALIAN": "AUSTRALIAN",
+    "CANADIAN": "CANADIAN",
+}
+
+PLACE_LANDMARKS = (
+    "QUEZON CITY", "CITY HALL", "MUNICIPAL HALL", "BARANGAY", "MANILA",
+    "QUEZON", "MAKATI", "PASIG", "TAGUIG", "CALOOCAN", "PASAY", "MUNTINLUPA",
+    "PARANAQUE", "PARAÑAQUE", "LAS PINAS", "LAS PIÑAS", "ERMITA", "CUBAO",
+    "ALABANG", "CEBU", "DAVAO", "ALBAY", "CAMALIG", "DARAGA", "LEGAZPI",
+    "STREET", "AVENUE", "ROAD", "CHURCH", "CATHEDRAL", "HALL",
+)
 
 COMMON_WORD_FIXES = {
     "FILPINO": "FILIPINO", "FLPINO": "FILIPINO", "FLIPINO": "FILIPINO",
@@ -164,6 +191,63 @@ def join_tokens(tokens):
 def apply_common_word_fix(text: str) -> str:
     nt = norm_text(text)
     return COMMON_WORD_FIXES.get(nt, nt)
+
+
+def is_date_noise_token(nt: str) -> bool:
+    if not nt:
+        return False
+    if re.search(r"\d", nt) and any(month[:3] in nt for month in MONTHS):
+        return True
+    if re.fullmatch(r"\d{1,2}[A-Z]{3,9}\d{0,4}", nt):
+        return True
+    if re.fullmatch(r"\d{1,2}:\d{2}(AM|PM)?", nt):
+        return True
+    if re.fullmatch(r"\d{4}", nt) and 1900 <= int(nt) <= 2100:
+        return True
+    return False
+
+
+def sanitize_person_name(name: str) -> str:
+    """Drop OCR junk, dates, and form words so only a person name remains."""
+    parts = []
+    for raw in clean_text(name).split():
+        nt = norm_text(raw)
+        if not nt or is_helper_token(raw) or is_form_metadata(raw):
+            continue
+        if is_date_noise_token(nt) or nt in NAME_BANNED_WORDS:
+            continue
+        if re.fullmatch(r"\d+", nt):
+            continue
+        mixed = raw != raw.upper() and raw != raw.lower() and raw != raw.title()
+        if mixed and alpha_count(raw) <= 3:
+            continue
+        if re.fullmatch(r"[A-Z]\.?", nt) or nt in NAME_SUFFIXES or nt in NAME_PARTICLES:
+            parts.append(nt if nt in NAME_SUFFIXES or nt in NAME_PARTICLES else raw.upper().rstrip("."))
+            continue
+        if alpha_count(raw) < 3:
+            continue
+        parts.append(raw.upper())
+    while parts and norm_text(parts[0]) not in NAME_PARTICLES and alpha_count(parts[0]) < 3:
+        parts.pop(0)
+    while parts and norm_text(parts[-1]) not in NAME_SUFFIXES | NAME_PARTICLES and alpha_count(parts[-1]) < 3:
+        parts.pop()
+    return " ".join(parts).strip()
+
+
+def normalize_citizenship_value(text: str) -> str:
+    nt = compact_text(text)
+    if not nt:
+        return ""
+    for key, canon in CITIZENSHIP_CANON.items():
+        if compact_text(key) in nt or nt in compact_text(key):
+            return canon
+    match = difflib.get_close_matches(nt, [compact_text(k) for k in CITIZENSHIP_CANON], n=1, cutoff=0.78)
+    if match:
+        for key, canon in CITIZENSHIP_CANON.items():
+            if compact_text(key) == match[0]:
+                return canon
+    cleaned = apply_common_word_fix(text)
+    return cleaned if alpha_count(cleaned) >= 4 else ""
 
 
 def normalize_month_word(word: str) -> str:
@@ -400,7 +484,7 @@ def normalize_name(tokens):
     name = re.sub(r"\bFORMNO\.?\s*\d+\b", " ", name, flags=re.I)
     name = re.sub(r"\bSAN\s+N\s+ANDRES\b", "SAN ANDRES", name, flags=re.I)
     name = re.sub(r"\s+", " ", name).strip()
-    return name
+    return sanitize_person_name(name)
 
 
 def normalize_simple_row(tokens, banned=None):
@@ -595,7 +679,15 @@ def normalize_place(text: str) -> str:
     text = re.sub(r"\.{2,}", " ", text)
     text = re.sub(r"(?<=\w)\.(?=\w)", "", text)
     text = re.sub(r"\bEBMITA\b", "ERMITA", text, flags=re.I)
-    text = re.sub(r"\s+", " ", text).strip(" .:-,")
+    text = re.sub(r"([a-z])([A-Z])", r"\1 \2", text)
+    spaced = text
+    for landmark in sorted(PLACE_LANDMARKS, key=len, reverse=True):
+        spaced = re.sub(
+            rf"(?i)(?<=[A-Za-z0-9])({re.escape(landmark)})",
+            r" \1",
+            spaced,
+        )
+    text = re.sub(r"\s+", " ", spaced).strip(" .:-,")
     return text
 
 
@@ -647,19 +739,157 @@ def find_marriage_date_fallback(items, place_mar_label, working_xmax):
 
 
 def extract_registry_number(items, img_w, img_h, working_xmax):
-    region = tokens_in_region(
-        items, img_w * 0.40, img_w * 0.96, 0, img_h * 0.20, min_score=0.20
+    """Read municipal/PSA registry numbers from the header, including split OCR tokens."""
+    region = tokens_in_region(items, img_w * 0.28, img_w * 0.99, 0, img_h * 0.24, min_score=0.12)
+    label = find_best_label(
+        items,
+        patterns=["REGISTRY NO", "REGISTRY NUMBER", "REGISTR Y NO", "REG. NO", "REG NO"],
+        x_min=img_w * 0.20, x_max=img_w * 0.99,
+        y_min=0, y_max=img_h * 0.28,
+        min_score=0.12,
     )
+    if label:
+        near = tokens_in_region(
+            items, label["x1"] - 20, img_w * 0.99,
+            label["y1"] - 18, label["y2"] + 55, min_score=0.12
+        )
+        region = near + region
+
     vals = []
-    for it in region:
-        t = clean_text(it["text"])
-        t2 = re.sub(r"\s*-\s*", "-", t)
-        if re.fullmatch(r"\d{2,6}-\d{2,8}", t2):
-            vals.append((it["score"], it["x1"], t2))
+    ordered = sorted(region, key=lambda x: (x["cy"], x["x1"]))
+
+    def consider(raw: str, score: float):
+        t = re.sub(r"\s*-\s*", "-", clean_text(raw))
+        compact = re.sub(r"\s+", "", t)
+        if re.fullmatch(r"\d{4}-\d{3,8}", compact):
+            vals.append((score + 0.35, compact))
+        elif re.fullmatch(r"\d{2,8}-\d{2,8}", compact):
+            vals.append((score + 0.2, compact))
+        elif re.fullmatch(r"[A-Z0-9]{2,8}-\d{2,4}-[A-Z0-9]{2,10}", compact, flags=re.I):
+            vals.append((score + 0.25, compact.upper()))
+        elif re.fullmatch(r"\d{6,12}", compact):
+            vals.append((score * 0.4, compact))
+
+    for it in ordered:
+        consider(it["text"], it["score"])
+
+    for i, it in enumerate(ordered[:-1]):
+        nxt = ordered[i + 1]
+        if abs(it["cy"] - nxt["cy"]) > 22:
+            continue
+        if nxt["x1"] - it["x2"] > img_w * 0.12:
+            continue
+        a = re.sub(r"\D", "", it["text"])
+        b = re.sub(r"\D", "", nxt["text"])
+        if 2 <= len(a) <= 6 and 3 <= len(b) <= 8:
+            consider(f"{a}-{b}", (it["score"] + nxt["score"]) / 2)
+
     if not vals:
         return ""
-    vals.sort(key=lambda x: (-x[0], x[1]))
-    return vals[0][2]
+    vals.sort(key=lambda x: -x[0])
+    return vals[0][1]
+
+
+def extract_date_of_registration(items, img_w, img_h, marriage_date_text=""):
+    """Header date, usually to the right of the registry number."""
+    label = find_best_label(
+        items,
+        patterns=["DATE OF REGISTRATION", "DATE RECEIVED", "RECEIVED IN THIS OFFICE", "RECEIVED"],
+        x_min=img_w * 0.20, x_max=img_w * 0.99,
+        y_min=0, y_max=img_h * 0.30,
+        min_score=0.12,
+        forbidden=["DATE OF MARRIAGE", "DATE OF BIRTH"],
+    )
+    regions = []
+    if label:
+        regions.append(tokens_in_region(
+            items, label["x1"] - 10, img_w * 0.99,
+            label["y1"] - 16, label["y2"] + 70, min_score=0.12
+        ))
+    regions.append(tokens_in_region(items, img_w * 0.42, img_w * 0.99, 0, img_h * 0.22, min_score=0.18))
+    found = []
+    seen = set()
+    marriage_norm = parse_date_from_string(marriage_date_text)
+    for region in regions:
+        for cand in extract_date_candidates(region):
+            parsed = parse_date_from_string(cand["text"])
+            if not parsed or parsed in seen:
+                continue
+            seen.add(parsed)
+            found.append(parsed)
+    if not found:
+        return ""
+    if marriage_norm:
+        others = [d for d in found if d != marriage_norm]
+        if others:
+            return others[0]
+    return found[0]
+
+
+def extract_parent_pair(items, label, working_xmax, split_x, stop_label=None):
+    if not label:
+        return "", ""
+    ymax = label["y2"] + 32
+    if stop_label and stop_label["y1"] > label["y1"] + 4:
+        ymax = min(ymax, stop_label["y1"] - 4)
+    tokens = tokens_in_region(
+        items, label["x2"] + 4, working_xmax,
+        label["y1"] - 8, ymax, min_score=0.16
+    )
+    left, right = split_left_right(tokens, split_x, label["x2"])
+    return normalize_name(left), normalize_name(right)
+
+
+def resolve_duplicate_parents(items, father_label, mother_label, working_xmax, split_x, h_f, h_m, w_f, w_m):
+    same_h = bool(h_f and h_m and norm_text(h_f) == norm_text(h_m))
+    same_w = bool(w_f and w_m and norm_text(w_f) == norm_text(w_m))
+    if not (same_h or same_w) or not father_label:
+        return h_f, h_m, w_f, w_m
+    y1 = mother_label["y2"] + 40 if mother_label else father_label["y2"] + 90
+    tokens = tokens_in_region(
+        items, father_label["x2"] + 4, working_xmax,
+        father_label["y1"] - 6, y1, min_score=0.14
+    )
+    name_rows = []
+    for row in group_rows(tokens, y_tol=13):
+        left, right = split_left_right(row, split_x, father_label["x2"])
+        ln, rn = normalize_name(left), normalize_name(right)
+        if ln or rn:
+            name_rows.append((ln, rn))
+    if len(name_rows) >= 2:
+        return (
+            name_rows[0][0] or h_f,
+            name_rows[1][0],
+            name_rows[0][1] or w_f,
+            name_rows[1][1],
+        )
+    if same_h:
+        h_m = ""
+    if same_w:
+        w_m = ""
+    return h_f, h_m, w_f, w_m
+
+
+def extract_citizenship_pair(items, label, working_xmax, split_x, next_label, img_w, img_h):
+    h, w = "", ""
+    if label:
+        h, w = extract_two_side_band(
+            items, label, working_xmax, split_x,
+            next_label=next_label, banned={"CITIZENSHIP", "CITIZENAHIP"}, extra_bottom=36
+        )
+    h = normalize_citizenship_value(h)
+    w = normalize_citizenship_value(w)
+    if h and w:
+        return h, w
+    y_min = label["y1"] - 10 if label else img_h * 0.16
+    y_max = (next_label["y1"] - 4) if next_label else (label["y2"] + 50 if label else img_h * 0.34)
+    band = tokens_in_region(items, img_w * 0.12, working_xmax, y_min, y_max, min_score=0.12)
+    left, right = split_left_right(band, split_x, label["x2"] if label else img_w * 0.12)
+    if not h:
+        h = normalize_citizenship_value(join_tokens(left))
+    if not w:
+        w = normalize_citizenship_value(join_tokens(right))
+    return h, w
 
 
 def _field_confidence(field_name: str, value: str, source: str = "layout") -> str:
@@ -752,6 +982,8 @@ def extract_names_from_band(items, name_label, dob_label, working_xmax, split_x,
             continue
         # Skip pure numbers
         if re.fullmatch(r"\d+", nt):
+            continue
+        if is_date_noise_token(nt):
             continue
         # Skip very short tokens
         if len(nt) < 2:
@@ -881,10 +1113,11 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
 
             tpl_map = {
                 "Registry Number": _v("registry_number"),
-                "Husband Name": _v("husband_name"),
-                "Wife Name": _v("wife_name"),
+                "Date of Registration": _v("date_of_registration"),
+                "Husband Name": sanitize_person_name(_v("husband_name")),
+                "Wife Name": sanitize_person_name(_v("wife_name")),
                 "Date of Marriage": _v("date_of_marriage"),
-                "Place of Marriage": _v("place_of_marriage"),
+                "Place of Marriage": normalize_place(_v("place_of_marriage")),
             }
     except Exception:
         pass
@@ -914,9 +1147,9 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
 
     dob_label = find_best_label(
         items,
-        patterns=["DATE OF BIRTH AGE", "DATE OF BIRTH/AGE", "BIRTH AGE"],
-        x_min=0, x_max=img_w * 0.30,
-        y_min=img_h * 0.11, y_max=img_h * 0.28
+        patterns=["DATE OF BIRTH AGE", "DATE OF BIRTH/AGE", "DATE OF BIRTH", "BIRTH AGE"],
+        x_min=0, x_max=img_w * 0.32,
+        y_min=img_h * 0.10, y_max=img_h * 0.32
     )
 
     pob_label = find_best_label(
@@ -969,16 +1202,24 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     father_label = find_best_label(
         items,
         patterns=["NAME OF FATHER", "FATHER"],
-        x_min=0, x_max=img_w * 0.30,
-        y_min=img_h * 0.24, y_max=img_h * 0.54
+        x_min=0, x_max=img_w * 0.32,
+        y_min=img_h * 0.24, y_max=img_h * 0.56
     )
 
+    mother_min_y = (father_label["y2"] + 8) if father_label else img_h * 0.30
     mother_label = find_best_label(
         items,
         patterns=["NAME OF MOTHER", "MOTHER"],
-        x_min=0, x_max=img_w * 0.30,
-        y_min=img_h * 0.28, y_max=img_h * 0.62
+        x_min=0, x_max=img_w * 0.32,
+        y_min=mother_min_y, y_max=img_h * 0.66
     )
+    if father_label and mother_label and mother_label["cy"] <= father_label["cy"] + 10:
+        mother_label = find_best_label(
+            items,
+            patterns=["NAME OF MOTHER", "MOTHER"],
+            x_min=0, x_max=img_w * 0.32,
+            y_min=father_label["y2"] + 12, y_max=img_h * 0.66
+        )
 
     father_cit_label = find_label_below(
         items, father_label,
@@ -1003,10 +1244,10 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
 
     date_mar_label = find_best_label(
         items,
-        patterns=["DATE", "DATE:"],
-        x_min=0, x_max=img_w * 0.35,
-        y_min=img_h * 0.48, y_max=img_h * 0.62,
-        forbidden=["DATE OF BIRTH"]
+        patterns=["DATE OF MARRIAGE", "TIME OF MARRIAGE", "DATE AND TIME OF MARRIAGE", "DATE", "DATE:"],
+        x_min=0, x_max=img_w * 0.45,
+        y_min=img_h * 0.40, y_max=img_h * 0.78,
+        forbidden=["DATE OF BIRTH", "DATE OF REGISTRATION"]
     )
 
     if DEBUG_LABELS:
@@ -1041,13 +1282,17 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     data["shared"]["Registry Number"] = extract_registry_number(items, img_w, img_h, working_xmax)
 
     if place_mar_label:
-        lower_y = date_mar_label["y1"] - 8 if date_mar_label else place_mar_label["y2"] + 30
-        upper_y = place_mar_label["y2"] + 2
+        lower_y = date_mar_label["y1"] - 6 if date_mar_label and date_mar_label["y1"] > place_mar_label["y2"] else place_mar_label["y2"] + 55
+        if lower_y <= place_mar_label["y2"]:
+            lower_y = place_mar_label["y2"] + 55
         region = tokens_in_region(
-            items, place_mar_label["x1"], working_xmax,
-            upper_y, lower_y, min_score=0.20
+            items, min(place_mar_label["x2"], img_w * 0.18), working_xmax,
+            place_mar_label["y1"] - 4, lower_y, min_score=0.12
         )
-        place_text = normalize_place(join_tokens(region))
+        place_text = normalize_place(join_tokens([
+            it for it in region
+            if "PLACE" not in norm_text(it["text"]) or "MARRIAGE" not in norm_text(it["text"])
+        ]))
         if place_text:
             data["shared"]["Place of Marriage"] = place_text
 
@@ -1065,8 +1310,13 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     if marriage_date_text:
         data["shared"]["Date of Marriage"] = marriage_date_text
 
+    data["shared"]["Date of Registration"] = extract_date_of_registration(
+        items, img_w, img_h, marriage_date_text
+    )
+
     # Extract husband/wife NAMES - using improved function
     h, w = extract_names_from_band(items, name_label, dob_label, working_xmax, split_x, img_w, img_h)
+    h, w = sanitize_person_name(h), sanitize_person_name(w)
     if h:
         data["husband"]["Name"] = h
     if w:
@@ -1101,11 +1351,13 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     if w:
         data["wife"]["Sex"] = normalize_sex_value(w)
 
-    h, w = extract_two_side_band(items, cit_top_label, working_xmax, split_x, next_label=religion_label, banned={"CITIZENSHIP", "CITIZENAHIP"}, extra_bottom=24)
+    h, w = extract_citizenship_pair(
+        items, cit_top_label, working_xmax, split_x, religion_label, img_w, img_h
+    )
     if h:
-        data["husband"]["Citizenship"] = apply_common_word_fix(h)
+        data["husband"]["Citizenship"] = h
     if w:
-        data["wife"]["Citizenship"] = apply_common_word_fix(w)
+        data["wife"]["Citizenship"] = w
 
     h, w = extract_two_side_band(items, religion_label, working_xmax, split_x, next_label=civil_label, banned={"RELIGION"}, extra_bottom=24)
     if h:
@@ -1119,23 +1371,31 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     if w:
         data["wife"]["Civil Status"] = w
 
-    h, w = extract_two_side_band(items, father_label, working_xmax, split_x, next_label=father_cit_label, normalizer="name", extra_bottom=30)
-    if h:
-        data["husband"]["Father"] = h
-    if w:
-        data["wife"]["Father"] = w
+    h_f, w_f = extract_parent_pair(
+        items, father_label, working_xmax, split_x,
+        stop_label=father_cit_label or mother_label,
+    )
+    h_m, w_m = extract_parent_pair(
+        items, mother_label, working_xmax, split_x,
+        stop_label=mother_cit_label or place_mar_label,
+    )
+    h_f, h_m, w_f, w_m = resolve_duplicate_parents(
+        items, father_label, mother_label, working_xmax, split_x, h_f, h_m, w_f, w_m
+    )
+    if h_f:
+        data["husband"]["Father"] = h_f
+    if w_f:
+        data["wife"]["Father"] = w_f
+    if h_m:
+        data["husband"]["Mother"] = h_m
+    if w_m:
+        data["wife"]["Mother"] = w_m
 
     h, w = extract_two_side_band(items, father_cit_label, working_xmax, split_x, next_label=mother_label, banned={"CITIZENSHIP", "CITIZENAHIP"}, extra_bottom=24)
     if h:
         data["husband"]["Father Citizenship"] = apply_common_word_fix(h)
     if w:
         data["wife"]["Father Citizenship"] = apply_common_word_fix(w)
-
-    h, w = extract_two_side_band(items, mother_label, working_xmax, split_x, next_label=mother_cit_label, normalizer="name", extra_bottom=30)
-    if h:
-        data["husband"]["Mother"] = h
-    if w:
-        data["wife"]["Mother"] = w
 
     h, w = extract_two_side_band(items, mother_cit_label, working_xmax, split_x, next_label=place_mar_label, banned={"CITIZENSHIP", "CITIZENAHIP"}, extra_bottom=24)
     if h:
@@ -1145,7 +1405,7 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
 
     out = {
         "Registry Number": data["shared"].get("Registry Number", ""),
-        "Date of Registration": "",
+        "Date of Registration": data["shared"].get("Date of Registration", ""),
         "Date of Marriage": data["shared"].get("Date of Marriage", ""),
         "Place of Marriage": data["shared"].get("Place of Marriage", ""),
         "Husband Name": data["husband"].get("Name", ""),

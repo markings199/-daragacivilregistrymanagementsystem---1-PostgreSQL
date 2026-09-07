@@ -368,27 +368,28 @@
   border-bottom-color: var(--border);
 }
 [data-theme="dark"] .ocr-loading {
-  background: linear-gradient(180deg, #064e3b 0%, #0f172a 45%, var(--surface) 100%);
-  border-color: rgba(52, 211, 153, 0.45);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  background: #152238;
+  border-color: rgba(148, 163, 184, 0.32);
+  box-shadow: none;
 }
 [data-theme="dark"] .ocr-loading[aria-busy="true"] {
-  box-shadow:
-    0 0 0 3px rgba(52, 211, 153, 0.2),
-    0 10px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: none;
 }
 [data-theme="dark"] .ocr-loading-title {
-  color: #ffffff;
+  color: #f8fafc;
 }
 [data-theme="dark"] .ocr-loading-percent {
-  color: #4ade80;
+  color: #93c5fd;
+}
+[data-theme="dark"] .ocr-loading-pulse {
+  background: #93c5fd;
 }
 [data-theme="dark"] .ocr-loading-track {
-  background: #1e293b;
-  border-color: rgba(148, 163, 184, 0.25);
+  background: #334155;
+  border-color: transparent;
 }
 [data-theme="dark"] .ocr-loading-fill {
-  background: linear-gradient(90deg, #0d9488 0%, #16a34a 55%, #4ade80 100%);
+  background: linear-gradient(90deg, #3b82f6 0%, #34d399 100%);
 }
 
 /* Administration */
@@ -572,12 +573,37 @@
 }
 [data-theme="dark"] body.page-administration .admin-log-table tbody td,
 [data-theme="dark"] body.page-administration .admin-requests-table tbody td {
-  color: var(--table-text);
-  border-bottom-color: var(--border);
+  color: #e8eef8;
+  background: transparent;
+  border-bottom-color: rgba(148, 163, 184, 0.18);
+}
+[data-theme="dark"] body.page-administration .admin-requests-table tbody tr:nth-child(even) td,
+[data-theme="dark"] body.page-administration .admin-log-table tbody tr:nth-child(even) td {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e8eef8;
 }
 [data-theme="dark"] body.page-administration .admin-requests-table tbody tr:hover td,
 [data-theme="dark"] body.page-administration .admin-log-table tbody tr:hover td {
-  background: var(--table-row-hover);
+  background: rgba(59, 130, 246, 0.16);
+  color: #ffffff;
+}
+[data-theme="dark"] body.page-administration .cell-details {
+  color: #cbd5e1;
+}
+[data-theme="dark"] body.page-administration .audit-action {
+  background: rgba(59, 130, 246, 0.22);
+  color: #bfdbfe;
+}
+[data-theme="dark"] body.page-administration .admin-requests-table .reject-input {
+  background: #0f172a;
+  border-color: rgba(148, 163, 184, 0.45);
+  color: #e2e8f0;
+}
+[data-theme="dark"] body.page-administration .admin-edit-requests-table .col-view .btn-sm,
+[data-theme="dark"] body.page-administration .admin-print-requests-table .col-view .btn-sm {
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.45);
 }
 [data-theme="dark"] body.page-administration .admin-print-requests-table .print-format-badge--original {
   background: rgba(14, 165, 233, 0.2);
@@ -716,6 +742,16 @@
 [data-theme="dark"] body.page-registry-reports .reg-scroll {
   border-color: rgba(70, 130, 180, 0.35);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  scrollbar-color: #7dd3fc #0f172a;
+}
+[data-theme="dark"] body.page-registry-reports .reg-scroll::-webkit-scrollbar-track,
+[data-theme="dark"] body.page-registry-reports .reg-scroll::-webkit-scrollbar-corner {
+  background: #0f172a;
+  border-top-color: rgba(125, 211, 252, 0.2);
+}
+[data-theme="dark"] body.page-registry-reports .reg-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  border-color: #0f172a;
 }
 [data-theme="dark"] body.page-staff-requests .staff-requests-card {
   background: var(--surface);
@@ -765,8 +801,10 @@
   color: var(--table-text);
   border-bottom-color: var(--border);
 }
-[data-theme="dark"] body.page-staff-requests .staff-requests-table tbody tr:nth-child(even) td {
-  background: rgba(148, 163, 184, 0.08);
+[data-theme="dark"] body.page-staff-requests .staff-requests-table tbody tr:nth-child(even) td,
+[data-theme="dark"] body.page-staff-requests .staff-print-requests-table tbody tr:nth-child(even) td {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e8eef8;
 }
 [data-theme="dark"] body.page-staff-requests .staff-requests-table .status-badge.status-pending {
   background: rgba(252, 211, 77, 0.18);
@@ -910,6 +948,9 @@
 [data-theme="dark"] body.page-scan-workflow .scanflow-ocr-hint {
   color: #94a3b8;
 }
+[data-theme="dark"] body.page-scan-workflow .scanflow-image-in-use {
+  color: #cbd5e1;
+}
 [data-theme="dark"] body.page-scan-workflow .scanflow-preview-filename {
   color: var(--text-muted);
 }
@@ -1020,10 +1061,19 @@
 [data-theme="dark"] body.page-archiving .archiving-hero-kicker {
   color: #93c5fd;
 }
-[data-theme="dark"] body.page-archiving .archiving-hero-btn {
-  background: #ffffff;
+[data-theme="dark"] body.page-archiving a.archiving-hero-btn,
+html[data-theme="dark"] body.page-archiving a.archiving-hero-btn {
+  background: #0b1a3a;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
+}
+[data-theme="dark"] body.page-archiving a.archiving-hero-btn:hover,
+html[data-theme="dark"] body.page-archiving a.archiving-hero-btn:hover {
+  background: #16325c;
   border-color: #ffffff;
-  color: #002080;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff;
 }
 [data-theme="dark"] body.page-archiving .archiving-stat-value {
   color: #7dd3fc;
@@ -1079,10 +1129,21 @@
 [data-theme="dark"] body.page-archiving .archive-doc-filter label {
   color: var(--label-text);
 }
-[data-theme="dark"] body.page-archiving .archive-doc-filter select {
+[data-theme="dark"] body.page-archiving .archive-doc-filter select,
+[data-theme="dark"] body.page-archiving .archive-registry-wrap input[type="search"] {
   background: var(--input-bg);
   border-color: var(--input-border);
   color: var(--input-text);
+}
+[data-theme="dark"] body.page-archiving .archive-registry-search,
+[data-theme="dark"] body.page-archiving .archive-registry-clear {
+  color: #93c5fd;
+}
+[data-theme="dark"] body.page-archiving .archive-filter-hint {
+  color: #94a3b8;
+}
+[data-theme="dark"] body.page-archiving .archive-sections .table-wrap {
+  scrollbar-color: #64748b #1e293b;
 }
 [data-theme="dark"] body.page-archiving .archive-sections .main-card {
   background: var(--surface);
@@ -1377,37 +1438,47 @@ body.login-page::-webkit-scrollbar {
 }
 
 /* Backup / Restore tab — labels, inputs, recent backups table */
-[data-theme="dark"] body.page-administration .backup-period-form label,
 [data-theme="dark"] body.page-administration .auto-backup-form .form-row label,
 [data-theme="dark"] body.page-administration .auto-backup-status-label,
 [data-theme="dark"] body.page-administration .auto-backup-meta-item strong {
   color: #ffffff;
 }
 [data-theme="dark"] body.page-administration .auto-backup-list-title,
-[data-theme="dark"] body.page-administration .backup-restore-grid .backup-restore-heading {
+[data-theme="dark"] body.page-administration .backup-restore-grid .backup-restore-heading,
+[data-theme="dark"] body.page-administration .auto-backup-panel-title,
+[data-theme="dark"] body.page-administration .auto-backup-status-heading,
+[data-theme="dark"] body.page-administration .auto-backup-path-label,
+[data-theme="dark"] body.page-administration .auto-backup-stat dt {
   color: #ffffff;
-  background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
+  background: none;
+}
+[data-theme="dark"] body.page-administration .backup-page-lead,
+[data-theme="dark"] body.page-administration .auto-backup-empty,
+[data-theme="dark"] body.page-administration .auto-backup-dest-hint {
+  color: #e2e8f0;
 }
 [data-theme="dark"] body.page-administration .auto-backup-status-time,
 [data-theme="dark"] body.page-administration .auto-backup-meta-item,
 [data-theme="dark"] body.page-administration .auto-backup-file,
-[data-theme="dark"] body.page-administration .auto-backup-table tbody td {
+[data-theme="dark"] body.page-administration .auto-backup-table tbody td,
+[data-theme="dark"] body.page-administration .auto-backup-stat dd,
+[data-theme="dark"] body.page-administration .auto-backup-path {
   color: #ffffff;
 }
 [data-theme="dark"] body.page-administration .auto-backup-status-empty {
   color: #e2e8f0;
 }
-[data-theme="dark"] body.page-administration .backup-period-form select,
 [data-theme="dark"] body.page-administration .auto-backup-form .form-row select,
-[data-theme="dark"] body.page-administration .auto-backup-form .form-row input[type="time"] {
+[data-theme="dark"] body.page-administration .auto-backup-form .form-row input[type="time"],
+[data-theme="dark"] body.page-administration .auto-backup-form .form-row input[type="text"] {
   background: var(--input-bg) !important;
   border-color: var(--input-border) !important;
   color: #ffffff !important;
   color-scheme: dark;
 }
 [data-theme="dark"] body.page-administration .auto-backup-form .form-row input[type="time"]:focus,
-[data-theme="dark"] body.page-administration .backup-period-form select:focus,
-[data-theme="dark"] body.page-administration .auto-backup-form .form-row select:focus {
+[data-theme="dark"] body.page-administration .auto-backup-form .form-row select:focus,
+[data-theme="dark"] body.page-administration .auto-backup-form .form-row input[type="text"]:focus {
   background: var(--surface-2) !important;
   border-color: #60a5fa !important;
   color: #ffffff !important;
@@ -1417,9 +1488,9 @@ body.login-page::-webkit-scrollbar {
   border-color: var(--border);
 }
 [data-theme="dark"] body.page-administration .auto-backup-table thead th {
-  background: linear-gradient(135deg, #1a4a9e 0%, #2563b8 100%) !important;
-  color: #ffffff !important;
-  border-bottom-color: rgba(255, 255, 255, 0.12);
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-bottom-color: var(--border);
 }
 [data-theme="dark"] body.page-administration .backup-restore-card {
   background: var(--surface);
@@ -1443,17 +1514,76 @@ body.login-page::-webkit-scrollbar {
 }
 [data-theme="dark"] body.page-administration .auto-backup-table .col-actions,
 [data-theme="dark"] body.page-administration .auto-backup-table thead .col-actions {
-  text-align: center;
+  text-align: right;
 }
 [data-theme="dark"] body.page-administration .auto-backup-table tbody tr:hover td {
   background: var(--table-row-hover);
 }
-[data-theme="dark"] body.page-administration .auto-backup-status {
-  background: var(--surface-2);
+[data-theme="dark"] body.page-administration .ab-form,
+[data-theme="dark"] body.page-administration .ab-history,
+[data-theme="dark"] body.page-administration .ab-master-switch,
+[data-theme="dark"] body.page-administration .ab-plan,
+[data-theme="dark"] body.page-administration .ab-loc,
+[data-theme="dark"] body.page-administration .ab-seg {
+  background: var(--surface);
   border-color: var(--border);
 }
-[data-theme="dark"] body.page-administration .auto-backup-status-meta {
-  border-top-color: var(--border);
+[data-theme="dark"] body.page-administration .ab-plan:has(.ab-plan-toggle input:checked),
+[data-theme="dark"] body.page-administration .ab-loc-ready {
+  background: var(--surface-2);
+}
+[data-theme="dark"] body.page-administration .ab-section-head h3,
+[data-theme="dark"] body.page-administration .ab-history-head h3,
+[data-theme="dark"] body.page-administration .backup-auto-page .ab-kicker,
+[data-theme="dark"] body.page-administration .ab-plan-time span,
+[data-theme="dark"] body.page-administration .backup-auto-page .auto-backup-dest label,
+[data-theme="dark"] body.page-administration .ab-timing .form-row label,
+[data-theme="dark"] body.page-administration .ab-toolbar-label,
+[data-theme="dark"] body.page-administration .backup-auto-page .auto-backup-table thead th {
+  color: #93c5fd;
+}
+[data-theme="dark"] body.page-administration .ab-plan-copy strong,
+[data-theme="dark"] body.page-administration .ab-master-copy strong,
+[data-theme="dark"] body.page-administration .ab-loc-name,
+[data-theme="dark"] body.page-administration .backup-auto-page .ab-page-head .section-title {
+  color: #93c5fd;
+}
+[data-theme="dark"] body.page-administration .ab-master-copy span,
+[data-theme="dark"] body.page-administration .ab-plan-copy em,
+[data-theme="dark"] body.page-administration .backup-auto-page .auto-backup-path {
+  color: #94a3b8;
+}
+[data-theme="dark"] body.page-administration .ab-now-type select,
+[data-theme="dark"] body.page-administration .ab-loc input[type="text"] {
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: #ffffff !important;
+}
+[data-theme="dark"] body.page-administration .ab-seg-get {
+  border-color: #60a5fa;
+}
+[data-theme="dark"] body.page-administration .ab-seg-get .btn {
+  color: #93c5fd;
+}
+[data-theme="dark"] body.page-administration .ab-seg .btn:hover {
+  background: var(--surface-2);
+}
+[data-theme="dark"] body.page-administration .ab-history-count {
+  background: var(--surface-2);
+  color: #cbd5e1;
+}
+[data-theme="dark"] body.page-administration .backup-auto-page .auto-backup-table thead th {
+  color: #93c5fd;
+  background: transparent;
+}
+[data-theme="dark"] body.page-administration .auto-backup-stat {
+  border-bottom-color: var(--border);
+}
+[data-theme="dark"] body.page-administration .auto-backup-empty,
+[data-theme="dark"] body.page-administration .backup-auto-page .auto-backup-empty {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
 }
 [data-theme="dark"] body.page-administration .backup-restore-desc code {
   color: #93c5fd;

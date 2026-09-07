@@ -96,3 +96,16 @@ class PrintLog(db.Model):
 
     record = db.relationship("Record", backref=db.backref("print_logs", lazy="dynamic"))
     user = db.relationship("User", backref=db.backref("print_logs", lazy="dynamic"))
+
+
+class BackupRun(db.Model):
+    """History of automatic date-based document backups (does not change original records)."""
+    __tablename__ = "backup_runs"
+    id = db.Column(db.Integer, primary_key=True)
+    kind = db.Column(db.String(16), nullable=False)  # daily, monthly, yearly
+    period_key = db.Column(db.String(32), nullable=False)  # 2026-09-05 / 2026-09 / 2026
+    status = db.Column(db.String(16), nullable=False, default="success")  # success, skipped, error
+    file_rel = db.Column(db.String(512), nullable=False, default="")
+    record_count = db.Column(db.Integer, nullable=False, default=0)
+    message = db.Column(db.Text, nullable=False, default="")
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

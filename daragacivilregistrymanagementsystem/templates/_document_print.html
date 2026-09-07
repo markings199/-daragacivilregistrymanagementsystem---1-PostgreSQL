@@ -37,6 +37,7 @@
   class="print-only-content cert-print-surface{% if _default_mode in [PRINT_FORMAT_CERTIFICATION, PRINT_FORMAT_BOTH] %} print-surface-active{% endif %}"
   aria-hidden="true"
   data-print-surface="certification"
+  data-print-font="arial"
 >
   {% if doc_type == 'birth' %}
     {% include 'print/cert_birth.html' %}

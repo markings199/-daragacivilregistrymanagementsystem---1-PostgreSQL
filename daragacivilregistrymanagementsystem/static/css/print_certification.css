@@ -1,7 +1,7 @@
-/* Screen: hide print surfaces */
+/* Screen: hide print surfaces so they never add page height */
 .print-only-content,
 .cert-print-surface {
-  display: none;
+  display: none !important;
 }
 
 .print-sr-only {
@@ -18,36 +18,38 @@
 
 .print-panel,
 .print-format-request-field {
-  margin-top: 16px;
+  margin-top: 10px;
   border: 1px solid rgba(15, 43, 92, 0.12);
-  border-radius: 16px;
+  border-radius: 10px;
   background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
-  box-shadow: 0 8px 24px rgba(15, 43, 92, 0.06);
+  box-shadow: 0 4px 14px rgba(15, 43, 92, 0.06);
   overflow: hidden;
 }
 
 .print-panel-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 18px 12px;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(15, 43, 92, 0.08);
 }
 
 .print-panel-title {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.86rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  line-height: 1.2;
   color: #0f2b5c;
 }
 
 .print-panel-subtitle {
-  margin: 3px 0 0;
-  font-size: 0.8rem;
+  margin: 1px 0 0;
+  font-size: 0.72rem;
   color: #64748b;
   font-weight: 500;
+  line-height: 1.3;
 }
 
 .print-mode-picker {
@@ -58,13 +60,13 @@
 }
 
 .print-format-request-field {
-  padding: 16px 18px 18px;
+  padding: 10px 12px 12px;
 }
 
 .print-format-request-field legend {
   padding: 0;
-  margin: 0 0 12px;
-  font-size: 0.95rem;
+  margin: 0 0 8px;
+  font-size: 0.86rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #0f2b5c;
@@ -101,8 +103,8 @@
 .print-mode-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 14px 18px 4px;
+  gap: 6px;
+  padding: 8px 10px 2px;
 }
 
 .print-mode-options--three {
@@ -114,30 +116,38 @@
 }
 
 .print-option-card {
+  position: relative;
   display: block;
   margin: 0;
   cursor: pointer;
+  z-index: 1;
 }
 
 .print-option-card.is-disabled {
   cursor: not-allowed;
   opacity: 0.62;
+  pointer-events: none;
 }
 
 .print-option-card input {
   position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .print-option-card-inner {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-height: 92px;
-  padding: 14px 14px 14px 12px;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  padding: 7px 8px;
   border: 1px solid #d7e2ef;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 1px 2px rgba(15, 43, 92, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
@@ -155,14 +165,14 @@
 .print-option-card input:checked + .print-option-card-inner {
   border-color: #002080;
   background: linear-gradient(180deg, #f4f7ff 0%, #eef4ff 100%);
-  box-shadow: 0 0 0 1px #002080, 0 8px 18px rgba(0, 32, 128, 0.1);
+  box-shadow: 0 0 0 1px #002080, 0 3px 10px rgba(0, 32, 128, 0.1);
 }
 
 .print-option-radio {
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  margin-top: 2px;
+  width: 14px;
+  height: 14px;
+  margin-top: 0;
   border-radius: 50%;
   border: 2px solid #94a3b8;
   background: #fff;
@@ -177,16 +187,16 @@
 .print-option-card input:checked + .print-option-card-inner .print-option-radio::after {
   content: "";
   position: absolute;
-  inset: 3px;
+  inset: 2px;
   border-radius: 50%;
   background: #002080;
 }
 
 .print-option-icon {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -200,22 +210,23 @@
 }
 
 .print-option-icon svg {
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
 }
 
 .print-option-copy {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 1px;
   min-width: 0;
 }
 
 .print-option-kicker {
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  line-height: 1.2;
   color: #64748b;
 }
 
@@ -224,32 +235,94 @@
 }
 
 .print-option-title {
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   font-weight: 800;
   color: #0f2b5c;
   letter-spacing: -0.02em;
-  line-height: 1.25;
+  line-height: 1.2;
 }
 
 .print-option-desc {
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: 0.7rem;
+  line-height: 1.3;
   color: #64748b;
   font-weight: 500;
 }
+.print-panel .print-option-desc {
+  display: none;
+}
 
 .print-panel-actions {
+  position: relative;
+  z-index: 3;
   display: flex;
-  justify-content: flex-end;
-  padding: 12px 18px 16px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 10px 10px;
+}
+.print-setup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 8px;
+}
+.print-setup--signers {
+  padding-top: 6px;
+  border-top: 1px solid rgba(15, 43, 92, 0.08);
+}
+.print-setup-heading {
+  grid-column: 1 / -1;
+  margin: 0 0 2px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.print-setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+.print-panel-actions .btn-print-document {
+  position: relative;
+  z-index: 4;
+  align-self: flex-end;
+  margin-top: 2px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.print-setup-field select,
+.print-setup-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 30px;
+  height: 30px;
+  margin: 0;
+  padding: 3px 8px;
+  border: 1px solid #d7e2ef;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .print-panel-compact-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 8px 12px;
 }
 
 .print-panel--compact {
@@ -257,8 +330,11 @@
 }
 
 .btn-print-document {
-  min-width: 132px;
-  gap: 8px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 6px 12px;
+  gap: 6px;
+  font-size: 0.8rem;
 }
 
 .btn-print-document svg {
@@ -276,6 +352,10 @@
   .print-mode-options {
     grid-template-columns: 1fr;
   }
+  .print-setup,
+  .print-setup--signers {
+    grid-template-columns: 1fr;
+  }
 }
 
 .detail-actions-print-inline .print-panel {
@@ -284,11 +364,11 @@
 }
 
 .detail-actions-print-inline .print-panel-head {
-  padding: 12px 14px 8px;
+  padding: 8px 12px;
 }
 
 .detail-actions-print-inline .print-panel-actions {
-  padding: 8px 14px 12px;
+  padding: 6px 10px 10px;
 }
 
 [data-theme="dark"] .print-panel,
@@ -327,7 +407,7 @@
 [data-theme="dark"] .print-option-card input:checked + .print-option-card-inner {
   border-color: #60a5fa;
   background: linear-gradient(180deg, #1e3a5f 0%, #1a3154 100%);
-  box-shadow: 0 0 0 1px #60a5fa, 0 8px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 1px #60a5fa, 0 3px 10px rgba(0, 0, 0, 0.25);
 }
 
 [data-theme="dark"] .print-option-card input:checked + .print-option-card-inner .print-option-radio {
@@ -352,6 +432,26 @@
   color: #93c5fd;
 }
 
+[data-theme="dark"] .print-setup--signers {
+  border-top-color: rgba(148, 163, 184, 0.16);
+}
+[data-theme="dark"] .print-setup-heading,
+[data-theme="dark"] .print-setup-field {
+  color: #94a3b8;
+}
+[data-theme="dark"] .print-setup-field select,
+[data-theme="dark"] .print-setup-field input {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #f1f5f9;
+}
+[data-theme="dark"] .print-setup-field select:focus,
+[data-theme="dark"] .print-setup-field input:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.22);
+}
+
 [data-theme="dark"] .print-approved-format-note {
   background: #172554;
   border-color: #1e40af;
@@ -365,85 +465,218 @@
   width: 100%;
   max-width: 8.5in;
   margin: 0 auto;
-  padding: 0.45in 0.55in 0.5in;
-  font-family: "Times New Roman", Times, serif;
-  font-size: 11pt;
-  line-height: 1.35;
+  padding: 0.4in 0.55in 0.45in;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12pt;
+  line-height: 1.45;
   color: #000;
   background: #fff;
 }
+.cert-print-surface[data-print-font="arial"] .cert-sheet {
+  font-family: Arial, Helvetica, sans-serif;
+}
+.cert-print-surface[data-print-font="aptos"] .cert-sheet {
+  font-family: Aptos, "Segoe UI", Calibri, sans-serif;
+}
+.cert-print-surface[data-print-font="times"] .cert-sheet {
+  font-family: "Times New Roman", Times, serif;
+}
+.cert-official-name[contenteditable="true"],
+.cert-official-title[contenteditable="true"] {
+  min-height: 0;
+  outline: none;
+}
 
+.cert-top {
+  display: grid;
+  grid-template-columns: 2.15in 1fr 2.15in;
+  align-items: end;
+  column-gap: 0.12in;
+  margin: 0 0 0.28in;
+}
 .cert-form-id {
-  position: absolute;
-  top: 0.32in;
-  left: 0.5in;
-  font-size: 9pt;
-  line-height: 1.25;
-  max-width: 2.15in;
-  font-weight: 600;
+  position: static;
+  align-self: start;
+  text-align: left;
+  font-size: 10pt;
+  line-height: 1.3;
+  max-width: none;
+  font-weight: 400;
+  padding-top: 0.06in;
 }
 .cert-form-id span {
   display: block;
+  font-style: italic;
+  font-weight: 400;
 }
 
 .cert-head-block {
   text-align: center;
-  margin: 0 0 0.15in;
-  padding-top: 0.1in;
+  margin: 0;
+  padding-top: 0;
 }
 .cert-seal {
-  width: 0.85in;
-  height: 0.85in;
+  width: 1.05in;
+  height: 1.05in;
   object-fit: contain;
   display: block;
-  margin: 0 auto 6px;
+  margin: 0 auto 8px;
 }
 .cert-head-block p {
   margin: 0;
   padding: 0;
 }
 .cert-republic {
-  font-size: 10pt;
+  font-size: 11pt;
 }
 .cert-office {
-  font-size: 11pt;
+  font-size: 12pt;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 .cert-municipality {
-  font-size: 10.5pt;
+  font-size: 11pt;
 }
 
 .cert-date-line {
+  margin: 0;
   text-align: right;
-  margin: 0.12in 0 0.2in;
-  font-size: 11pt;
+  align-self: end;
+  font-size: 12pt;
+  line-height: 1.2;
+  padding-bottom: 1px;
 }
 .cert-date-line .cert-date-value {
-  display: inline-block;
-  min-width: 1.8in;
+  display: inline;
   border-bottom: 1px solid #000;
-  text-align: center;
-  padding: 0 4px 1px;
+  padding: 0 1px 1px;
 }
 
 .cert-salutation {
   font-weight: 700;
-  margin: 0 0 0.14in;
-  font-size: 11pt;
+  margin: 0 0 0.16in;
+  font-size: 12pt;
+  text-decoration: none;
 }
 .cert-intro {
-  margin: 0 0 0.18in;
+  margin: 0 0 0.2in;
   text-align: justify;
-  text-indent: 0.5in;
+  text-indent: 0.45in;
+  font-size: 12pt;
+}
+.cert-inline-u {
+  display: inline-block;
+  min-width: 0.85in;
+  border-bottom: 1px solid #000;
+  text-align: center;
+  font-weight: 400;
+  padding: 0 8px 1px;
+  line-height: 1.15;
+}
+
+.cert-line-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 0.06in 0 0.12in;
+  font-size: 12pt;
+}
+.cert-line-label-col {
+  width: 2.85in;
+}
+.cert-line-colon-col {
+  width: 0.16in;
+}
+.cert-line-value-col {
+  width: auto;
+}
+.cert-line-table td {
+  padding: 0.07in 0 0.02in;
+  vertical-align: bottom;
+  font-size: 12pt;
+  line-height: 1.2;
+}
+.cert-line-label {
+  white-space: nowrap;
+  text-align: left;
+  padding-right: 0.06in;
+  width: 2.85in;
+}
+.cert-line-colon {
+  width: 0.16in;
+  text-align: left;
+  padding-right: 0.08in;
+}
+.cert-line-value {
+  border-bottom: 1px solid #000;
+  height: 1.2em;
+  padding: 0 4px 1px;
+  min-width: 0;
+}
+.cert-line-value--upper {
+  text-transform: uppercase;
+}
+.cert-line-table--issued {
+  table-layout: auto;
+  margin: 0.22in 0 0;
+}
+.cert-line-issued-label {
+  width: 1%;
+  white-space: nowrap;
+  padding-right: 0.12in;
+  vertical-align: bottom;
+}
+
+.cert-line-table tr:nth-last-child(2) td {
+  padding-top: 0.2in;
+}
+
+td.cert-issued-upon {
+  display: table-cell;
+  padding: 0.08in 0 0.08in !important;
+  margin: 0;
+  border: none !important;
+  height: auto !important;
+  text-align: left;
+  text-indent: 0 !important;
+  font-size: 12pt;
+  line-height: 1.2;
+  vertical-align: top;
+}
+
+.cert-issued-wrap {
+  margin: 0.22in 0 0;
+  font-size: 12pt;
+}
+.cert-issued-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.12in;
+}
+.cert-issued-phrase {
+  white-space: nowrap;
+}
+.cert-issued-blank {
+  flex: 1 1 auto;
+  border-bottom: 1px solid #000;
+  min-height: 1.15em;
+  padding: 0 4px 1px;
+  outline: none;
+}
+.cert-issued-wrap .cert-issued-upon {
+  display: block;
+  margin: 0.08in 0 0;
+  padding: 0;
+  text-align: left;
 }
 
 .cert-field {
   display: flex;
   align-items: baseline;
   gap: 0;
-  margin: 0.1in 0;
-  font-size: 11pt;
+  margin: 0.12in 0;
+  font-size: 12pt;
 }
 .cert-label {
   flex: 0 0 auto;
@@ -451,120 +684,247 @@
 }
 .cert-colon {
   flex: 0 0 auto;
-  margin-right: 0.15em;
+  margin: 0 0.28em 0 0;
 }
 .cert-value {
   flex: 1 1 auto;
   border-bottom: 1px solid #000;
   min-height: 1.15em;
   padding: 0 2px 1px;
-  word-break: break-word;
+  min-width: 0;
+}
+
+.cert-sheet--birth .cert-field {
+  margin: 0.1in 0;
+}
+.cert-sheet--birth .cert-field:not(.cert-field--pay):not(.cert-issued) .cert-value {
+  text-transform: uppercase;
 }
 
 .cert-issued {
-  margin: 0.2in 0 0.28in;
-  text-align: justify;
-}
-.cert-issued-line {
-  display: inline-block;
-  min-width: 3.2in;
-  border-bottom: 1px solid #000;
-  vertical-align: baseline;
-  min-height: 1.1em;
+  margin: 0.22in 0 0;
+  text-align: left;
+  font-size: 12pt;
 }
 
-.cert-signatures {
+.cert-signoff {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 0.4in;
-  margin-top: 0.35in;
-  position: relative;
-  z-index: 1;
+  align-items: flex-start;
+  gap: 0.3in;
+  margin-top: 0.65in;
 }
-.cert-verify-block {
-  flex: 0 0 42%;
-  font-size: 10pt;
+.cert-signoff-left {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding-top: 0.5in;
 }
-.cert-registrar-block {
-  flex: 0 0 48%;
-  text-align: center;
-  font-size: 10pt;
+.cert-signoff-right {
+  flex: 1 1 auto;
+  padding-top: 0;
+  text-align: right;
+}
+.cert-verifier-row {
+  display: block;
+  margin: 0 0 0.14in;
+}
+.cert-verified-label {
+  display: block;
+  font-size: 12pt;
+  font-weight: 400;
+  line-height: 1.15;
+  margin: 0 0 0.05in;
+  padding: 0;
+  text-align: left;
+  white-space: nowrap;
+}
+.cert-sign-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+}
+.cert-sign-card--left {
+  margin: 0 0 0 1.15in;
+  align-items: center;
+}
+.cert-sign-card--left .cert-official-title {
+  align-self: flex-start;
+  text-align: left !important;
+}
+.cert-sign-card--right {
+  margin: 0 0.15in 0 auto;
+}
+.cert-official-name,
+.cert-official-title {
+  display: block;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  text-align: center !important;
+  line-height: 1.05;
 }
 .cert-official-name {
   font-weight: 700;
-  font-size: 10.5pt;
-  margin-top: 0.35in;
-  display: block;
+  font-size: 12pt;
+  text-transform: uppercase;
 }
 .cert-official-title {
-  display: block;
-  margin-top: 2px;
+  font-size: 11pt;
+  text-transform: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cert-sign-card--right .cert-official-title {
+  font-weight: 400;
 }
 
 .cert-watermark {
-  position: absolute;
-  left: 0.2in;
-  bottom: 1.1in;
-  width: 2.2in;
-  height: 2.2in;
-  opacity: 0.08;
-  pointer-events: none;
-  z-index: 0;
-  object-fit: contain;
+  display: none;
 }
 
-.cert-payment {
-  margin-top: 0.35in;
-  font-size: 10pt;
-  position: relative;
-  z-index: 1;
+.cert-pay-table {
+  width: auto;
+  border-collapse: collapse;
+  table-layout: auto;
+  margin: 0;
+  font-size: 12pt;
 }
-.cert-payment .cert-field {
-  margin: 0.08in 0;
-  max-width: 3.2in;
+.cert-pay-label-col {
+  width: 1.15in;
+}
+.cert-pay-colon-col {
+  width: 0.14in;
+}
+.cert-pay-blank-col {
+  width: 1.2in;
+}
+.cert-pay-table td {
+  padding: 0.02in 0 0.01in;
+  vertical-align: bottom;
+  font-size: 12pt;
+}
+.cert-pay-label {
+  white-space: nowrap;
+  text-align: left;
+  padding-right: 0.08in;
+}
+.cert-pay-colon {
+  text-align: left;
+  padding-right: 0.06in;
+}
+.cert-pay-blank {
+  border-bottom: 1px solid #000;
+  height: 1.15em;
+  padding: 0 2px 1px;
+  white-space: nowrap;
+}
+
+.cert-footer-note {
+  margin-top: 0.45in;
+  padding-top: 0.12in;
+  border-top: 1px solid #000;
+  font-size: 10pt;
+  font-style: italic;
+  text-align: left;
 }
 
 .cert-marriage-hw {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.08in 0 0.14in;
-  font-size: 11pt;
+  table-layout: fixed;
+  margin: 0.08in 0 0.28in;
+  font-size: 12pt;
+}
+.cert-hw-col-label {
+  width: 1.35in;
+}
+.cert-hw-col-colon {
+  width: 0.2in;
+}
+.cert-hw-col-party {
+  width: 2.55in;
+}
+.cert-hw-col-gap {
+  width: 0.28in;
 }
 .cert-marriage-hw th {
   text-align: center;
   font-weight: 700;
   text-decoration: underline;
-  padding: 4px 8px 6px;
-  width: 38%;
+  text-underline-offset: 2px;
+  padding: 2px 4px 10px;
+  font-size: 12pt;
 }
-.cert-marriage-hw th:first-child {
-  width: 24%;
+.cert-marriage-hw th:first-child,
+.cert-marriage-hw th:nth-child(2),
+.cert-marriage-hw th:nth-child(4) {
   text-decoration: none;
   border: none;
+  padding: 0;
 }
 .cert-marriage-hw td {
-  border-bottom: 1px solid #000;
-  padding: 3px 6px 4px;
-  vertical-align: bottom;
-  min-height: 1.1em;
+  padding: 0.065in 0 0.02in;
+  vertical-align: top;
+  font-size: 12pt;
+  line-height: 1.2;
 }
 .cert-marriage-hw .cert-hw-label {
   border-bottom: none;
   white-space: nowrap;
-  padding-right: 4px;
+  text-align: left;
+  padding-right: 0.06in;
+  vertical-align: top;
 }
-.cert-marriage-for {
-  text-align: right;
-  font-size: 10pt;
-  margin: 0.15in 0 0.05in;
+.cert-marriage-hw .cert-hw-colon {
+  border-bottom: none;
+  text-align: left;
+  padding-right: 0.08in;
+  vertical-align: top;
 }
-
-.cert-footer-note {
-  margin-top: 0.35in;
-  font-size: 9pt;
-  font-style: italic;
-  text-align: center;
+.cert-marriage-hw .cert-hw-gap {
+  border: none;
+  padding: 0;
+}
+.cert-marriage-hw .cert-hw-value {
+  border-bottom: 1px solid #000;
+  padding: 0 4px 2px;
+  text-align: left;
+  font-weight: 400;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.cert-line-table--marriage {
+  width: 100%;
+  table-layout: auto;
+  margin-top: 0.08in;
+}
+.cert-sheet--marriage .cert-line-label-col,
+.cert-line-table--marriage .cert-line-label {
+  width: 1.35in;
+}
+.cert-line-table--marriage .cert-line-colon-col,
+.cert-line-table--marriage .cert-line-colon {
+  width: 0.2in;
+}
+.cert-line-table--marriage .cert-line-value {
+  border-bottom: none;
+  font-weight: 400;
+}
+.cert-fill {
+  display: block;
+  border-bottom: 1px solid #000;
+  min-height: 1.2em;
+  padding: 0 4px 1px;
+  box-sizing: border-box;
+}
+.cert-fill--short {
+  width: 3.35in;
+}
+.cert-fill--long {
+  width: 100%;
 }
 
 .print-header-simple {
@@ -580,8 +940,12 @@
 
 @media print {
   @page {
-    size: letter portrait;
-    margin: 0.35in;
+    size: 8.5in 13in portrait;
+    margin: 0.5in;
+  }
+  @page cert-form {
+    size: 8.5in 13in portrait;
+    margin: 0.5in 0.75in 0.5in 1in;
   }
   .sidebar,
   .topbar,
@@ -658,141 +1022,120 @@
     break-after: page;
   }
   #print-area-certification.print-surface-active {
+    page: cert-form;
     page-break-before: auto;
     page-break-inside: auto;
     break-inside: auto;
   }
-  /* Keep entire certification on one page */
+  /* Certification stays 12pt on long legal, matching the paper forms */
   .cert-print-surface.print-surface-active .cert-sheet {
     box-sizing: border-box;
-    width: 7.5in;
-    max-width: 7.5in;
-    margin: 0 auto;
-    padding: 0.12in 0.4in 0.1in;
-    font-size: 9.5pt;
-    line-height: 1.22;
-    page-break-inside: avoid;
-    break-inside: avoid-page;
-  }
-  /* zoom shrinks layout box (helps keep one printed page; Edge/Chrome) */
-  .cert-print-surface.print-surface-active .cert-sheet--birth {
-    zoom: 0.94;
-  }
-  .cert-print-surface.print-surface-active .cert-sheet--death {
-    zoom: 0.92;
-  }
-  .cert-print-surface.print-surface-active .cert-sheet--marriage {
-    zoom: 0.76;
-    font-size: 9pt;
-    line-height: 1.18;
-    padding: 0.08in 0.38in 0.08in;
-  }
-  @supports not (zoom: 1) {
-    .cert-print-surface.print-surface-active .cert-sheet--birth {
-      transform: scale(0.94);
-      transform-origin: top center;
-    }
-    .cert-print-surface.print-surface-active .cert-sheet--death {
-      transform: scale(0.92);
-      transform-origin: top center;
-    }
-    .cert-print-surface.print-surface-active .cert-sheet--marriage {
-      transform: scale(0.76);
-      transform-origin: top center;
-    }
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.08in 0 0.12in;
+    font-size: 12pt;
+    line-height: 1.4;
+    page-break-inside: auto;
+    break-inside: auto;
   }
 
+  .cert-top {
+    margin-bottom: 0.22in;
+  }
   .cert-form-id {
-    top: 0.12in;
-    left: 0.38in;
-    font-size: 8pt;
-  }
-  .cert-seal {
-    width: 0.72in;
-    height: 0.72in;
-    margin-bottom: 4px;
-  }
-  .cert-head-block {
-    margin-bottom: 0.08in;
+    font-size: 10pt;
     padding-top: 0.04in;
   }
-  .cert-republic { font-size: 9pt; }
-  .cert-office { font-size: 9.5pt; }
-  .cert-municipality { font-size: 9pt; }
+  .cert-seal {
+    width: 0.95in;
+    height: 0.95in;
+    margin-bottom: 6px;
+  }
+  .cert-head-block {
+    margin-bottom: 0;
+    padding-top: 0;
+  }
+  .cert-republic { font-size: 11pt; }
+  .cert-office { font-size: 12pt; }
+  .cert-municipality { font-size: 11pt; }
   .cert-date-line {
-    margin: 0.06in 0 0.1in;
-    font-size: 9.5pt;
+    margin: 0;
+    font-size: 12pt;
   }
   .cert-salutation {
-    margin-bottom: 0.08in;
-    font-size: 9.5pt;
+    margin-bottom: 0.12in;
+    font-size: 12pt;
   }
   .cert-intro {
-    margin-bottom: 0.1in;
-    font-size: 9.5pt;
+    margin-bottom: 0.14in;
+    font-size: 12pt;
   }
   .cert-field {
-    margin: 0.045in 0;
-    font-size: 9.5pt;
+    margin: 0.09in 0;
+    font-size: 12pt;
   }
   .cert-value {
-    min-height: 1em;
+    min-height: 1.1em;
   }
   .cert-issued {
-    margin: 0.1in 0 0.12in;
-    font-size: 9.5pt;
+    margin: 0.18in 0 0;
+    font-size: 12pt;
+  }
+  .cert-line-table {
+    width: 100%;
+    font-size: 12pt;
+  }
+  .cert-line-table td {
+    padding: 0.055in 0 0.015in;
+    font-size: 12pt;
+  }
+  .cert-issued-upon {
+    padding: 0.08in 0 0.12in !important;
+    margin: 0;
+    border: none !important;
+    height: auto !important;
+    text-indent: 0 !important;
+    font-size: 12pt;
+  }
+  .cert-sheet--birth .cert-field {
+    margin: 0.085in 0;
   }
   .cert-marriage-hw {
-    margin: 0.05in 0 0.08in;
-    font-size: 9pt;
+    margin: 0.06in 0 0.26in;
+    font-size: 12pt;
   }
   .cert-marriage-hw th,
   .cert-marriage-hw td {
-    padding: 2px 5px 3px;
+    padding: 4px 8px 3px;
   }
-  .cert-marriage-for {
-    margin: 0.08in 0 0.04in;
-    font-size: 9pt;
-  }
-  .cert-signatures {
-    margin-top: 0.12in;
-    gap: 0.25in;
+  .cert-signoff {
+    margin-top: 0.48in;
     page-break-inside: avoid;
     break-inside: avoid;
   }
-  .cert-verify-block,
-  .cert-registrar-block {
-    font-size: 9pt;
-  }
   .cert-official-name {
-    margin-top: 0.14in;
-    font-size: 9.5pt;
+    margin-top: 0;
+    font-size: 12pt;
+    line-height: 1.05;
+    text-align: center !important;
   }
-  .cert-official-name--spaced {
-    margin-top: 0.16in;
+  .cert-official-title {
+    margin-top: 0;
+    font-size: 11pt;
+    line-height: 1.05;
+    text-align: center !important;
   }
-  .cert-sheet--marriage .cert-official-name {
+  .cert-pay-table {
     margin-top: 0.1in;
+    font-size: 12pt;
   }
-  .cert-sheet--marriage .cert-official-name--spaced {
-    margin-top: 0.12in;
-  }
-  .cert-payment {
-    margin-top: 0.1in;
-    font-size: 9pt;
-  }
-  .cert-payment .cert-field {
-    margin: 0.04in 0;
-  }
-  .cert-watermark {
-    width: 1.75in;
-    height: 1.75in;
-    bottom: 0.65in;
-    left: 0.15in;
+  .cert-pay-table td {
+    padding: 0.02in 0 0.01in;
   }
   .cert-footer-note {
-    margin-top: 0.12in;
-    font-size: 8pt;
+    margin-top: 0.35in;
+    font-size: 10pt;
     page-break-inside: avoid;
   }
 }

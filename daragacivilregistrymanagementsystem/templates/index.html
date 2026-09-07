@@ -1,6 +1,6 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block title %}Scan Workflow{% endblock %}
-{% block body_class %}page-scan-workflow{% endblock %}
+{% block body_class %}page-scan-workflow{% if active_ocr %} ocr-busy{% endif %}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -298,8 +298,9 @@
   .btn-scanflow-ghost svg { width: 14px; height: 14px; flex-shrink: 0; fill: none; stroke: currentColor; }
 
   .scanflow-actions-primary #ocr-loading {
-    flex: 1 1 100%;
-    width: 100%;
+    flex: 0 1 28rem;
+    width: min(100%, 28rem);
+    margin-left: auto;
   }
 
   .scanflow-actions-primary {
@@ -371,6 +372,16 @@
     font-weight: 800;
     font-size: 0.75rem;
     cursor: pointer;
+  }
+  .scanflow-image-in-use {
+    margin: 6px 0 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #0f2b5c;
+    line-height: 1.35;
+  }
+  [data-theme="dark"] .scanflow-image-in-use {
+    color: #cbd5e1;
   }
 
   .scanflow-preview-below-wrap {
@@ -473,6 +484,11 @@
     .scanflow-form-card form > .scanflow-field-row { grid-template-columns: 1fr; }
     .scanflow-field-label-col { padding-top: 0; }
     .btn-scanflow-primary { width: 100%; margin-left: 0; }
+    .scanflow-actions-primary #ocr-loading {
+      flex: 1 1 100%;
+      width: 100%;
+      margin-left: 0;
+    }
   }
   @media (max-width: 980px) {
     body.page-scan-workflow .sidebar { width: 100%; box-shadow: none; }
@@ -482,9 +498,25 @@
 
 {% block after_theme %}
 <style>
-  /* Loaded last so the OCR progress panel cannot stay hidden. */
+  /* Compact OCR bar — IDs unchanged; colors follow light / dark. */
   #ocr-loading {
+    --ocr-load-bg: #f4f7fb;
+    --ocr-load-border: #c9d6ea;
+    --ocr-load-title: #0f2b5c;
+    --ocr-load-pct: #002080;
+    --ocr-load-track: #dce4f0;
+    --ocr-load-fill: linear-gradient(90deg, #002080 0%, #0b6b38 100%);
+    --ocr-load-pulse: #002080;
     display: none !important;
+  }
+  html[data-theme="dark"] #ocr-loading {
+    --ocr-load-bg: #152238;
+    --ocr-load-border: rgba(148, 163, 184, 0.32);
+    --ocr-load-title: #f8fafc;
+    --ocr-load-pct: #93c5fd;
+    --ocr-load-track: #334155;
+    --ocr-load-fill: linear-gradient(90deg, #3b82f6 0%, #34d399 100%);
+    --ocr-load-pulse: #93c5fd;
   }
   body.ocr-busy #ocr-loading,
   #ocr-loading.is-on,
@@ -493,39 +525,77 @@
     visibility: visible !important;
     opacity: 1 !important;
     height: auto !important;
-    min-height: 76px;
+    min-height: 0;
     width: 100%;
+    max-width: 28rem;
     box-sizing: border-box;
-    margin: 0;
-    padding: 12px 14px 14px;
-    border: 2px solid #002080;
-    border-radius: 12px;
-    background: linear-gradient(180deg, #d1fae5 0%, #ecfdf5 45%, #ffffff 100%);
-    box-shadow: 0 6px 20px rgba(0, 32, 128, 0.12);
+    margin: 0 0 0 auto;
+    padding: 7px 10px 8px;
+    border: 1px solid var(--ocr-load-border);
+    border-radius: 8px;
+    background: var(--ocr-load-bg);
+    box-shadow: none;
   }
   body.ocr-busy #ocr-loading .ocr-loading-head,
   #ocr-loading.is-on .ocr-loading-head {
     display: flex !important;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: nowrap;
+  }
+  body.ocr-busy #ocr-loading .ocr-loading-pulse,
+  #ocr-loading.is-on .ocr-loading-pulse {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--ocr-load-pulse);
+    animation: ocr-load-pulse 1.2s ease-in-out infinite;
+  }
+  body.ocr-busy #ocr-loading .ocr-loading-title,
+  #ocr-loading.is-on .ocr-loading-title {
+    margin: 0;
+    flex: 1 1 auto;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--ocr-load-title);
+    line-height: 1.2;
+  }
+  body.ocr-busy #ocr-loading .ocr-loading-percent,
+  #ocr-loading.is-on .ocr-loading-percent {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--ocr-load-pct);
+    min-width: 2.4rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
   }
   body.ocr-busy #ocr-loading .ocr-loading-track,
   #ocr-loading.is-on .ocr-loading-track {
     display: block !important;
     width: 100%;
-    height: 14px;
+    height: 4px;
     border-radius: 999px;
-    background: #dbe4ef;
+    background: var(--ocr-load-track);
     overflow: hidden;
+    border: none;
   }
   body.ocr-busy #ocr-loading .ocr-loading-fill,
   #ocr-loading.is-on .ocr-loading-fill {
     display: block !important;
     height: 100%;
-    min-height: 14px;
-    background: linear-gradient(90deg, #0d9488 0%, #16a34a 55%, #22c55e 100%);
+    min-height: 4px;
+    background: var(--ocr-load-fill);
+    border-radius: 999px;
+    transition: width 0.25s ease;
+  }
+  @keyframes ocr-load-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.85); }
   }
 
   /* Old layout: one column — form, OCR bar + progress, then Document preview */
@@ -547,6 +617,14 @@
     padding-top: 10px;
     background: transparent;
   }
+  @media (max-width: 900px) {
+    body.ocr-busy #ocr-loading,
+    #ocr-loading.is-on,
+    #ocr-loading[aria-busy="true"] {
+      max-width: 100%;
+      margin-left: 0;
+    }
+  }
   @media (max-height: 900px) {
     body.page-scan-workflow .scanflow-hero-wrap {
       margin-bottom: 8px;
@@ -559,8 +637,9 @@
     }
     body.ocr-busy #ocr-loading,
     #ocr-loading.is-on {
-      min-height: 64px;
-      padding: 10px 12px 12px;
+      min-height: 0;
+      padding: 6px 10px 7px;
+      max-width: 100%;
     }
   }
 </style>
@@ -606,7 +685,7 @@
         <span class="scanflow-step-lbl">State</span>
         <span class="scanflow-step-val">
           <svg class="scanflow-state-check" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-          <span id="workflow-state">—</span>
+          <span id="workflow-state">{% if active_ocr %}OCR PROCESSING{% else %}—{% endif %}</span>
         </span>
       </div>
       <span class="scanflow-rail-sep" aria-hidden="true"></span>
@@ -614,7 +693,7 @@
         <span class="scanflow-step-lbl">Next</span>
         <span class="scanflow-step-val">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 9H9v6h6V9zm-2 4h-2v-2h2v2zm8-9v12c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2zm-2 0H5v12h12V4z"/></svg>
-          <span id="workflow-next">Scan</span>
+          <span id="workflow-next">{% if active_ocr %}Please wait{% else %}Scan{% endif %}</span>
         </span>
       </div>
     </div>
@@ -641,10 +720,10 @@
           <label for="document_type">Document type</label>
         </div>
         <div class="scanflow-field-control field">
-          <select id="document_type" name="document_type" required>
-            <option value="birth">Birth</option>
-            <option value="marriage">Marriage</option>
-            <option value="death">Death</option>
+          <select id="document_type" name="document_type" required{% if active_ocr %} disabled{% endif %}>
+            <option value="birth"{% if active_ocr and active_ocr.doc_type == 'birth' %} selected{% endif %}>Birth</option>
+            <option value="marriage"{% if active_ocr and active_ocr.doc_type == 'marriage' %} selected{% endif %}>Marriage</option>
+            <option value="death"{% if active_ocr and active_ocr.doc_type == 'death' %} selected{% endif %}>Death</option>
           </select>
         </div>
       </div>
@@ -673,11 +752,11 @@
             <option value="">Click Detect scanner to list devices</option>
           </select>
           <div class="scanflow-scanner-btns">
-            <button type="button" class="btn-scanflow-ghost" id="detect-scanner">
+            <button type="button" class="btn-scanflow-ghost" id="detect-scanner"{% if active_ocr %} disabled{% endif %}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
               Detect scanner
             </button>
-            <button type="button" class="btn-scanflow-ghost" id="scan-from-device">
+            <button type="button" class="btn-scanflow-ghost" id="scan-from-device"{% if active_ocr %} disabled{% endif %}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 21h10"/></svg>
               Scan from printer
             </button>
@@ -691,29 +770,33 @@
           <label for="image">Upload image</label>
         </div>
         <div class="scanflow-field-control field">
-          <input type="file" class="scanflow-file-native" name="image" id="image" accept=".jpg,.jpeg,.png" />
+          <input type="file" class="scanflow-file-native" name="image" id="image" accept=".jpg,.jpeg,.png"{% if active_ocr %} disabled{% endif %} />
+          <p id="ocr-image-in-use" class="scanflow-image-in-use"{% if not active_ocr or not active_ocr.image_filename %} hidden{% endif %}>
+            {% if active_ocr and active_ocr.image_filename %}Document in use: {{ active_ocr.image_filename.split('/')[-1] }} (OCR keeps this file if you leave the page){% endif %}
+          </p>
         </div>
       </div>
 
       <div class="scanflow-actions-primary">
         <p class="scanflow-ocr-hint">OCR reads the image and opens the form for review. Nothing is saved until you confirm.</p>
-        <button type="submit" class="btn btn-primary btn-scanflow-primary" id="btn-ocr">
+        <button type="submit" class="btn btn-primary btn-scanflow-primary{% if active_ocr %} is-running{% endif %}" id="btn-ocr"{% if active_ocr %} disabled{% endif %}>
           <svg class="btn-ocr-idle-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
           <span class="btn-ocr-spin" aria-hidden="true"></span>
-          <span class="btn-ocr-label">Run OCR</span>
+          <span class="btn-ocr-label">{% if active_ocr %}Running OCR…{% else %}Run OCR{% endif %}</span>
         </button>
-        <div id="ocr-loading" class="ocr-loading" aria-live="polite" aria-busy="false">
+        <div id="ocr-loading" class="ocr-loading{% if active_ocr %} is-on{% endif %}" aria-live="polite" aria-busy="{% if active_ocr %}true{% else %}false{% endif %}">
           <div class="ocr-loading-head">
-            <p class="ocr-loading-title">OCR is processing...</p>
-            <span id="ocr-progress-text" class="ocr-loading-percent">1%</span>
+            <span class="ocr-loading-pulse" aria-hidden="true"></span>
+            <p class="ocr-loading-title">OCR is processing…</p>
+            <span id="ocr-progress-text" class="ocr-loading-percent">{{ active_ocr.progress if active_ocr else 1 }}%</span>
           </div>
           <div class="ocr-loading-track">
-            <div id="ocr-progress-fill" class="ocr-loading-fill"></div>
+            <div id="ocr-progress-fill" class="ocr-loading-fill" style="width: {{ active_ocr.progress if active_ocr else 1 }}%"></div>
           </div>
         </div>
       </div>
 
-      <input type="hidden" name="image_filename" id="image_filename" value="" />
+      <input type="hidden" name="image_filename" id="image_filename" value="{{ active_ocr.image_filename if active_ocr else '' }}" />
       </div>
     </form>
 
@@ -725,15 +808,15 @@
         <h2 class="section-title">Document preview</h2>
       </div>
       <div class="scanflow-preview-shell">
-        <div id="scan-preview-empty" class="scan-preview-empty scanflow-preview-empty-inner">
+        <div id="scan-preview-empty" class="scan-preview-empty scanflow-preview-empty-inner"{% if active_ocr and active_ocr.image_url %} hidden{% endif %}>
           <span class="scanflow-preview-placeholder-ic" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
           </span>
           Upload or scan a file to preview it here, then run OCR.
-          <div id="scan-preview-filename" class="scanflow-preview-filename" hidden></div>
+          <div id="scan-preview-filename" class="scanflow-preview-filename"{% if not active_ocr or not active_ocr.image_filename %} hidden{% endif %}>{% if active_ocr and active_ocr.image_filename %}{{ active_ocr.image_filename.split('/')[-1] }}{% endif %}</div>
         </div>
-        <div id="scan-preview-viewer-wrap" class="scan-preview-viewer-inner" hidden>
-          {% set image_url = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" %}
+        <div id="scan-preview-viewer-wrap" class="scan-preview-viewer-inner"{% if not active_ocr or not active_ocr.image_url %} hidden{% endif %}>
+          {% set image_url = active_ocr.image_url if active_ocr and active_ocr.image_url else "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" %}
           {% set document_viewer_title = 'Certificate (zoom)' %}
           {% set document_viewer_id_prefix = 'scan-wf' %}
           {% set document_viewer_section_id = 'scan-wf-preview-viewer' %}
@@ -810,11 +893,6 @@ document.addEventListener('DOMContentLoaded', function() {
         reapplyScanPreviewZoom();
       });
     }
-    if (ocrFakeTimer) clearInterval(ocrFakeTimer);
-    ocrFakeTimer = setInterval(function () {
-      if (ocrShownProgress >= 90) return;
-      updateOcrProgress(Math.min(90, ocrShownProgress + 7));
-    }, 500);
   }
 
   function resetOcrLoading() {
@@ -935,25 +1013,9 @@ document.addEventListener('DOMContentLoaded', function() {
       .then(function(r){ return r.json().then(function(j){ return r.ok ? j : Promise.reject(j); }); })
       .then(function(startData) {
         var jobId = startData.job_id;
-        var pollTimer = setInterval(function() {
-          fetch('{{ url_for("api_ocr_status", job_id="__JOB_ID__") }}'.replace('__JOB_ID__', jobId))
-            .then(function(r){ return r.json().then(function(j){ return r.ok ? j : Promise.reject(j); }); })
-            .then(function(statusData) {
-              var serverPct = Number(statusData.progress || 0);
-              if (serverPct > ocrShownProgress) updateOcrProgress(serverPct);
-              if (statusData.status === 'done' && statusData.redirect_url) {
-                if (ocrFakeTimer) clearInterval(ocrFakeTimer);
-                updateOcrProgress(100);
-                clearInterval(pollTimer);
-                window.location.href = statusData.redirect_url;
-              } else if (statusData.status === 'error') {
-                clearInterval(pollTimer);
-                resetOcrLoading();
-                alert(statusData.error || 'OCR failed.');
-              }
-            })
-            .catch(function(){ /* keep the progress panel visible if one poll fails */ });
-        }, 450);
+        if (window.DaragaOcr && window.DaragaOcr.follow) {
+          window.DaragaOcr.follow(jobId);
+        }
       })
       .catch(function(err){ resetOcrLoading(); alert(err && err.error ? err.error : 'Unable to start OCR.'); });
     return false;

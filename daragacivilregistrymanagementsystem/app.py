@@ -1,5 +1,4 @@
 
-import csv
 import json
 import logging
 import os
@@ -66,26 +65,41 @@ import threading
 import traceback
 import uuid
 import zipfile
-from datetime import datetime, date, timedelta, time
+from datetime import datetime, timedelta
 from functools import wraps
-from io import BytesIO, StringIO
+from typing import Optional
+from io import BytesIO
 from pathlib import Path
 
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory, send_file, jsonify
 from sqlalchemy import or_
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from models import db, User, Record, EditRequest, AuditLog, PrintLog, PrintRequest
+from models import db, User, Record, EditRequest, AuditLog, PrintLog, PrintRequest, BackupRun
 from services.auto_backup import (
+    auto_backup_dir,
     apply_schedule,
+    server_backup_display,
+    local_backup_root,
+    daily_backup_stamp,
+    daily_full_backup_filename,
     delete_auto_backup,
+    delete_backup_run,
+    ensure_backup_dir_writable,
     init_auto_backup_scheduler,
     list_auto_backups,
+    list_backup_history,
     load_settings as load_auto_backup_settings,
+    _norm_dest_text,
     resolve_auto_backup_path,
+    resolve_period_backup_path,
+    resolve_server_backup_root,
     run_auto_backup,
+    run_full_backup,
+    run_period_backup,
     save_settings as save_auto_backup_settings,
     settings_from_form,
+    sync_local_backups_to_server,
     write_full_backup_zip,
 )
 from ocr.birth import extract_birth_data
@@ -126,6 +140,7 @@ from services.civil_registry_reports import (
     marriage_row,
     record_is_reportable,
     row_matches_filters,
+    row_matches_find,
 )
 try:
     from services.scanner_wia import list_scanners, scan_to_file
@@ -313,6 +328,20 @@ app.jinja_env.globals["public_record_fields"] = public_record_fields
 app.jinja_env.globals["annotation_form_defaults"] = annotation_form_defaults
 app.jinja_env.globals["annotation_kinds"] = ANNOTATION_KINDS
 
+METADATA_DISPLAY_LABELS = {
+    "Husband Citizenship": "Husband Nationality",
+    "Wife Citizenship": "Wife Nationality",
+    "Citizenship of Mother": "Nationality of Mother",
+    "Citizenship of Father": "Nationality of Father",
+}
+
+
+def metadata_display_label(key: str) -> str:
+    return METADATA_DISPLAY_LABELS.get(key or "", key or "")
+
+
+app.jinja_env.globals["metadata_display_label"] = metadata_display_label
+
 
 @app.context_processor
 def inject_template_globals():
@@ -332,6 +361,7 @@ def inject_template_globals():
         "public_record_fields": public_record_fields,
         "annotation_form_defaults": annotation_form_defaults,
         "annotation_kinds": ANNOTATION_KINDS,
+        "metadata_display_label": metadata_display_label,
     }
 
 
@@ -606,8 +636,12 @@ def api_ocr_start():
             "image_filename": image_filename,
             "data": None,
             "error": None,
+            "user_id": session.get("user_id"),
             "created_at": datetime.utcnow().isoformat(),
         }
+
+    session["last_ocr_job_id"] = job_id
+    session.modified = True
 
     t = threading.Thread(
         target=_run_ocr_job,
@@ -635,6 +669,46 @@ def api_ocr_status(job_id):
             payload["redirect_url"] = url_for("ocr_result", job_id=job_id)
         if job.get("status") == "error":
             payload["error"] = "OCR failed while processing the document."
+        return payload
+
+
+@app.route("/api/ocr/active", methods=["GET"])
+@login_required
+def api_ocr_active():
+    """Resume the current user's in-progress or last completed OCR job in the top bar."""
+    user_id = session.get("user_id")
+    job_id = session.get("last_ocr_job_id")
+    with _OCR_JOBS_LOCK:
+        job = _OCR_JOBS.get(job_id) if job_id else None
+        if job and job.get("user_id") not in (None, user_id):
+            job = None
+        if not job:
+            candidates = [
+                (jid, j)
+                for jid, j in _OCR_JOBS.items()
+                if j.get("user_id") == user_id
+                and j.get("status") in ("queued", "running", "done")
+            ]
+            if not candidates:
+                return {"ok": True, "active": False}
+            job_id, job = max(candidates, key=lambda item: item[1].get("created_at") or "")
+        status = job.get("status")
+        if status == "error":
+            return {"ok": True, "active": False}
+        payload = {
+            "ok": True,
+            "active": True,
+            "job_id": job_id,
+            "status": status,
+            "progress": job.get("progress", 1),
+            "message": job.get("message", ""),
+            "doc_type": job.get("doc_type"),
+            "image_filename": job.get("image_filename") or "",
+        }
+        if job.get("image_filename"):
+            payload["image_url"] = url_for("serve_upload", path=job["image_filename"])
+        if status == "done":
+            payload["redirect_url"] = url_for("ocr_result", job_id=job_id)
         return payload
 
 
@@ -1408,7 +1482,9 @@ def request_edit(record_id):
 @admin_required
 def administration():
     tab = (request.args.get("tab") or "dashboard").strip().lower()
-    if tab not in ("dashboard", "audit", "edit_requests", "print_requests", "users", "print_logs", "backup_restore"):
+    if tab == "backup_restore":
+        return redirect(url_for("administration", tab="automatic_backup"))
+    if tab not in ("dashboard", "audit", "edit_requests", "print_requests", "users", "print_logs", "automatic_backup"):
         tab = "dashboard"
     request_doc_type = _parse_doc_type_filter_arg(request.args.get("doc_type"))
     edit_requests_list = []
@@ -1448,9 +1524,15 @@ def administration():
     staff_count = User.query.filter(db.func.upper(User.role) == "STAFF").count()
     admin_users_count = User.query.filter(db.func.upper(User.role) == "ADMIN").count()
     audit_recent_count = AuditLog.query.count()
-    current_year = datetime.now().year
-    auto_backup_settings = load_auto_backup_settings(BASE_DIR) if tab == "backup_restore" else None
-    auto_backup_files = list_auto_backups(BASE_DIR) if tab == "backup_restore" else []
+    backup_tabs = tab == "automatic_backup"
+    auto_backup_settings = load_auto_backup_settings(BASE_DIR) if backup_tabs else None
+    auto_backup_files = []
+    backup_history = []
+    if tab == "automatic_backup":
+        try:
+            backup_history = list_backup_history()
+        except Exception:
+            backup_history = []
     return render_template(
         "administration.html",
         current_user=get_current_user(),
@@ -1472,10 +1554,13 @@ def administration():
         audit_recent_count=audit_recent_count,
         document_types=DOCUMENT_TYPES,
         print_logs=print_logs,
-        current_year=current_year,
         request_doc_type=request_doc_type,
         auto_backup_settings=auto_backup_settings,
         auto_backup_files=auto_backup_files,
+        backup_history=backup_history,
+        auto_backup_folder=str(local_backup_root(BASE_DIR)) if backup_tabs else "",
+        auto_backup_server_folder=server_backup_display(BASE_DIR, auto_backup_settings) if backup_tabs else "",
+        today_backup_stamp=daily_backup_stamp(),
     )
 
 
@@ -1500,12 +1585,15 @@ def _civil_registry_report_context():
         all_rows.append(builder(record, data))
     year_options, barangay_options, location_options = collect_filter_options(all_rows)
     filtered_rows = [row for row in all_rows if row_matches_filters(row, year, barangay, location)]
+    find_q = (request.args.get("q") or "").strip()[:80]
+    book_count = len(filtered_rows)
+    if find_q:
+        filtered_rows = [row for row in filtered_rows if row_matches_find(row, find_q)]
     try:
         per_page = int(request.args.get("per_page") or 25)
     except ValueError:
         per_page = 25
-    if per_page not in (25, 50, 100):
-        per_page = 25
+    per_page = 25
     try:
         page = int(request.args.get("page") or 1)
     except ValueError:
@@ -1522,6 +1610,8 @@ def _civil_registry_report_context():
     if barangay:
         excel_args["barangay"] = barangay
     query_args = dict(excel_args)
+    if find_q:
+        query_args["q"] = find_q
     if per_page != 25:
         query_args["per_page"] = per_page
     if focus:
@@ -1548,6 +1638,8 @@ def _civil_registry_report_context():
         "rows": rows,
         "filtered_rows": filtered_rows,
         "filtered_count": total,
+        "find_q": find_q,
+        "book_count": book_count,
         "page": page,
         "per_page": per_page,
         "total_pages": total_pages,
@@ -1556,7 +1648,7 @@ def _civil_registry_report_context():
         "enter_focus_args": enter_focus_args,
         "exit_focus_args": exit_focus_args,
         "doc_links": doc_links,
-        "empty_rows": 0 if total >= 8 else max(0, 8 - len(rows)),
+        "empty_rows": max(0, 25 - len(rows)),
         "page_left": 1,
         "page_right": 2,
         "excel_args": excel_args,
@@ -1701,135 +1793,32 @@ def administration_delete_user(user_id):
     return redirect(url_for("administration", tab="users"))
 
 
-def _iso_week_start_end(year: int, week: int):
-    """Return (start_date, end_date) for the given ISO year and week (1-53)."""
-    jan4 = date(year, 1, 4)
-    start = jan4 - timedelta(days=jan4.weekday())
-    start = start + timedelta(weeks=week - 1)
-    end = start + timedelta(days=6)
-    return start, end
-
-
-@app.route("/administration/backup-documents")
-@admin_required
-def administration_backup_documents():
-    """Download civil registry documents (records + certificate images) for a chosen period: by week, month, or year."""
-    period = (request.args.get("period") or "month").strip().lower()
-    if period not in ("week", "month", "year"):
-        period = "month"
-    try:
-        year = int(request.args.get("year") or datetime.now().year)
-    except ValueError:
-        year = datetime.now().year
-    year = max(2000, min(2100, year))
-
-    start_dt = None
-    end_dt = None
-    filename_part = None
-
-    if period == "year":
-        start_dt = datetime(year, 1, 1, 0, 0, 0)
-        end_dt = datetime(year, 12, 31, 23, 59, 59)
-        filename_part = str(year)
-    elif period == "month":
-        try:
-            month = int(request.args.get("month") or datetime.now().month)
-        except ValueError:
-            month = datetime.now().month
-        month = max(1, min(12, month))
-        start_dt = datetime(year, month, 1, 0, 0, 0)
-        if month == 12:
-            end_dt = datetime(year, 12, 31, 23, 59, 59)
-        else:
-            end_dt = datetime(year, month + 1, 1, 0, 0, 0) - timedelta(seconds=1)
-        filename_part = f"{year}-{month:02d}"
-    else:
-        try:
-            week = int(request.args.get("week") or 1)
-        except ValueError:
-            week = 1
-        week = max(1, min(53, week))
-        start_date, end_date = _iso_week_start_end(year, week)
-        start_dt = datetime.combine(start_date, datetime.min.time())
-        end_dt = datetime.combine(end_date, time(23, 59, 59))
-        filename_part = f"{year}-W{week:02d}"
-
-    records = (
-        Record.query.filter(Record.created_at >= start_dt, Record.created_at <= end_dt)
-        .order_by(Record.created_at.asc())
-        .all()
-    )
-
-    buf = BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        manifest_rows = []
-        seen_paths = set()
-        for r in records:
-            manifest_rows.append({
-                "id": r.id,
-                "document_type": r.document_type,
-                "registry_number": r.registry_number or "",
-                "full_name": r.full_name or "",
-                "event_date": r.event_date or "",
-                "created_at": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "",
-                "image_path": r.image_path or "",
-            })
-            for path_attr in ("image_path", "image_front_path"):
-                rel = (getattr(r, path_attr) or "").strip()
-                if not rel or ".." in rel or rel.startswith("/"):
-                    continue
-                full_path = _upload_file_path(rel)
-                if full_path is not None and full_path.exists() and full_path.is_file():
-                    base_name = Path(rel).name
-                    arcname = f"documents/{r.id}_{base_name}"
-                    if arcname in seen_paths:
-                        arcname = f"documents/{r.id}_{path_attr}_{base_name}"
-                    seen_paths.add(arcname)
-                    zf.write(full_path, arcname)
-        manifest_buf = StringIO()
-        if manifest_rows:
-            writer = csv.DictWriter(manifest_buf, fieldnames=["id", "document_type", "registry_number", "full_name", "event_date", "created_at", "image_path"])
-            writer.writeheader()
-            writer.writerows(manifest_rows)
-        manifest_buf.seek(0)
-        zf.writestr("manifest.csv", manifest_buf.getvalue())
-
-    buf.seek(0)
-    filename = f"civil_registry_documents_{filename_part}.zip"
-    _log_audit(session.get("user_id"), "BACKUP_DOCUMENTS", f"period={period} {filename_part} records={len(records)}")
-    return send_file(
-        buf,
-        mimetype="application/zip",
-        as_attachment=True,
-        download_name=filename,
-    )
-
-
 @app.route("/administration/backup")
 @admin_required
 def administration_backup():
-    """Create a full zip backup of the database and uploads folder (for full restore)."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"civil_registry_full_backup_{timestamp}.zip"
-    tmp_path = BASE_DIR / "backups" / f"_tmp_manual_{timestamp}.zip"
-    write_full_backup_zip(
-        tmp_path,
+    """Create a full zip backup on this system (and the LGU server if set), then download it."""
+    ok, message, rel_file = run_auto_backup(
         base_dir=BASE_DIR,
         upload_dir=UPLOAD_DIR,
         include_sqlite_db=is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
+        audit_callback=_auto_backup_audit,
+        trigger="download",
+        kind="full",
+        force=True,
     )
-    buf = BytesIO(tmp_path.read_bytes())
-    try:
-        tmp_path.unlink(missing_ok=True)
-    except OSError:
-        pass
-    buf.seek(0)
-    _log_audit(session.get("user_id"), "BACKUP_FULL", filename)
+    if not ok:
+        flash(f"Full backup failed: {message}", "error")
+        return redirect(url_for("administration", tab="automatic_backup"))
+    full_path, err = resolve_period_backup_path(BASE_DIR, rel_file)
+    if err or full_path is None:
+        flash(err or "Full backup file not found.", "error")
+        return redirect(url_for("administration", tab="automatic_backup"))
+    _log_audit(session.get("user_id"), "BACKUP_FULL", full_path.name)
     return send_file(
-        buf,
+        full_path,
         mimetype="application/zip",
         as_attachment=True,
-        download_name=filename,
+        download_name=full_path.name,
     )
 
 
@@ -1842,7 +1831,28 @@ def _auto_backup_audit(action: str, details: str) -> None:
 def administration_auto_backup_settings():
     """Save automatic backup schedule (daily / weekly / monthly / yearly)."""
     settings = settings_from_form(request.form, BASE_DIR)
+    previous_dest = _norm_dest_text(load_auto_backup_settings(BASE_DIR).get("destination_path") or "")
+    dest_error = None
+    folder = None
+    folder, dest_error = resolve_server_backup_root(BASE_DIR, settings)
+    if dest_error:
+        previous = load_auto_backup_settings(BASE_DIR)
+        settings["destination_path"] = previous.get("destination_path") or ""
+        flash(dest_error, "error")
+        folder = None
+    elif folder is not None:
+        dest_error = ensure_backup_dir_writable(folder)
+        if dest_error:
+            flash(dest_error, "error")
+            previous = load_auto_backup_settings(BASE_DIR)
+            settings["destination_path"] = previous.get("destination_path") or ""
+            folder = None
     save_auto_backup_settings(BASE_DIR, settings)
+    copied = failed = 0
+    new_dest = _norm_dest_text(settings.get("destination_path") or "")
+    path_changed = bool(folder is not None and not dest_error and new_dest and new_dest != previous_dest)
+    if path_changed:
+        copied, failed, _sync_err = sync_local_backups_to_server(BASE_DIR)
     try:
         init_auto_backup_scheduler(
             app,
@@ -1850,33 +1860,181 @@ def administration_auto_backup_settings():
             upload_dir=UPLOAD_DIR,
             include_sqlite_db=lambda: is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
             audit_callback=_auto_backup_audit,
+            resolve_upload=_upload_file_path,
         )
         apply_schedule(app)
     except Exception as exc:
         flash(f"Settings saved, but scheduler could not start: {exc}", "error")
-        return redirect(url_for("administration", tab="backup_restore"))
+        return redirect(url_for("administration", tab="automatic_backup"))
     status = "enabled" if settings.get("enabled") else "disabled"
-    _log_audit(session.get("user_id"), "AUTO_BACKUP_SETTINGS", f"status={status} frequency={settings.get('frequency')}")
-    flash("Automatic backup settings saved.", "success")
-    return redirect(url_for("administration", tab="backup_restore"))
+    dest_note = settings.get("destination_path") or "not set"
+    _log_audit(
+        session.get("user_id"),
+        "AUTO_BACKUP_SETTINGS",
+        f"status={status} frequency={settings.get('frequency')} dest={dest_note}",
+    )
+    if not dest_error:
+        local_where = local_backup_root(BASE_DIR)
+        if folder is not None:
+            flash(
+                f"New backups will save on this system ({local_where}) and also on the Daraga Civil Registry server ({folder}).",
+                "success",
+            )
+            if copied:
+                flash(f"Copied {copied} existing backup file(s) to the LGU server.", "success")
+            if failed:
+                flash(f"{failed} existing backup file(s) could not be copied to the LGU server.", "error")
+        else:
+            flash(
+                f"Automatic backup will save on this system ({local_where}). Add the LGU server folder later to keep a second copy there.",
+                "success",
+            )
+    return redirect(url_for("administration", tab="automatic_backup"))
+
+
+def _persist_server_path_from_form() -> Optional[str]:
+    """Save the LGU server path from the current form so Backup now can copy there immediately."""
+    settings = load_auto_backup_settings(BASE_DIR)
+    raw = (request.form.get("auto_backup_destination") or "").strip().strip('"').strip("'")
+    trial = dict(settings)
+    trial["destination_path"] = raw
+    folder, dest_error = resolve_server_backup_root(BASE_DIR, trial)
+    if dest_error:
+        return dest_error
+    if folder is not None:
+        dest_error = ensure_backup_dir_writable(folder)
+        if dest_error:
+            return dest_error
+    settings["destination_path"] = raw
+    save_auto_backup_settings(BASE_DIR, settings)
+    return None
+
+
+def _run_requested_backup(kind: str, trigger: str):
+    kind = (kind or "daily").strip().lower()
+    if kind not in ("daily", "monthly", "yearly", "full"):
+        kind = "daily"
+    return run_auto_backup(
+        base_dir=BASE_DIR,
+        upload_dir=UPLOAD_DIR,
+        include_sqlite_db=is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
+        audit_callback=_auto_backup_audit,
+        trigger=trigger,
+        kind=kind,
+        force=False,
+    ), kind
 
 
 @app.route("/administration/auto-backup/run-now", methods=["POST"])
 @admin_required
 def administration_auto_backup_run_now():
-    """Run an automatic full backup immediately."""
-    ok, message, rel_file = run_auto_backup(
-        base_dir=BASE_DIR,
-        upload_dir=UPLOAD_DIR,
-        include_sqlite_db=is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
-        audit_callback=_auto_backup_audit,
-        trigger="manual",
-    )
+    """Create a backup immediately and keep it on this system (and the LGU server if set)."""
+    dest_err = _persist_server_path_from_form()
+    if dest_err:
+        flash(dest_err, "error")
+    (ok, message, rel_file), kind = _run_requested_backup(request.form.get("backup_kind"), "manual")
     if ok:
-        flash(f"Backup created: {rel_file}", "success")
+        flash(message or f"Backup created: {rel_file}", "success")
     else:
         flash(f"Backup failed: {message}", "error")
-    return redirect(url_for("administration", tab="backup_restore"))
+    return redirect(url_for("administration", tab="automatic_backup"))
+
+
+@app.route("/administration/auto-backup/get-now", methods=["POST"])
+@admin_required
+def administration_auto_backup_get_now():
+    """Create the backup if needed, then download it now (before the scheduled time)."""
+    dest_err = _persist_server_path_from_form()
+    if dest_err:
+        flash(dest_err, "error")
+    (ok, message, rel_file), kind = _run_requested_backup(request.form.get("backup_kind"), "get_now")
+    if not ok:
+        flash(f"Backup failed: {message}", "error")
+        return redirect(url_for("administration", tab="automatic_backup"))
+    full_path, err = resolve_period_backup_path(BASE_DIR, rel_file)
+    if err or full_path is None:
+        flash(err or message or "Backup file not found.", "error")
+        return redirect(url_for("administration", tab="automatic_backup"))
+    _log_audit(session.get("user_id"), "AUTO_BACKUP_GET", f"kind={kind} file={full_path.name}")
+    return send_file(
+        full_path,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=full_path.name,
+    )
+
+
+@app.route("/administration/auto-backup/retry/<int:run_id>", methods=["POST"])
+@admin_required
+def administration_auto_backup_retry(run_id):
+    """Retry a failed date-based backup for the same period."""
+    row = BackupRun.query.get(run_id)
+    if row is None:
+        flash("Backup history entry not found.", "error")
+        return redirect(url_for("administration", tab="automatic_backup"))
+    kind = (row.kind or "daily").strip().lower()
+    when = None
+    try:
+        if kind == "full" or kind == "daily":
+            when = datetime.strptime(row.period_key, "%Y-%m-%d")
+        elif kind == "monthly":
+            when = datetime.strptime(row.period_key + "-01", "%Y-%m-%d")
+        else:
+            when = datetime.strptime(row.period_key + "-01-01", "%Y-%m-%d")
+    except ValueError:
+        when = datetime.now()
+    if kind == "full":
+        ok, message, rel_file = run_full_backup(
+            base_dir=BASE_DIR,
+            force=True,
+            trigger="retry",
+            when=when,
+            audit_callback=_auto_backup_audit,
+        )
+    else:
+        ok, message, rel_file = run_period_backup(
+            kind=kind,
+            base_dir=BASE_DIR,
+            force=True,
+            trigger="retry",
+            when=when,
+            audit_callback=_auto_backup_audit,
+        )
+    if ok:
+        flash(message or f"Backup created: {rel_file}", "success")
+    else:
+        flash(f"Backup failed: {message}", "error")
+    return redirect(url_for("administration", tab="automatic_backup"))
+
+
+@app.route("/administration/auto-backup/history/<int:run_id>/delete", methods=["POST"])
+@admin_required
+def administration_auto_backup_delete_run(run_id):
+    """Admin-only: delete one backup zip and its history row. Original registry records are unchanged."""
+    ok, message = delete_backup_run(BASE_DIR, run_id)
+    user = get_current_user()
+    if ok:
+        _log_audit(
+            session.get("user_id"),
+            "AUTO_BACKUP_DELETED",
+            f"run_id={run_id} by={user.username if user else '—'}",
+        )
+        flash(message, "success")
+    else:
+        flash(message, "error")
+    return redirect(url_for("administration", tab="automatic_backup"))
+
+
+@app.route("/administration/auto-backup/download-period")
+@admin_required
+def administration_auto_backup_download_period():
+    """Download a date-based backup zip from the Year/Month/Day folder."""
+    file_rel = request.args.get("path") or ""
+    full_path, err = resolve_period_backup_path(BASE_DIR, file_rel)
+    if err:
+        flash(err)
+        return redirect(url_for("administration", tab="automatic_backup"))
+    return send_from_directory(full_path.parent, full_path.name, as_attachment=True)
 
 
 @app.route("/administration/auto-backup/download/<path:filename>")
@@ -1886,8 +2044,8 @@ def administration_auto_backup_download(filename):
     full_path, err = resolve_auto_backup_path(BASE_DIR, filename)
     if err:
         flash(err)
-        return redirect(url_for("administration", tab="backup_restore"))
-    folder = BASE_DIR / "backups" / "auto"
+        return redirect(url_for("administration", tab="automatic_backup"))
+    folder = auto_backup_dir(BASE_DIR)
     return send_from_directory(folder, full_path.name, as_attachment=True)
 
 
@@ -1902,7 +2060,7 @@ def administration_auto_backup_delete(filename):
         flash(f'Backup "{message}" was deleted.', "success")
     else:
         flash(message, "error")
-    return redirect(url_for("administration", tab="backup_restore"))
+    return redirect(url_for("administration", tab="automatic_backup"))
 
 
 @app.route("/administration/restore", methods=["POST"])
@@ -1911,14 +2069,14 @@ def administration_restore():
     """Restore database and uploads from an uploaded backup zip. Current data is backed up first."""
     if "backup_file" not in request.files:
         flash("Please select a backup file (.zip) to restore.")
-        return redirect(url_for("administration", tab="backup_restore"))
+        return redirect(url_for("administration", tab="automatic_backup"))
     file = request.files["backup_file"]
     if not file or file.filename == "":
         flash("Please select a backup file.")
-        return redirect(url_for("administration", tab="backup_restore"))
+        return redirect(url_for("administration", tab="automatic_backup"))
     if not file.filename.lower().endswith(".zip"):
         flash("Only .zip backup files are allowed.")
-        return redirect(url_for("administration", tab="backup_restore"))
+        return redirect(url_for("administration", tab="automatic_backup"))
 
     if not is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")):
         flash(
@@ -1927,12 +2085,12 @@ def administration_restore():
             "the uploads folder from the zip if needed.",
             "error",
         )
-        return redirect(url_for("administration", tab="backup_restore"))
+        return redirect(url_for("administration", tab="automatic_backup"))
 
     db_path = BASE_DIR / "civil_registry.db"
     backup_dir = BASE_DIR / "backups"
     backup_dir.mkdir(exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = daily_backup_stamp()
     backup_db = None
     uploads_backup = None
 
@@ -1942,7 +2100,7 @@ def administration_restore():
             names = zf.namelist()
             if "civil_registry.db" not in names:
                 flash("Invalid backup: zip must contain civil_registry.db")
-                return redirect(url_for("administration", tab="backup_restore"))
+                return redirect(url_for("administration", tab="automatic_backup"))
 
             # Backup current database before replace
             if db_path.exists():
@@ -1989,7 +2147,7 @@ def administration_restore():
                     shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
                     shutil.copytree(uploads_backup, UPLOAD_DIR)
                 flash(f"Restore failed: {e}. Previous data was restored.")
-                return redirect(url_for("administration", tab="backup_restore"))
+                return redirect(url_for("administration", tab="automatic_backup"))
 
             # Remove temporary uploads backup if we have uploads in zip
             if uploads_backup is not None and uploads_backup.exists():
@@ -2004,7 +2162,7 @@ def administration_restore():
         flash("Invalid or corrupted zip file.")
     except Exception as e:
         flash(f"Restore failed: {e}")
-    return redirect(url_for("administration", tab="backup_restore"))
+    return redirect(url_for("administration", tab="automatic_backup"))
 
 
 @app.route("/administration/print-request/<int:request_id>/approve", methods=["POST"])
@@ -2149,6 +2307,8 @@ def record_edit(record_id):
         existing = _load_record_data_json(record)
         submitted = _submitted_from_request_form()
         submitted = _normalize_submitted_registry_keys(submitted)
+        if record.document_type == "death":
+            submitted.pop("Name of Mother", None)
         if (request.form.get("clear_annotation") or "").strip():
             annotation = None
         elif "annotation_text" not in request.form:
@@ -2228,29 +2388,60 @@ def record_edit(record_id):
     )
 
 
+def _archiving_records_query(doc_type: str, registry_q: str = ""):
+    q = Record.query.filter_by(document_type=doc_type).order_by(Record.created_at.desc())
+    needle = (registry_q or "").strip()
+    if needle:
+        q = q.filter(Record.registry_number.ilike(f"%{needle}%"))
+    return q
+
+
 def _redirect_archiving():
-    """Return redirect to archiving, preserving optional ?doc_type= filter."""
+    """Return redirect to archiving, preserving type and registry search."""
     dt = _parse_doc_type_filter_arg(request.form.get("doc_type") or request.args.get("doc_type"))
+    registry = (request.form.get("registry") or request.args.get("registry") or "").strip()
+    kwargs = {}
     if dt:
-        return redirect(url_for("archiving", doc_type=dt))
-    return redirect(url_for("archiving"))
+        kwargs["doc_type"] = dt
+        if registry:
+            kwargs["registry"] = registry
+    return redirect(url_for("archiving", **kwargs)) if kwargs else redirect(url_for("archiving"))
 
 
 @app.route("/archiving")
 @login_required
 def archiving():
     """Archiving page: all saved records separated by Birth, Marriage, Death."""
-    birth_records = Record.query.filter_by(document_type="birth").order_by(Record.created_at.desc()).all()
-    marriage_records = Record.query.filter_by(document_type="marriage").order_by(Record.created_at.desc()).all()
-    death_records = Record.query.filter_by(document_type="death").order_by(Record.created_at.desc()).all()
     archive_doc_type = _parse_doc_type_filter_arg(request.args.get("doc_type"))
+    archive_registry_q = (request.args.get("registry") or "").strip()
+    if not archive_doc_type:
+        archive_registry_q = ""
+
+    birth_total = Record.query.filter_by(document_type="birth").count()
+    marriage_total = Record.query.filter_by(document_type="marriage").count()
+    death_total = Record.query.filter_by(document_type="death").count()
+
+    birth_filter = archive_registry_q if archive_doc_type == "birth" else ""
+    marriage_filter = archive_registry_q if archive_doc_type == "marriage" else ""
+    death_filter = archive_registry_q if archive_doc_type == "death" else ""
+
+    birth_records = _archiving_records_query("birth", birth_filter).all()
+    marriage_records = _archiving_records_query("marriage", marriage_filter).all()
+    death_records = _archiving_records_query("death", death_filter).all()
     return render_template(
         "archiving.html",
         birth_records=birth_records,
         marriage_records=marriage_records,
         death_records=death_records,
+        birth_total=birth_total,
+        marriage_total=marriage_total,
+        death_total=death_total,
+        birth_shown=len(birth_records),
+        marriage_shown=len(marriage_records),
+        death_shown=len(death_records),
         document_types=DOCUMENT_TYPES,
         archive_doc_type=archive_doc_type,
+        archive_registry_q=archive_registry_q,
         current_user=get_current_user(),
         nav_active="archiving",
     )
@@ -2363,6 +2554,8 @@ def confirm(doc_type):
 
     submitted = _submitted_from_request_form()
     image_filename = submitted.pop("image_filename", None) or request.form.get("image_filename")
+    if doc_type == "death":
+        submitted.pop("Name of Mother", None)
     submitted = _normalize_submitted_registry_keys(submitted)
     submitted = apply_annotation_to_data(submitted, annotation_from_form(request.form))
 
@@ -2607,6 +2800,7 @@ if __name__ == "__main__":
         upload_dir=UPLOAD_DIR,
         include_sqlite_db=lambda: is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
         audit_callback=_auto_backup_audit,
+        resolve_upload=_upload_file_path,
     )
 
     def _warmup_ocr_engine():

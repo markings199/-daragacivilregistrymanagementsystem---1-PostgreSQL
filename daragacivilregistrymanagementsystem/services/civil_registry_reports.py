@@ -134,6 +134,41 @@ def _txt(data: dict, *keys: str) -> str:
     return ""
 
 
+_CIVIL_STATUSES = (
+    "WIDOWER",
+    "WIDOWED",
+    "WIDOW",
+    "MARRIED",
+    "SINGLE",
+    "DIVORCED",
+    "SEPARATED",
+    "ANNULLED",
+)
+
+
+def _civil_status(raw: str) -> str:
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    upper = text.upper()
+    for status in _CIVIL_STATUSES:
+        if re.search(rf"\b{status}\b", upper):
+            return status
+    return re.split(r"\bRELIG", upper, maxsplit=1)[0].strip(" /-.,")
+
+
+def _nationality(raw: str) -> str:
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    upper = text.upper()
+    if "FILIPINO" in upper or "FILIPINA" in upper:
+        return "FILIPINO"
+    if re.search(r"\bRELIG", upper):
+        return ""
+    return text
+
+
 def split_person_name(full: str) -> Tuple[str, str, str]:
     parts = [p for p in re.split(r"\s+", (full or "").strip()) if p]
     if not parts:
@@ -380,8 +415,8 @@ def death_row(record, data: dict) -> dict:
         "age_days": days,
         "age_hours": hours,
         "fetal_death": fetal,
-        "civil_status": _txt(data, "Civil Status"),
-        "nationality": _txt(data, "Nationality"),
+        "civil_status": _civil_status(_txt(data, "Civil Status")),
+        "nationality": _nationality(_txt(data, "Nationality", "Citizenship")),
         "residence": _txt(data, "Usual Residence", "Residence"),
         "occupation": _txt(data, "Usual Occupation", "Occupation"),
         "death_day": d_day,
@@ -415,20 +450,20 @@ def marriage_row(record, data: dict) -> dict:
         "husband_age_months": h_months,
         "wife_age_years": w_years,
         "wife_age_months": w_months,
-        "husband_nationality": _txt(data, "Husband Citizenship"),
-        "wife_nationality": _txt(data, "Wife Citizenship"),
-        "husband_status": _txt(data, "Husband Civil Status"),
-        "wife_status": _txt(data, "Wife Civil Status"),
+        "husband_nationality": _nationality(_txt(data, "Husband Citizenship", "Husband Nationality")),
+        "wife_nationality": _nationality(_txt(data, "Wife Citizenship", "Wife Nationality")),
+        "husband_status": _civil_status(_txt(data, "Husband Civil Status")),
+        "wife_status": _civil_status(_txt(data, "Wife Civil Status")),
         "husband_residence": _txt(data, "Husband Residence", "Residence"),
         "wife_residence": _txt(data, "Wife Residence"),
         "husband_father": _txt(data, "Husband Father"),
         "wife_father": _txt(data, "Wife Father"),
-        "husband_father_nat": _txt(data, "Husband Father Citizenship", "Husband Father Nationality"),
-        "wife_father_nat": _txt(data, "Wife Father Citizenship", "Wife Father Nationality"),
+        "husband_father_nat": _nationality(_txt(data, "Husband Father Citizenship", "Husband Father Nationality")),
+        "wife_father_nat": _nationality(_txt(data, "Wife Father Citizenship", "Wife Father Nationality")),
         "husband_mother": _txt(data, "Husband Mother"),
         "wife_mother": _txt(data, "Wife Mother"),
-        "husband_mother_nat": _txt(data, "Husband Mother Citizenship"),
-        "wife_mother_nat": _txt(data, "Wife Mother Citizenship"),
+        "husband_mother_nat": _nationality(_txt(data, "Husband Mother Citizenship", "Husband Mother Nationality")),
+        "wife_mother_nat": _nationality(_txt(data, "Wife Mother Citizenship", "Wife Mother Nationality")),
         "place_of_marriage": _txt(data, "Place of Marriage"),
         "date_of_marriage": _txt(data, "Date of Marriage") or (record.event_date or ""),
         "witness1_name": _txt(data, "Witness 1", "Witness 1 Name"),
@@ -464,6 +499,43 @@ def row_matches_filters(row: dict, year: str, barangay: str, location: str) -> b
         if needle not in hay:
             return False
     return True
+
+
+def _norm_find_text(value: str) -> str:
+    return re.sub(r"\s+", " ", (value or "").casefold()).strip()
+
+
+def _compact_find_id(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", (value or "").casefold())
+
+
+def row_matches_find(row: dict, query: str) -> bool:
+    """Match a person name or LCR / registry number inside the current register."""
+    q = _norm_find_text(query)
+    if not q:
+        return True
+    lcr = " ".join(
+        str(row.get(key) or "")
+        for key in ("lcr_number", "register_number")
+    )
+    names = " ".join(
+        str(row.get(key) or "")
+        for key in (
+            "child_first",
+            "child_middle",
+            "child_last",
+            "name",
+            "husband_name",
+            "wife_name",
+        )
+    )
+    hay = _norm_find_text(f"{names} {lcr}")
+    tokens = q.split()
+    if tokens and all(token in hay for token in tokens):
+        return True
+    compact_q = _compact_find_id(q)
+    compact_lcr = _compact_find_id(lcr)
+    return bool(compact_q) and compact_q in compact_lcr
 
 
 def birth_excel_row(row: dict) -> List[str]:

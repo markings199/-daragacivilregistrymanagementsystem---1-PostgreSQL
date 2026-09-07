@@ -1,24 +1,42 @@
-{% from 'print/_cert_macros.html' import cert_row %}
+{% from 'print/_cert_macros.html' import cert_inline_blank %}
+{% set page_no = cert_field(data, 'Page Number') or cert_field(data, 'Page') %}
+{% set book_no = cert_field(data, 'Book Number') or cert_field(data, 'Book') %}
 <div class="cert-sheet cert-sheet--{{ doc_type|default('birth') }}">
-  <div class="cert-form-id">
-    Civil Registry Form No. {{ meta.form_no }}<br>
-    <span>{{ meta.availability }}</span>
-  </div>
+  <div class="cert-top">
+    <div class="cert-form-id">
+      Civil Registry Form No. {{ meta.form_no }}<br>
+      <span>{{ meta.availability }}</span>
+    </div>
 
-  <div class="cert-head-block">
-    <img
-      class="cert-seal"
-      src="{{ url_for('static', filename='mcr-daraga-seal.png') }}"
-      alt="Municipal Civil Registry — Daraga seal"
-    />
-    <p class="cert-republic">Republic of the Philippines</p>
-    <p class="cert-office">OFFICE OF THE MUNICIPAL CIVIL REGISTRAR</p>
-    <p class="cert-municipality">Daraga (Locsin), Albay</p>
-  </div>
+    <div class="cert-head-block">
+      <img
+        class="cert-seal"
+        src="{{ url_for('static', filename='mcr-daraga-seal.png') }}"
+        alt="Municipal Civil Registry — Daraga seal"
+      />
+      <p class="cert-republic">Republic of the Philippines</p>
+      <p class="cert-office">{{ meta.office }}</p>
+      <p class="cert-municipality">Daraga (Locsin), Albay</p>
+    </div>
 
-  <p class="cert-date-line">
-    <span class="cert-date-value">{{ cert_date }}</span>
-  </p>
+    <p class="cert-date-line">
+      <span class="cert-date-value">{{ cert_date }}</span>
+    </p>
+  </div>
 
   <p class="cert-salutation">TO WHOM IT MAY CONCERN:</p>
-  <p class="cert-intro">{{ meta.intro | safe }}</p>
+  {% if meta.intro_style == 'page_book' %}
+  <p class="cert-intro">
+    We certify that, among others, the following facts of marriage appear in the Register of Marriages on Page
+    {{ cert_inline_blank(page_no, 'Page Number') }}
+    Book
+    {{ cert_inline_blank(book_no, 'Book Number') }}.
+  </p>
+  {% else %}
+  <p class="cert-intro">
+    We certify that among others, the following facts of {{ meta.facts_of }} appear in the Register of {{ meta.register }} on page
+    {{ cert_inline_blank(page_no, 'Page Number') }}
+    of book number
+    {{ cert_inline_blank(book_no, 'Book Number') }}.
+  </p>
+  {% endif %}

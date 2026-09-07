@@ -5,13 +5,9 @@
 
   function lockedPrintFormat() {
     var btn = document.getElementById("btn-print-document");
-    if (btn) {
-      var locked = (btn.getAttribute("data-locked-print-format") || "").trim();
-      if (PRINT_MODES[locked]) return locked;
-      var def = (btn.getAttribute("data-default-print-mode") || "").trim();
-      if (PRINT_MODES[def]) return def;
-    }
-    return "";
+    if (!btn) return "";
+    var locked = (btn.getAttribute("data-locked-print-format") || "").trim();
+    return PRINT_MODES[locked] ? locked : "";
   }
 
   function selectedPrintMode() {
@@ -50,11 +46,81 @@
 
   window.syncCertificationFromForm = syncCertificationFromForm;
 
+  function applyPrintLayout() {
+    var paper = document.getElementById("print-paper-size");
+    var font = document.getElementById("print-font-family");
+    var paperVal = paper && paper.value ? paper.value : "legal";
+    var fontVal = font && font.value ? font.value : "arial";
+    var sizes = {
+      legal: "8.5in 13in",
+      "us-legal": "8.5in 14in",
+      letter: "letter",
+      a4: "A4",
+    };
+    var scanH = {
+      legal: "12in",
+      "us-legal": "13in",
+      letter: "10in",
+      a4: "10.5in",
+    };
+    var pageStyle = document.getElementById("print-page-style");
+    if (!pageStyle) {
+      pageStyle = document.createElement("style");
+      pageStyle.id = "print-page-style";
+      document.head.appendChild(pageStyle);
+    }
+    var h = scanH[paperVal] || "12in";
+    pageStyle.textContent =
+      "@media print { @page { size: " +
+      (sizes[paperVal] || "8.5in 13in") +
+      " portrait; margin: 0.5in; } " +
+      "@page cert-form { size: " +
+      (sizes[paperVal] || "8.5in 13in") +
+      " portrait; margin: 0.5in 0.75in 0.5in 1in; } " +
+      "#print-area-original.print-surface-active { height: " +
+      h +
+      "; max-height: " +
+      h +
+      "; } " +
+      "#print-area-original.print-surface-active .print-cert-image { height: " +
+      h +
+      "; max-height: " +
+      h +
+      "; } }";
+    document.querySelectorAll(".cert-print-surface").forEach(function (el) {
+      el.setAttribute("data-print-font", fontVal);
+    });
+    [
+      ["print-signer-verifier", "verifier"],
+      ["print-signer-registrar", "registrar"],
+      ["print-signer-officer", "officer"],
+    ].forEach(function (pair) {
+      var input = document.getElementById(pair[0]);
+      if (!input) return;
+      var name = String(input.value || "").trim();
+      document.querySelectorAll('[data-signer-slot="' + pair[1] + '"]').forEach(function (el) {
+        el.textContent = name || " ";
+      });
+    });
+    [
+      ["print-signer-verifier-title", "verifier"],
+      ["print-signer-registrar-title", "registrar"],
+    ].forEach(function (pair) {
+      var input = document.getElementById(pair[0]);
+      if (!input) return;
+      var title = String(input.value || "").trim();
+      document.querySelectorAll('[data-signer-title="' + pair[1] + '"]').forEach(function (el) {
+        el.textContent = title || " ";
+      });
+    });
+  }
+
   function runPrint(btn) {
     var mode = selectedPrintMode();
     if (btn.getAttribute("data-sync-form") === "1") {
       syncCertificationFromForm();
     }
+    applyPrintLayout();
     setActivePrintSurface(mode);
 
     var printLogUrl = btn.getAttribute("data-print-log-url");
@@ -79,10 +145,21 @@
       body: JSON.stringify(payload),
     })
       .then(function (r) {
-        return r.json();
+        return r.json().then(
+          function (data) {
+            return { httpOk: r.ok, data: data };
+          },
+          function () {
+            return {
+              httpOk: false,
+              data: { ok: false, error: "Could not verify print permission." },
+            };
+          }
+        );
       })
-      .then(function (data) {
-        if (!data.ok) {
+      .then(function (result) {
+        var data = result.data || {};
+        if (!result.httpOk || !data.ok) {
           alert(data.error || "Print was not allowed.");
           return;
         }
@@ -93,28 +170,50 @@
       });
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  var printUiBound = false;
+
+  function bindPrintUi() {
     var btn = document.getElementById("btn-print-document");
-    if (!btn) return;
+    if (!btn || printUiBound || window.__dcrPrintUiBound) return;
+    printUiBound = true;
+    window.__dcrPrintUiBound = true;
+
     var mode = selectedPrintMode();
     setActivePrintSurface(mode);
-    if (lockedPrintFormat()) {
-      document.querySelectorAll('input[name="print_mode"]').forEach(function (radio) {
+    applyPrintLayout();
+    var fontSel = document.getElementById("print-font-family");
+    if (fontSel) fontSel.addEventListener("change", applyPrintLayout);
+    var paperSel = document.getElementById("print-paper-size");
+    if (paperSel) paperSel.addEventListener("change", applyPrintLayout);
+
+    var locked = lockedPrintFormat();
+    document.querySelectorAll('input[name="print_mode"]').forEach(function (radio) {
+      var card = radio.closest(".print-option-card");
+      if (locked) {
         radio.disabled = true;
+        if (card) card.classList.add("is-disabled");
+        return;
+      }
+      radio.disabled = false;
+      if (card) card.classList.remove("is-disabled");
+      radio.addEventListener("change", function () {
+        setActivePrintSurface(selectedPrintMode());
       });
-    } else {
-      document.querySelectorAll('input[name="print_mode"]').forEach(function (radio) {
-        radio.addEventListener("change", function () {
-          setActivePrintSurface(selectedPrintMode());
-        });
-      });
-    }
-    btn.addEventListener("click", function () {
+    });
+
+    btn.addEventListener("click", function (event) {
+      event.preventDefault();
       if (btn.getAttribute("data-can-print") !== "1") {
         alert("Admin approval is required before you can print this document.");
         return;
       }
       runPrint(btn);
     });
-  });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bindPrintUi);
+  } else {
+    bindPrintUi();
+  }
 })();

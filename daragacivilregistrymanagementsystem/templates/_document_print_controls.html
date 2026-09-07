@@ -66,26 +66,52 @@
       </label>
     </div>
   </fieldset>
-  <div class="print-panel-actions">
-    <button
-      type="button"
-      class="btn btn-primary btn-print-document"
-      id="btn-print-document"
-      data-print-log-url="{{ print_log_url or '' }}"
-      data-can-print="1"
-      data-sync-form="{{ '1' if sync_from_form|default(false) else '0' }}"
-      data-locked-print-format="{{ _locked }}"
-      data-default-print-mode="{{ _default_mode }}"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
-      Print
-    </button>
-  </div>
   {% else %}
   <div class="print-panel-compact-row">
     <div class="print-panel-head-text">
       <h2 class="print-panel-title">Print</h2>
       <p class="print-panel-subtitle">{{ print_format_label(_default_mode, doc_type) }}</p>
+    </div>
+  </div>
+  {% endif %}
+  <div class="print-panel-actions">
+    <div class="print-setup">
+      <label class="print-setup-field">
+        Paper size
+        <select id="print-paper-size" aria-label="Print paper size">
+          <option value="legal" selected>Long legal (8.5 × 13 in)</option>
+          <option value="us-legal">US legal (8.5 × 14 in)</option>
+          <option value="letter">Letter (8.5 × 11 in)</option>
+          <option value="a4">A4</option>
+        </select>
+      </label>
+      <label class="print-setup-field">
+        Font
+        <select id="print-font-family" aria-label="Print font">
+          <option value="arial" selected>Arial</option>
+          <option value="times">Times New Roman</option>
+          <option value="aptos">Aptos</option>
+        </select>
+      </label>
+    </div>
+    <div class="print-setup print-setup--signers">
+      <p class="print-setup-heading">Signatories on the form</p>
+      <label class="print-setup-field">
+        Verified by
+        <input id="print-signer-verifier" type="text" value="ANGELY M. CEDRO" autocomplete="off" />
+      </label>
+      <label class="print-setup-field">
+        Title
+        <input id="print-signer-verifier-title" type="text" value="Administrative Aide VI" autocomplete="off" />
+      </label>
+      <label class="print-setup-field">
+        Registrar
+        <input id="print-signer-registrar" type="text" value="MICHELLE M. MARINAY" autocomplete="off" />
+      </label>
+      <label class="print-setup-field">
+        Title
+        <input id="print-signer-registrar-title" type="text" value="MGDH I / Municipal Civil Registrar I" autocomplete="off" />
+      </label>
     </div>
     <button
       type="button"
@@ -101,6 +127,5 @@
       Print
     </button>
   </div>
-  {% endif %}
 </div>
 {% endif %}
