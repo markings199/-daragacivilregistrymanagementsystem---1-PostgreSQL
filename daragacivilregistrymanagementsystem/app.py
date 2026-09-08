@@ -209,35 +209,72 @@ def _flatten_nested_uploads() -> None:
 _flatten_nested_uploads()
 
 
-def _default_sqlite_uri() -> str:
-    """Local file DB — best default for a single Windows PC; zero extra setup."""
-    db_file = (BASE_DIR / "civil_registry.db").resolve().as_posix()
-    return f"sqlite:///{db_file}"
+def _load_env_files() -> None:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv(BASE_DIR / ".env")
+    load_dotenv(BASE_DIR.parent / ".env")
 
 
-def resolve_database_uri() -> str:
-    """DATABASE_URL for PostgreSQL, or default SQLite file. Heroku postgres:// is normalized."""
-    uri = (os.environ.get("DATABASE_URL") or "").strip()
-    if not uri:
-        return _default_sqlite_uri()
+_load_env_files()
+
+DEFAULT_POSTGRES_URI = "postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/daraga_civil_registry"
+
+
+def _normalize_database_uri(uri: str) -> str:
+    uri = (uri or "").strip()
     if uri.startswith("postgres://"):
-        uri = "postgresql+psycopg2://" + uri[len("postgres://") :]
+        return "postgresql+psycopg2://" + uri[len("postgres://") :]
+    if uri.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + uri[len("postgresql://") :]
     return uri
 
 
-def is_sqlite_database(uri: str | None = None) -> bool:
-    u = resolve_database_uri() if uri is None else (uri or "")
-    return u.strip().lower().startswith("sqlite")
+def resolve_database_uri() -> str:
+    """PostgreSQL via DATABASE_URL in .env. Heroku postgres:// is normalized."""
+    uri = (os.environ.get("DATABASE_URL") or "").strip()
+    if not uri:
+        uri = DEFAULT_POSTGRES_URI
+    uri = _normalize_database_uri(uri)
+    if uri.lower().startswith("sqlite"):
+        raise RuntimeError(
+            "This copy uses PostgreSQL only. Set DATABASE_URL in .env "
+            "(see .env.example). SQLite is not supported here."
+        )
+    return uri
+
+
+def _safe_database_display(uri: str | None = None) -> str:
+    raw = resolve_database_uri() if uri is None else (uri or "")
+    try:
+        from sqlalchemy.engine.url import make_url
+        return make_url(raw).render_as_string(hide_password=True)
+    except Exception:
+        return raw.split("@")[-1] if "@" in raw else raw
+
+
+def _ddl_column_type(typ: str) -> str:
+    return typ.replace("DATETIME", "TIMESTAMP")
+
+
+def _existing_columns(table: str) -> set[str]:
+    r = db.session.execute(
+        db.text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name = :t"
+        ),
+        {"t": table},
+    )
+    return {row[0] for row in r.fetchall()}
 
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
 app.config["SQLALCHEMY_DATABASE_URI"] = resolve_database_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-if is_sqlite_database():
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
-else:
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
 
 db.init_app(app)
 
@@ -1800,7 +1837,6 @@ def administration_backup():
     ok, message, rel_file = run_auto_backup(
         base_dir=BASE_DIR,
         upload_dir=UPLOAD_DIR,
-        include_sqlite_db=is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
         audit_callback=_auto_backup_audit,
         trigger="download",
         kind="full",
@@ -1858,7 +1894,6 @@ def administration_auto_backup_settings():
             app,
             base_dir=BASE_DIR,
             upload_dir=UPLOAD_DIR,
-            include_sqlite_db=lambda: is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
             audit_callback=_auto_backup_audit,
             resolve_upload=_upload_file_path,
         )
@@ -1917,7 +1952,6 @@ def _run_requested_backup(kind: str, trigger: str):
     return run_auto_backup(
         base_dir=BASE_DIR,
         upload_dir=UPLOAD_DIR,
-        include_sqlite_db=is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
         audit_callback=_auto_backup_audit,
         trigger=trigger,
         kind=kind,
@@ -2078,90 +2112,89 @@ def administration_restore():
         flash("Only .zip backup files are allowed.")
         return redirect(url_for("administration", tab="automatic_backup"))
 
-    if not is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")):
-        flash(
-            "Full restore from a backup zip is only supported when using the built-in SQLite file "
-            "(civil_registry.db). For PostgreSQL, restore with pg_restore / your SQL dump and copy "
-            "the uploads folder from the zip if needed.",
-            "error",
-        )
-        return redirect(url_for("administration", tab="automatic_backup"))
-
-    db_path = BASE_DIR / "civil_registry.db"
-    backup_dir = BASE_DIR / "backups"
-    backup_dir.mkdir(exist_ok=True)
-    timestamp = daily_backup_stamp()
-    backup_db = None
-    uploads_backup = None
-
     try:
         data = file.read()
         with zipfile.ZipFile(BytesIO(data), "r") as zf:
             names = zf.namelist()
-            if "civil_registry.db" not in names:
-                flash("Invalid backup: zip must contain civil_registry.db")
-                return redirect(url_for("administration", tab="automatic_backup"))
-
-            # Backup current database before replace
-            if db_path.exists():
-                backup_db = backup_dir / f"civil_registry_pre_restore_{timestamp}.db"
-                shutil.copy2(db_path, backup_db)
-
-            # Backup current uploads folder
-            uploads_backup = BASE_DIR / f"uploads_backup_{timestamp}"
-            if UPLOAD_DIR.exists():
-                shutil.copytree(UPLOAD_DIR, uploads_backup, dirs_exist_ok=False)
-
-            # Close DB connections so we can replace the file
-            db.session.remove()
-            try:
-                # Extract database
-                with zf.open("civil_registry.db") as src:
-                    with open(db_path, "wb") as dst:
-                        dst.write(src.read())
-
-                # Clear existing uploads then extract uploads from zip
-                uploads_in_zip = [n for n in names if n.startswith("uploads/") and not n.endswith("/")]
-                if uploads_in_zip:
-                    for item in list(UPLOAD_DIR.iterdir()) if UPLOAD_DIR.exists() else []:
-                        if item.is_file():
-                            item.unlink(missing_ok=True)
-                        else:
-                            shutil.rmtree(item, ignore_errors=True)
-                for name in names:
-                    if not name.startswith("uploads/") or name.endswith("/"):
-                        continue
-                    rel = _normalize_upload_relpath(name)
-                    dest = _upload_file_path(rel)
-                    if dest is None:
-                        continue
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    with zf.open(name) as src, open(dest, "wb") as dst:
-                        dst.write(src.read())
-                _flatten_nested_uploads()
-            except Exception as e:
-                # Restore from backup on failure
-                if backup_db is not None and backup_db.exists():
-                    shutil.copy2(backup_db, db_path)
-                if uploads_backup is not None and uploads_backup.exists():
-                    shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
-                    shutil.copytree(uploads_backup, UPLOAD_DIR)
-                flash(f"Restore failed: {e}. Previous data was restored.")
-                return redirect(url_for("administration", tab="automatic_backup"))
-
-            # Remove temporary uploads backup if we have uploads in zip
-            if uploads_backup is not None and uploads_backup.exists():
-                try:
-                    shutil.rmtree(uploads_backup, ignore_errors=True)
-                except OSError:
-                    pass
-
-        _log_audit(session.get("user_id"), "RESTORE_DATA", f"from {file.filename}")
-        flash("Data restored successfully. Database backup saved in backups/ folder.", "success")
     except zipfile.BadZipFile:
         flash("Invalid or corrupted zip file.")
+        return redirect(url_for("administration", tab="automatic_backup"))
+
+    has_pg_dump = "database.json" in names
+    if has_pg_dump:
+        return _restore_postgres_backup(file.filename, data, names)
+    if "civil_registry.db" in names:
+        flash(
+            "This zip is a SQLite backup from the original offline project. "
+            "This copy uses PostgreSQL only. Import that file with: "
+            "python scripts/migrate_sqlite_to_postgres.py --sqlite path-to-civil_registry.db",
+            "error",
+        )
+        return redirect(url_for("administration", tab="automatic_backup"))
+    flash("Invalid backup: zip must contain database.json.")
+    return redirect(url_for("administration", tab="automatic_backup"))
+
+
+def _restore_uploads_from_zip(zf, names) -> None:
+    uploads_in_zip = [n for n in names if n.startswith("uploads/") and not n.endswith("/")]
+    if uploads_in_zip:
+        for item in list(UPLOAD_DIR.iterdir()) if UPLOAD_DIR.exists() else []:
+            if item.is_file():
+                item.unlink(missing_ok=True)
+            else:
+                shutil.rmtree(item, ignore_errors=True)
+    for name in names:
+        if not name.startswith("uploads/") or name.endswith("/"):
+            continue
+        rel = _normalize_upload_relpath(name)
+        dest = _upload_file_path(rel)
+        if dest is None:
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with zf.open(name) as src, open(dest, "wb") as dst:
+            dst.write(src.read())
+    _flatten_nested_uploads()
+
+
+def _restore_postgres_backup(filename, data, names):
+    backup_dir = BASE_DIR / "backups"
+    backup_dir.mkdir(exist_ok=True)
+    timestamp = daily_backup_stamp()
+    dump_backup = backup_dir / f"database_pre_restore_{timestamp}.json"
+    uploads_backup = None
+    try:
+        from services.postgres_backup import dump_database_json, restore_database_json
+
+        dump_database_json(dump_backup)
+        if UPLOAD_DIR.exists():
+            uploads_backup = BASE_DIR / f"uploads_backup_{timestamp}"
+            shutil.copytree(UPLOAD_DIR, uploads_backup, dirs_exist_ok=False)
+
+        with zipfile.ZipFile(BytesIO(data), "r") as zf:
+            tmp_dump = backup_dir / f"_restore_{timestamp}.json"
+            with zf.open("database.json") as src, open(tmp_dump, "wb") as dst:
+                dst.write(src.read())
+            try:
+                restore_database_json(tmp_dump)
+                _restore_uploads_from_zip(zf, names)
+            finally:
+                tmp_dump.unlink(missing_ok=True)
+
+        if uploads_backup is not None and uploads_backup.exists():
+            shutil.rmtree(uploads_backup, ignore_errors=True)
+        _log_audit(session.get("user_id"), "RESTORE_DATA", f"from {filename}")
+        flash("PostgreSQL data restored successfully. A pre-restore dump was saved in backups/.", "success")
     except Exception as e:
-        flash(f"Restore failed: {e}")
+        try:
+            if dump_backup.exists():
+                from services.postgres_backup import restore_database_json
+                restore_database_json(dump_backup)
+            if uploads_backup is not None and uploads_backup.exists():
+                shutil.rmtree(UPLOAD_DIR, ignore_errors=True)
+                shutil.copytree(uploads_backup, UPLOAD_DIR)
+        except Exception:
+            pass
+        flash(f"Restore failed: {e}. Previous data was restored if possible.")
     return redirect(url_for("administration", tab="automatic_backup"))
 
 
@@ -2460,8 +2493,7 @@ def record_delete(record_id):
         flash("Record not found.")
         return _redirect_archiving()
     doc_type = record.document_type
-    # Remove related rows first. SQLite FKs are NOT NULL with no ON DELETE CASCADE,
-    # so deleting the record would otherwise try to null print_logs.record_id.
+    # Remove related rows first so print logs / requests cannot block the delete.
     for log in PrintLog.query.filter_by(record_id=record_id).all():
         db.session.delete(log)
     for req in PrintRequest.query.filter_by(record_id=record_id).all():
@@ -2642,14 +2674,12 @@ def _safe_hash(password: str) -> str:
 
 def _migrate_records():
     """Add any missing columns to records table (for DBs created before schema updates)."""
-    if not is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")):
-        return
     try:
-        r = db.session.execute(db.text("PRAGMA table_info(records)"))
-        rows = r.fetchall()
+        existing = _existing_columns("records")
     except Exception:
         return
-    existing = {row[1] for row in rows}
+    if not existing:
+        return
     adds = [
         ("event_date", "VARCHAR(32)"),
         ("data_json", "TEXT"),
@@ -2662,67 +2692,83 @@ def _migrate_records():
     ]
     for col, typ in adds:
         if col not in existing:
-            db.session.execute(db.text(f"ALTER TABLE records ADD COLUMN {col} {typ}"))
+            db.session.execute(db.text(f"ALTER TABLE records ADD COLUMN {col} {_ddl_column_type(typ)}"))
             db.session.commit()
 
 
 def _migrate_edit_requests():
     """Add any missing columns to edit_requests table (for DBs created before schema updates)."""
-    if not is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")):
-        return
     try:
-        r = db.session.execute(db.text("PRAGMA table_info(edit_requests)"))
-        rows = r.fetchall()
+        existing = _existing_columns("edit_requests")
     except Exception:
         return
-    existing = {row[1] for row in rows}
+    if not existing:
+        return
     adds = [
-        ("record_id", "INTEGER NOT NULL"),
-        ("requested_by_id", "INTEGER NOT NULL"),
+        ("record_id", "INTEGER"),
+        ("requested_by_id", "INTEGER"),
         ("status", "VARCHAR(32) DEFAULT 'PENDING'"),
         ("reason", "TEXT DEFAULT ''"),
         ("fields_requested", "VARCHAR(512) DEFAULT ''"),
-        ("requested_at", "DATETIME"),
-        ("created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP"),
-        ("reviewed_at", "DATETIME"),
+        ("requested_at", "TIMESTAMP"),
+        ("created_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+        ("reviewed_at", "TIMESTAMP"),
         ("reviewed_by_id", "INTEGER"),
         ("approval_code", "VARCHAR(10) DEFAULT ''"),
-        ("code_used_at", "DATETIME"),
+        ("code_used_at", "TIMESTAMP"),
         ("rejection_reason", "TEXT DEFAULT ''"),
-        ("updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP"),
+        ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
     ]
     for col, typ in adds:
         if col not in existing:
-            db.session.execute(db.text(f"ALTER TABLE edit_requests ADD COLUMN {col} {typ}"))
+            db.session.execute(db.text(f"ALTER TABLE edit_requests ADD COLUMN {col} {_ddl_column_type(typ)}"))
             db.session.commit()
 
 
 def _migrate_print_requests():
     """Add any missing columns to print_requests table (for DBs created before schema updates)."""
-    if not is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")):
-        return
     try:
-        r = db.session.execute(db.text("PRAGMA table_info(print_requests)"))
-        rows = r.fetchall()
+        existing = _existing_columns("print_requests")
     except Exception:
         return
-    existing = {row[1] for row in rows}
+    if not existing:
+        return
     adds = [
-        ("record_id", "INTEGER NOT NULL"),
-        ("requested_by_id", "INTEGER NOT NULL"),
+        ("record_id", "INTEGER"),
+        ("requested_by_id", "INTEGER"),
         ("status", "VARCHAR(32) DEFAULT 'PENDING'"),
         ("reason", "TEXT DEFAULT ''"),
-        ("requested_at", "DATETIME"),
-        ("reviewed_at", "DATETIME"),
+        ("requested_at", "TIMESTAMP"),
+        ("reviewed_at", "TIMESTAMP"),
         ("reviewed_by_id", "INTEGER"),
         ("rejection_reason", "TEXT DEFAULT ''"),
-        ("used_at", "DATETIME"),
+        ("used_at", "TIMESTAMP"),
         ("print_format", "VARCHAR(32) DEFAULT 'original'"),
     ]
     for col, typ in adds:
         if col not in existing:
-            db.session.execute(db.text(f"ALTER TABLE print_requests ADD COLUMN {col} {typ}"))
+            db.session.execute(db.text(f"ALTER TABLE print_requests ADD COLUMN {col} {_ddl_column_type(typ)}"))
             db.session.commit()
+
+
+def _ensure_database_ready() -> None:
+    """Fail fast with setup steps when PostgreSQL is not reachable."""
+    uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
+    try:
+        with app.app_context():
+            db.session.execute(db.text("SELECT 1"))
+    except Exception as exc:
+        print("=" * 62, flush=True)
+        print("  Cannot connect to PostgreSQL.", flush=True)
+        print(f"  Tried    {_safe_database_display(uri)}", flush=True)
+        print("-" * 62, flush=True)
+        print("  1. Install and start PostgreSQL for Windows.", flush=True)
+        print("  2. Copy .env.example to .env and set DATABASE_URL.", flush=True)
+        print("  3. From daragacivilregistrymanagementsystem/ run:", flush=True)
+        print("       python scripts/setup_postgres.py", flush=True)
+        print(f"  Error: {exc}", flush=True)
+        print("=" * 62, flush=True)
+        raise SystemExit(1) from exc
 
 
 def _bootstrap_users():
@@ -2768,8 +2814,24 @@ def _set_console_title(title: str) -> None:
         pass
 
 
+def _lan_ipv4() -> str:
+    """Best-effort Wi-Fi/LAN address other devices can use on the same network."""
+    import socket
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect(("8.8.8.8", 80))
+        ip = sock.getsockname()[0]
+        sock.close()
+        if ip and not ip.startswith("127."):
+            return ip
+    except Exception:
+        pass
+    return ""
+
+
 def _print_startup_banner(host: str, port: int) -> None:
     local_url = f"http://127.0.0.1:{port}"
+    lan_ip = _lan_ipv4()
     line = "=" * 62
     print(line, flush=True)
     print("  MUNICIPALITY OF DARAGA (LOCSIN), ALBAY", flush=True)
@@ -2777,7 +2839,11 @@ def _print_startup_banner(host: str, port: int) -> None:
     print("  Civil Registry Management System", flush=True)
     print("-" * 62, flush=True)
     print("  Status   Ready", flush=True)
-    print(f"  Open     {local_url}", flush=True)
+    print("  Database PostgreSQL", flush=True)
+    print(f"  This PC  {local_url}", flush=True)
+    if lan_ip:
+        print(f"  Network  http://{lan_ip}:{port}", flush=True)
+        print("  Other devices: same Wi-Fi, open the Network URL", flush=True)
     print("  Stop     Press Ctrl+C", flush=True)
     print(line, flush=True)
     print("", flush=True)
@@ -2793,12 +2859,12 @@ if __name__ == "__main__":
     _port = 5001
     _use_reloader = os.environ.get("FLASK_USE_RELOADER", "").strip().lower() in ("1", "true", "yes")
     _print_startup_banner(_host, _port)
+    _ensure_database_ready()
     _bootstrap_users()
     init_auto_backup_scheduler(
         app,
         base_dir=BASE_DIR,
         upload_dir=UPLOAD_DIR,
-        include_sqlite_db=lambda: is_sqlite_database(app.config.get("SQLALCHEMY_DATABASE_URI")),
         audit_callback=_auto_backup_audit,
         resolve_upload=_upload_file_path,
     )

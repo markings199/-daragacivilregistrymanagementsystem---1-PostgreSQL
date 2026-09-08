@@ -14,11 +14,13 @@ build/
 uploads/
 civil_registry.db
 *.db-journal
+database.json
 backups/
 
 # Environment & secrets
 .env
 .env.*
+!.env.example
 
 # IDE / OS
 .idea/

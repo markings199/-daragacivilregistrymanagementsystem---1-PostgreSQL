@@ -36,7 +36,7 @@ class EditRequest(db.Model):
     """Staff request to edit a record; admin approves and issues a 5-digit code for staff to use."""
     __tablename__ = "edit_requests"
     id = db.Column(db.Integer, primary_key=True)
-    record_id = db.Column(db.Integer, db.ForeignKey("records.id"), nullable=False)
+    record_id = db.Column(db.Integer, db.ForeignKey("records.id", ondelete="CASCADE"), nullable=False)
     requested_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     status = db.Column(db.String(32), nullable=False, default="PENDING")  # PENDING, APPROVED, REJECTED
     reason = db.Column(db.Text, nullable=False, default="")
@@ -59,7 +59,7 @@ class PrintRequest(db.Model):
     """Staff request to print a record; admin must approve before printing."""
     __tablename__ = "print_requests"
     id = db.Column(db.Integer, primary_key=True)
-    record_id = db.Column(db.Integer, db.ForeignKey("records.id"), nullable=False)
+    record_id = db.Column(db.Integer, db.ForeignKey("records.id", ondelete="CASCADE"), nullable=False)
     requested_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     status = db.Column(db.String(32), nullable=False, default="PENDING")  # PENDING, APPROVED, REJECTED
     reason = db.Column(db.Text, nullable=False, default="")
@@ -90,7 +90,7 @@ class PrintLog(db.Model):
     """Log of staff printing documents (viewable by admin)."""
     __tablename__ = "print_logs"
     id = db.Column(db.Integer, primary_key=True)
-    record_id = db.Column(db.Integer, db.ForeignKey("records.id"), nullable=False)
+    record_id = db.Column(db.Integer, db.ForeignKey("records.id", ondelete="CASCADE"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     printed_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 

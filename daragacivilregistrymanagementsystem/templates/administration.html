@@ -813,6 +813,7 @@
         <div class="ab-history-head">
           <h3 id="ab-restore-title">Restore</h3>
         </div>
+        <p class="ab-restore-hint">PostgreSQL backups include <code>database.json</code> plus scans. Restoring replaces current registry data.</p>
         <div class="ab-restore-row">
           <form method="post" action="{{ url_for('administration_restore') }}" enctype="multipart/form-data" class="restore-form ab-restore-form">
             <input type="file" name="backup_file" accept=".zip" required class="restore-file-input" />

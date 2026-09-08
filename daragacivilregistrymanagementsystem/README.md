@@ -1,45 +1,61 @@
-# Daraga Civil Registry Offline System
+# Daraga Civil Registry Management System (PostgreSQL)
 
-Offline web application for the **Municipality of Daraga** civil registry: scan/upload certificates, run local OCR (PaddleOCR), archive records, search, staff workflows, print certification, and administration (users, backups, dashboard).
+Web application for the **Municipality of Daraga** civil registry: scan/upload certificates, run local OCR (PaddleOCR), archive records, search, staff workflows, print certification, and administration (users, backups, dashboard).
 
-**Repository:** [github.com/markings199/Daraga-Civil-Registry-Offline-System](https://github.com/markings199/Daraga-Civil-Registry-Offline-System)
+This copy stores records in **PostgreSQL** for server implementation. The original SQLite project is separate.
 
-## Quick start (download & run)
+**Repository:** [github.com/markings199/-daragacivilregistrymanagementsystem---1-PostgreSQL](https://github.com/markings199/-daragacivilregistrymanagementsystem---1-PostgreSQL)
 
-1. Clone or download this repository (green **Code** → **Download ZIP** on GitHub).
-2. Open the **`daragacivilregistrymanagementsystem`** folder (all app files are here).
-3. Open a terminal in that folder:
+## Quick start (PostgreSQL)
+
+1. Install [PostgreSQL](https://www.postgresql.org/download/windows/) and start the service.
+
+   If PostgreSQL was installed with Scoop on this PC:
+
+   ```powershell
+   $env:Path = "$env:USERPROFILE\scoop\apps\postgresql\current\bin;$env:Path"
+   pg_ctl -D "$env:USERPROFILE\scoop\apps\postgresql\current\data" start
+   ```
+
+2. Clone or download this repository, then open the **`daragacivilregistrymanagementsystem`** folder.
+3. Create a virtual environment, install packages, and configure the database:
 
    ```bash
    cd daragacivilregistrymanagementsystem
-   ```
-   *(After cloning: `cd Daraga-Civil-Registry-Offline-System/daragacivilregistrymanagementsystem`)*
-
-4. Create a virtual environment (recommended), install dependencies, and run:
-
-   ```bash
    python -m venv .venv
    .venv\Scripts\activate
    pip install -r requirements.txt
+   copy .env.example .env
+   python scripts/setup_postgres.py
    python app.py
    ```
 
+4. Edit `.env` if your PostgreSQL username, password, host, or database name is different from the example.
 5. Open `http://127.0.0.1:5001` in your browser.
 
-**Folder layout** (do not move `uploads/`, `backups/`, or `civil_registry.db`):
+Default login after setup: **admin** / **admin123** and **staff** / **staff123**. Change these in Administration.
+
+To copy existing SQLite records into PostgreSQL:
+
+```bash
+python scripts/migrate_sqlite_to_postgres.py --sqlite "C:\path\to\civil_registry.db"
+```
+
+**Folder layout** (do not move `uploads/` or `backups/`):
 
 | Folder | Purpose |
 |--------|---------|
 | `app.py`, `models.py` | Application entry and database models |
+| `.env` / `.env.example` | PostgreSQL `DATABASE_URL` (not committed) |
 | `templates/` | HTML pages (Jinja) |
 | `static/` | CSS, JavaScript, seal image |
 | `ocr/` | OCR engines and form JSON (`ocr/forms/`) |
 | `services/` | Backup, print, annotation, scanner |
-| `scripts/` | Optional tools (sample seed, OCR demo) |
+| `scripts/` | PostgreSQL setup, SQLite migration, optional seed |
 | `uploads/` | Scanned certificates (runtime data) |
 | `backups/` | Automatic and restore copies (runtime data) |
 
-> Local data (`civil_registry.db`, `uploads/`, `backups/`) is created on your machine and is **not** included in Git—only the application source is published.
+> Local data (`uploads/`, `backups/`, `.env`) is created on your machine and is **not** included in Git—only the application source is published.
 
 ## Backup and duplicate (safe)
 
@@ -57,15 +73,15 @@ This saves the **application only** (Python, templates, CSS)—not your scanned 
 
 ### 2. Data backup (records, scans, database)
 
-In the running app: **Administration** → **Backup & Restore** → create a **full ZIP backup** (database + uploads). Files are stored under `backups/` on your machine (never uploaded to GitHub).
+In the running app: **Administration** → **Backup & Restore** → create a **full ZIP backup** (PostgreSQL dump as `database.json` + uploads). Files are stored under `backups/` on your machine (never uploaded to GitHub).
 
-You can also copy the whole project folder in File Explorer (e.g. `daragacivilregistrymanagementsystem_backup_2026-06-05`)—include `civil_registry.db`, `uploads/`, and `backups/` if you want a complete offline copy.
+You can also copy the whole project folder in File Explorer—include `uploads/`, `backups/`, and your PostgreSQL dump if you want a complete server copy.
 
 ### What is safe to delete
 
 | Location | Safe to delete? |
 |----------|-----------------|
-| `civil_registry.db`, `uploads/`, `backups/` on your PC | **Only if** you already have a ZIP backup from Administration |
+| PostgreSQL database, `uploads/`, `backups/` on your server | **Only if** you already have a ZIP backup from Administration |
 | Old commits / folder experiments on GitHub | Yes—history cleanup does **not** delete files on your PC |
 | Files listed in `.gitignore` | Never commit these; GitHub never had your private data |
 
@@ -85,7 +101,8 @@ You can also copy the whole project folder in File Explorer (e.g. `daragacivilre
 ## Prerequisites
 
 - Python 3.9+ (recommended)
-- A working local Python environment with:
+- PostgreSQL 14+ (local or server), with a database named `daraga_civil_registry` (created by `scripts/setup_postgres.py`)
+- A working Python environment with:
   - [PaddlePaddle](https://www.paddlepaddle.org.cn/) installed correctly for your OS / CPU or GPU.
   - Required Python packages from `requirements.txt`.
 
@@ -96,7 +113,7 @@ You can also copy the whole project folder in File Explorer (e.g. `daragacivilre
 1. Open a terminal in the project folder:
 
    ```bash
-   cd c:\daragacivilregistrymanagementsystem
+   cd "c:\daragacivilregistrymanagementsystem - 1-PostgreSQL\daragacivilregistrymanagementsystem"
    ```
 
 2. (Optional but recommended) Create a virtual environment:
@@ -112,7 +129,15 @@ You can also copy the whole project folder in File Explorer (e.g. `daragacivilre
    pip install -r requirements.txt
    ```
 
-4. Install PaddlePaddle compatible with your system (if not yet installed). See the official instructions and then install `paddlepaddle` or `paddlepaddle-gpu` as needed.
+4. Copy `.env.example` to `.env` and set `DATABASE_URL` for your PostgreSQL server.
+
+5. Create the database and tables:
+
+   ```bash
+   python scripts/setup_postgres.py
+   ```
+
+6. Install PaddlePaddle compatible with your system (if not yet installed). See the official instructions and then install `paddlepaddle` or `paddlepaddle-gpu` as needed.
 
 ## Running the web app
 
@@ -126,7 +151,7 @@ You can also copy the whole project folder in File Explorer (e.g. `daragacivilre
 3. Open your browser and navigate to:
 
    ```text
-   http://127.0.0.1:5000
+   http://127.0.0.1:5001
    ```
 
 4. Workflow:
@@ -135,7 +160,7 @@ You can also copy the whole project folder in File Explorer (e.g. `daragacivilre
    - Wait for local OCR to complete; an editable form appears with extracted fields.
    - Correct any mistakes and click **Confirm**.
 
-Confirmed records are stored in the local SQLite database (`civil_registry.db`). Use **Archiving** and **Search Records** in the app to manage them.
+Confirmed records are stored in **PostgreSQL**. Use **Archiving** and **Search Records** in the app to manage them.
 
 ## Notes and limitations
 

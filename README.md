@@ -1,13 +1,15 @@
-# Daraga Civil Registry Offline System
+# Daraga Civil Registry (PostgreSQL)
 
-This repository contains the full offline civil registry application in one folder:
+This copy of the Daraga civil registry app uses **PostgreSQL** instead of SQLite, for server / capstone deployment.
 
-**[daragacivilregistrymanagementsystem/](daragacivilregistrymanagementsystem/)**
+**App folder:** [daragacivilregistrymanagementsystem/](daragacivilregistrymanagementsystem/)
 
 ## Download and run
 
 1. Clone or download this repo from GitHub.
-2. Open the **`daragacivilregistrymanagementsystem`** folder.
-3. Follow the setup steps in **[daragacivilregistrymanagementsystem/README.md](daragacivilregistrymanagementsystem/README.md)** (`pip install -r requirements.txt`, then `python app.py`).
+2. Install PostgreSQL and create the database (see **daragacivilregistrymanagementsystem/README.md**).
+3. Open the **`daragacivilregistrymanagementsystem`** folder.
+4. Copy `.env.example` to `.env`, set `DATABASE_URL`, then run `python scripts/setup_postgres.py`.
+5. Install packages (`pip install -r requirements.txt`) and start with `python app.py`.
 
-Your registry data (`civil_registry.db`, `uploads/`, `backups/`) stays on your PC only—it is not stored on GitHub.
+Registry data is stored in PostgreSQL. Scans stay in `uploads/` on the server and are **not** stored on GitHub.

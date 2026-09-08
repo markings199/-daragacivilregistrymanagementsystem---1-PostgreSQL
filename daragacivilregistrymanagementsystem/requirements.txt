@@ -3,6 +3,7 @@ flask_sqlalchemy
 sqlalchemy>=2.0.0
 werkzeug
 psycopg2-binary
+python-dotenv
 paddleocr
 paddlepaddle==3.2.2
 opencv-python

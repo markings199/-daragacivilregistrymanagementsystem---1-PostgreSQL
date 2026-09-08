@@ -598,38 +598,35 @@ def write_full_backup_zip(
     *,
     base_dir: Path,
     upload_dir: Path,
-    include_sqlite_db: bool = True,
 ) -> None:
-    """Write a full backup zip (database + uploads) to dest_path."""
+    """Write a full backup zip (PostgreSQL dump + uploads) to dest_path."""
     dest_path.parent.mkdir(parents=True, exist_ok=True)
-    db_path = base_dir / "civil_registry.db"
-    with zipfile.ZipFile(dest_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        if include_sqlite_db and db_path.exists():
-            zf.write(db_path, "civil_registry.db")
-        elif not include_sqlite_db:
-            zf.writestr(
-                "DATABASE_NOTE.txt",
-                "This zip does not include a database dump. The app is using a server database "
-                "(e.g. PostgreSQL). Use pg_dump or your host's backup tools for the database; "
-                "this archive contains uploads only.\n",
-            )
-        if upload_dir.exists():
-            nested_uploads = (upload_dir / "uploads").resolve()
-            for root, dirs, files in os.walk(upload_dir):
-                root_path = Path(root).resolve()
-                dirs[:] = [d for d in dirs if (root_path / d).resolve() != nested_uploads]
-                if root_path == nested_uploads:
-                    continue
-                for fname in files:
-                    full = Path(root) / fname
-                    try:
-                        arcname = full.relative_to(base_dir)
-                    except ValueError:
+    dump_tmp = dest_path.parent / f"{dest_path.stem}_database.json"
+    try:
+        with zipfile.ZipFile(dest_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            from services.postgres_backup import dump_database_json
+
+            dump_database_json(dump_tmp)
+            zf.write(dump_tmp, "database.json")
+            if upload_dir.exists():
+                nested_uploads = (upload_dir / "uploads").resolve()
+                for root, dirs, files in os.walk(upload_dir):
+                    root_path = Path(root).resolve()
+                    dirs[:] = [d for d in dirs if (root_path / d).resolve() != nested_uploads]
+                    if root_path == nested_uploads:
                         continue
-                    parts = Path(str(arcname)).parts
-                    if len(parts) >= 2 and parts[0] == "uploads" and parts[1] == "uploads":
-                        continue
-                    zf.write(full, str(arcname).replace("\\", "/"))
+                    for fname in files:
+                        full = Path(root) / fname
+                        try:
+                            arcname = full.relative_to(base_dir)
+                        except ValueError:
+                            continue
+                        parts = Path(str(arcname)).parts
+                        if len(parts) >= 2 and parts[0] == "uploads" and parts[1] == "uploads":
+                            continue
+                        zf.write(full, str(arcname).replace("\\", "/"))
+    finally:
+        dump_tmp.unlink(missing_ok=True)
 
 
 def run_full_backup(
@@ -649,8 +646,6 @@ def run_full_backup(
         rel = str(dest.relative_to(local_root)).replace("\\", "/")
     except ValueError:
         rel = f"Full/{dest.name}"
-    include_fn = _runtime.get("include_sqlite_db")
-    include_sqlite_db = bool(include_fn()) if callable(include_fn) else True
     upload_dir = _runtime.get("upload_dir") or (base_dir / "uploads")
 
     try:
@@ -673,7 +668,6 @@ def run_full_backup(
             dest,
             base_dir=base_dir,
             upload_dir=Path(upload_dir),
-            include_sqlite_db=include_sqlite_db,
         )
         extra = copy_zip_to_server(dest, rel, base_dir, force=True)
         count = Record.query.count()
@@ -779,7 +773,6 @@ def run_auto_backup(
     *,
     base_dir: Path,
     upload_dir: Path,
-    include_sqlite_db: bool,
     audit_callback: Optional[Callable[[str, str], None]] = None,
     trigger: str = "schedule",
     kind: str = "daily",
@@ -827,7 +820,6 @@ def apply_schedule(app) -> None:
                 run_auto_backup(
                     base_dir=_runtime["base_dir"],
                     upload_dir=_runtime["upload_dir"],
-                    include_sqlite_db=bool(_runtime["include_sqlite_db"]()) if callable(_runtime.get("include_sqlite_db")) else True,
                     audit_callback=_runtime.get("audit_callback"),
                     trigger="schedule",
                     kind=kind,
@@ -873,7 +865,6 @@ def init_auto_backup_scheduler(
     *,
     base_dir: Path,
     upload_dir: Path,
-    include_sqlite_db: Callable[[], bool],
     audit_callback: Optional[Callable[[str, str], None]] = None,
     resolve_upload: Optional[Callable[[str], Optional[Path]]] = None,
 ) -> None:
@@ -882,7 +873,6 @@ def init_auto_backup_scheduler(
     with _scheduler_lock:
         _runtime["base_dir"] = base_dir
         _runtime["upload_dir"] = upload_dir
-        _runtime["include_sqlite_db"] = include_sqlite_db
         _runtime["audit_callback"] = audit_callback
         if resolve_upload is not None:
             _runtime["resolve_upload"] = resolve_upload
