@@ -22,6 +22,7 @@
             {% set document_viewer_title = 'Certificate (zoom)' %}
             {% set document_viewer_id_prefix = 'form-marriage-doc' %}
             {% set document_viewer_section_id = 'form-marriage-doc-viewer' %}
+            {% set document_viewer_fit = 'fill' %}
             {% include '_document_viewer.html' %}
           {% else %}
             <p class="scan-preview-empty">No scanned image is attached to this review. Go to Scan Workflow, choose a document, and run OCR again.</p>

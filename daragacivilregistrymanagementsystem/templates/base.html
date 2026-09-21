@@ -425,7 +425,7 @@
         border: 1px solid #c8d6ea;
         border-radius: 16px;
         background: #eef2f8;
-        overflow: hidden;
+        overflow: visible;
         box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
       }
       .scan-preview-viewer-inner .document-viewer-section { padding: 10px 10px 12px; }
@@ -443,25 +443,27 @@
         color: #1f3556;
         margin: 0;
       }
-      /* Pane: scroll both ways when zoomed so the certificate can move left/right */
+      /* Full-width certificate; pane grows so the whole page stays visible (no side gaps / no inner clip). */
       .scan-preview-viewer-inner .document-viewer-pane {
         background: #d8e2ee;
         border: 1px solid #c8d5e7;
         border-radius: 12px;
         height: auto;
         min-height: 0;
-        max-height: min(72vh, 820px);
-        overflow: auto;
-        overflow-x: auto;
-        overflow-y: auto;
+        max-height: none;
+        overflow: visible;
         width: 100%;
         box-sizing: border-box;
         padding: 0;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
+        touch-action: pan-x pan-y;
       }
       .scan-preview-viewer-inner .document-viewer-pane.is-zoomed {
         cursor: grab;
+        touch-action: none;
+        overflow: auto;
+        max-height: min(72vh, 820px);
       }
       .scan-preview-viewer-inner .document-viewer-pane.is-panning {
         cursor: grabbing;
@@ -469,20 +471,25 @@
       }
       .scan-preview-viewer-inner .document-viewer-image-wrap {
         display: block;
-        width: auto;
+        width: 100%;
         max-width: none;
         min-height: 0;
+        margin: 0;
         line-height: 0;
         font-size: 0;
+        pointer-events: auto;
       }
       .scan-preview-viewer-inner .document-viewer-image {
         display: block;
         margin: 0;
-        width: auto;
+        width: 100%;
         height: auto;
         max-width: none;
         border-radius: 0;
         box-shadow: none;
+        pointer-events: auto;
+        -webkit-user-drag: none;
+        user-select: none;
       }
       .scan-preview-viewer-inner .document-viewer-controls .document-viewer-btn {
         min-width: 34px;
@@ -621,8 +628,17 @@
         margin: 0 12px 12px;
         border-radius: 12px;
       }
-      body.page-form-review .form-review-preview .scan-preview-viewer-inner .document-viewer-pane {
-        min-height: 420px;
+      body.page-form-review .form-review-preview .scan-preview-viewer-inner .document-viewer-pane,
+      body.page-record-detail .form-review-preview .scan-preview-viewer-inner .document-viewer-pane {
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+      body.page-form-review .form-review-preview .scan-preview-viewer-inner .document-viewer-pane.is-zoomed,
+      body.page-record-detail .form-review-preview .scan-preview-viewer-inner .document-viewer-pane.is-zoomed {
+        overflow: auto;
+        max-height: min(72vh, 820px);
       }
       .form-review-meta .form-meta-scroll {
         background: transparent;

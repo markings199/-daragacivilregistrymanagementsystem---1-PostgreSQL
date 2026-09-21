@@ -480,6 +480,16 @@ def _place_of_death_value(text: str) -> str:
     if cut:
         cleaned = cleaned[: cut.start()]
     cleaned = re.sub(r"(?i)\b(?:CITY\s+)?MUNICIPALITY(?:\s+PROVINCE)?\s*$", " ", cleaned)
+    # Birth Form 102: type/order/weight options must not become Place of Birth.
+    cleaned = re.sub(
+        r"(?i)\b(?:5\s*[ABC]|TYPE OF BIRTH|IF MULTIPLE|BIRTH ORDER|WEIGHT(?:\s+AT\s+BIRTH)?|"
+        r"PREVIOUS(?:\s+LIVE)?\s+BIRTHS|INCLUDING\s+FETAL|"
+        r"SINGLE|TWIN|TRIPLET|SECOND|THIRD|ETC)\b.*$",
+        " ",
+        cleaned,
+    )
+    cleaned = re.sub(r"(?i)\b\d{1,2}\s+\d{2,4}\s*g(?:rams?)?\b", " ", cleaned)
+    cleaned = re.sub(r"(?i)\b\d{3,5}\s*g(?:rams?)?\b", " ", cleaned)
     cleaned = re.sub(r"[/]+", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip(" .:-,")
     upper = re.sub(r"[^A-Z0-9 ]+", " ", cleaned.upper())

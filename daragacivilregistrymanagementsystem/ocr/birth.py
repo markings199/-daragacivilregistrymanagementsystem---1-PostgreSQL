@@ -116,6 +116,15 @@ NOT_A_PLACE = NATIONALITY_WORDS | {
     "IGLESIA", "RELIGION", "CITIZENSHIP", "SINGLE", "MARRIED",
 }
 
+# Form 102 items 5a/5b/5c/6 often bleed into Place of Birth OCR.
+PLACE_OF_BIRTH_JUNK = {
+    "TYPE OF BIRTH", "IF MULTIPLE", "BIRTH ORDER", "PREVIOUS", "FETAL",
+    "INCLUDING FETAL", "WEIGHT AT BIRTH", "WEIGHT", "GRAMS", "GRAM",
+    "SINGLE", "TWIN", "TRIPLET", "QUADRUPLET", "FIRST", "SECOND", "THIRD",
+    "FOURTH", "FIFTH", "ETC", "5A", "5B", "5C", "CHILD WAS",
+    "ORDER OF THIS", "LIVE BIRTHS", "STILLBORN", "BIRTHCHILD",
+}
+
 FORM_JUNK_NAME_MARKERS = {
     "TITLE", "POSITION", "SIGNATURE", "PRINT", "INFORMANT", "ATTENDANT",
     "PREPARED", "RECEIVED", "REGISTERED", "CERTIFY", "CERTIFICATION",
@@ -130,6 +139,7 @@ PLACE_HINTS = {
     "BICOL", "LEGAZPI", "BULACAN", "MANILA", "CEBU", "DAVAO", "QUEZON",
     "CAMARINES", "SORSOGON", "MASBATE", "CATANDUANES", "RIZAL", "LAGUNA",
     "BATANGAS", "ILOCOS", "PAMPANGA", "NUEVA", "ISABELA", "CAVITE",
+    "STREET", "ROAD", "AVENUE", "PUROK", "SITIO", "BRGY", "DISTRICT",
 }
 
 PLACEHOLDER_MARKERS = {
@@ -192,9 +202,29 @@ def _is_plausible_place(text: str) -> bool:
     if any(bad in nt for bad in (
         "INFORMANT", "SIGNATURE", "CERTIFY", "PARENTS", "PRINT", "REMARKS",
         "ANNOTATION", "REGISTRY", "RELIGION", "TITLE", "POSITION",
-        "HOUSE NO", "ST BARANGAY",
     )):
         return False
+    # Printed Place of Birth prompt with no real locality.
+    if ("HOUSE NO" in nt or "ST BARANGAY" in nt) and not any(
+        hint in nt for hint in PLACE_HINTS if hint not in {"STREET", "ROAD", "AVENUE"}
+    ):
+        return False
+    # Reject Type of Birth / Birth Order / Weight lines (Form 102 5a–5c, 6).
+    if any(bad in nt for bad in PLACE_OF_BIRTH_JUNK):
+        # Allow real places that only contain a street word "FIRST" rarely;
+        # still reject when birth-order/weight markers dominate.
+        junk_hits = sum(1 for bad in PLACE_OF_BIRTH_JUNK if bad in nt)
+        if junk_hits >= 1 and (
+            any(k in nt for k in (
+                "SECOND", "THIRD", "ETC", "TWIN", "TRIPLET", "GRAM", "WEIGHT",
+                "BIRTH ORDER", "TYPE OF BIRTH", "MULTIPLE", "5A", "5B", "5C",
+            ))
+            or re.search(r"\b\d{2,5}\s*G\b", nt)
+            or re.search(r"\b\d{3,5}\b", nt)
+        ):
+            return False
+        if junk_hits >= 2:
+            return False
     # Reject date-like "places" (common OCR mix-up with marriage date).
     if parse_date_from_string(text):
         return False
@@ -204,9 +234,66 @@ def _is_plausible_place(text: str) -> bool:
         return False
     words = [w for w in nt.split() if w]
     has_hint = any(hint in nt for hint in PLACE_HINTS)
-    if not has_hint and (len(words) < 2 or len(nt) < 8):
+    # Long strings of form option words are not places.
+    if not has_hint:
+        return False
+    if len(words) < 2 and len(nt) < 10:
         return False
     return True
+
+
+def sanitize_place_of_birth(text: str) -> str:
+    """Keep hospital/address text; cut Form 102 type/order/weight bleed."""
+    raw = _collapse_repeated_words(clean_text(text or ""))
+    if not raw:
+        return ""
+    # Drop parenthetical printed prompts.
+    raw = re.sub(r"\([^)]*\)", " ", raw)
+    # Hard cut before section 5a/5b/5c/6 content.
+    cut = re.search(
+        r"(?i)\b(?:5\s*[ABC]|TYPE OF BIRTH|IF MULTIPLE|BIRTH ORDER|WEIGHT(?:\s+AT\s+BIRTH)?|"
+        r"PREVIOUS(?:\s+LIVE)?\s+BIRTHS|INCLUDING\s+FETAL|"
+        r"SINGLE|TWIN|TRIPLET)\b",
+        raw,
+    )
+    # Only cut on SINGLE/TWIN if it looks like the type-of-birth option line,
+    # not part of an address (rare). Prefer cutting when followed by etc/order/weight.
+    if cut:
+        token = cut.group(0).upper().replace(" ", "")
+        if token in {"SINGLE", "TWIN", "TRIPLET"}:
+            after = raw[cut.end() : cut.end() + 40].upper()
+            before = raw[max(0, cut.start() - 24) : cut.start()].upper()
+            if not any(
+                m in after or m in before
+                for m in ("ETC", "SECOND", "THIRD", "FIRST", "WEIGHT", "GRAM", "TYPE", "MULTIPLE", "5A", "5B")
+            ):
+                cut = None
+        if cut:
+            raw = raw[: cut.start()]
+    # Strip weight fragments that remain: "3200 g", "3 200 g"
+    raw = re.sub(r"(?i)\b\d{1,2}\s+\d{2,4}\s*g(?:rams?)?\b", " ", raw)
+    raw = re.sub(r"(?i)\b\d{3,5}\s*g(?:rams?)?\b", " ", raw)
+    # Strip leftover option words at the end.
+    words = []
+    drop = {
+        "ETC", "SINGLE", "TWIN", "TRIPLET", "FIRST", "SECOND", "THIRD", "FOURTH",
+        "FIFTH", "GRAMS", "GRAM", "G", "WEIGHT", "ORDER", "TYPE", "BIRTH",
+        "MULTIPLE", "CHILD", "WAS", "IF", "OF", "THE", "AND", "TO", "5A", "5B", "5C",
+    }
+    for w in re.sub(r"\s+", " ", raw).strip().split():
+        nw = norm_text(w)
+        if nw in drop:
+            continue
+        if re.fullmatch(r"\d+", nw):
+            # Keep short house/lot numbers; years and heavy weights already cut above.
+            if 1 <= len(nw) <= 4:
+                words.append(w)
+            continue
+        words.append(w)
+    cleaned = " ".join(words).strip(" .:-,/")
+    if not _is_plausible_place(cleaned):
+        return ""
+    return cleaned
 
 
 def _is_plausible_person_name(text: str) -> bool:
@@ -1129,8 +1216,10 @@ def extract_place_of_birth(items, pob_label, type_birth_label, working_xmax):
     if not pob_label:
         return ""
 
-    # Look to the RIGHT of the label (not below)
-    next_y = type_birth_label["y1"] - 3 if type_birth_label else pob_label["y2"] + 45
+    # Stop before Type of Birth / 5a so order/weight options do not leak in.
+    next_y = type_birth_label["y1"] - 6 if type_birth_label else pob_label["y2"] + 28
+    if next_y <= pob_label["y2"]:
+        next_y = pob_label["y2"] + 28
 
     pob_region = tokens_in_region(
         items,
@@ -1147,20 +1236,25 @@ def extract_place_of_birth(items, pob_label, type_birth_label, working_xmax):
             pob_label["x1"],
             working_xmax,
             pob_label["y2"] + 2,
-            next_y if type_birth_label else pob_label["y2"] + 70,
+            next_y if type_birth_label else pob_label["y2"] + 40,
             min_score=0.18,
         )
 
     if not pob_region:
         return ""
 
-    place_text = _collapse_repeated_words(
-        normalize_simple_text(extract_bottom_row_text(pob_region))
+    kept = []
+    for it in pob_region:
+        nt = norm_text(it["text"])
+        if any(bad in nt for bad in PLACE_OF_BIRTH_JUNK):
+            continue
+        if re.search(r"\b\d{3,5}\s*G\b", nt) or re.fullmatch(r"\d{3,5}", nt):
+            continue
+        kept.append(it)
+
+    place_text = sanitize_place_of_birth(
+        normalize_simple_text(extract_bottom_row_text(kept or pob_region))
     )
-    if not _is_plausible_place(place_text):
-        return ""
-    if re.search(r"\d{4}", norm_text(place_text)):
-        return ""
     return place_text
 
 
@@ -1456,12 +1550,19 @@ def _sanitize_birth_fields(data: Dict[str, Any]) -> None:
         data["Date of Marriage of Parents"] = ""
 
     for place_key in ("Place of Birth", "Place of Marriage of Parents"):
-        val = _collapse_repeated_words((data.get(place_key) or "").strip())
+        val = (data.get(place_key) or "").strip()
         if not val:
             data[place_key] = ""
             continue
-        if not _is_plausible_place(val):
-            cit = _normalize_citizenship(val)
+        if place_key == "Place of Birth":
+            val = sanitize_place_of_birth(val)
+        else:
+            val = _collapse_repeated_words(val)
+            if not _is_plausible_place(val):
+                val = ""
+        if not val:
+            # Maybe OCR put a citizenship word here — do not keep junk as place.
+            cit = _normalize_citizenship(data.get(place_key) or "")
             if cit:
                 if not (data.get("Citizenship of Mother") or "").strip():
                     data["Citizenship of Mother"] = cit
@@ -1980,7 +2081,9 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
                 if key == "Name of Father" and mother_name and norm_text(val) == mother_name:
                     continue
             elif key in {"Place of Birth", "Place of Marriage of Parents"}:
-                if not _is_plausible_place(val):
+                if key == "Place of Birth":
+                    val = sanitize_place_of_birth(val)
+                if not val or not _is_plausible_place(val):
                     continue
             elif "Citizenship" in key:
                 cit = _normalize_citizenship(val)

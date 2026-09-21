@@ -787,6 +787,13 @@ body.page-administration .backup-auto-page .ab-page-head .section-title {
   letter-spacing: -0.03em;
   color: #002080;
 }
+body.page-administration .ab-page-sub {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.35;
+}
 body.page-administration .ab-master-switch {
   background: #fff;
   border: 1px solid rgba(15, 43, 92, 0.1);
@@ -836,16 +843,45 @@ body.page-administration .ab-section + .ab-section {
   padding-top: 12px;
 }
 body.page-administration .ab-section-head {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+body.page-administration .ab-step {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #002080;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-top: 1px;
 }
 body.page-administration .ab-section-head h3,
 body.page-administration .ab-history-head h3 {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: #002080;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+body.page-administration .ab-section-tip {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.35;
+}
+body.page-administration .ab-plan-priority {
+  border-color: rgba(0, 32, 128, 0.22);
+  background: #f5f8ff;
 }
 body.page-administration .ab-plan-grid {
   display: grid;
@@ -1034,39 +1070,6 @@ body.page-administration .ab-loc-hint code {
   padding: 1px 5px;
   border-radius: 4px;
 }
-body.page-administration .ab-ready {
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(15, 43, 92, 0.1);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-body.page-administration .ab-ready strong {
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: #002080;
-}
-body.page-administration .ab-ready span {
-  font-size: 0.76rem;
-  line-height: 1.4;
-  color: #5a7388;
-  font-weight: 600;
-}
-body.page-administration .ab-ready-ok {
-  background: #ecfdf5;
-  border-color: rgba(16, 128, 72, 0.22);
-}
-body.page-administration .ab-ready-ok strong { color: #0f7a45; }
-body.page-administration .ab-ready-warn {
-  background: #fffbeb;
-  border-color: rgba(180, 130, 20, 0.28);
-}
-body.page-administration .ab-ready-warn strong { color: #92400e; }
-body.page-administration .ab-ready-wait {
-  background: #f8fafc;
-}
 body.page-administration .backup-auto-page .auto-backup-path {
   color: #3d5670;
   font-size: 0.74rem;
@@ -1204,10 +1207,14 @@ body.page-administration .ab-history {
 }
 body.page-administration .ab-history-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 6px;
+}
+body.page-administration .ab-history-head > div {
+  flex: 1;
+  min-width: 0;
 }
 body.page-administration .ab-history-count {
   font-size: 0.68rem;

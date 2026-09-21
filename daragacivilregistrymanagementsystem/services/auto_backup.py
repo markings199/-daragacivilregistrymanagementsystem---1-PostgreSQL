@@ -51,6 +51,8 @@ MONTH_NAMES = (
 JOB_DAILY = "auto_period_backup_daily"
 JOB_MONTHLY = "auto_period_backup_monthly"
 JOB_YEARLY = "auto_period_backup_yearly"
+# Allow late start after sleep / app restart so the day's backup still runs.
+MISFIRE_GRACE_SECONDS = 6 * 60 * 60
 
 
 def daily_backup_stamp(when: Optional[datetime] = None) -> str:
@@ -284,7 +286,9 @@ def get_backup_readiness(base_dir: Path, settings: Optional[dict[str, Any]] = No
     return {
         "schedule_on": bool(settings.get("enabled")),
         "daily_on": bool(settings.get("daily_enabled", True)),
+        "full_on": bool(settings.get("full_enabled", True)),
         "daily_time": str(settings.get("daily_time") or "20:00"),
+        "full_time": str(settings.get("full_time") or "20:05"),
         "server_configured": server_path is not None and not server_err,
         "server_writable": server_writable,
         "server_path": str(server_path) if server_path is not None else "",
@@ -292,6 +296,7 @@ def get_backup_readiness(base_dir: Path, settings: Optional[dict[str, Any]] = No
         "local_path": str(local_backup_root(base_dir)),
         "deploy_ready": bool(settings.get("enabled"))
         and bool(settings.get("daily_enabled", True))
+        and bool(settings.get("full_enabled", True))
         and server_writable,
     }
 
@@ -646,7 +651,13 @@ def run_period_backup(
 
         write_period_documents_zip(dest, records, resolve_upload)
         server_status, extra = copy_zip_to_server(dest, rel, base_dir, force=True, retries=3)
-        msg = f"{kind.title()} backup ready. {describe_backup_copies(dest, server_status, extra)}"
+        if not records:
+            msg = (
+                f"{kind.title()} backup ready (no new records in this period). "
+                f"{describe_backup_copies(dest, server_status, extra)}"
+            )
+        else:
+            msg = f"{kind.title()} backup ready ({len(records)} record(s)). {describe_backup_copies(dest, server_status, extra)}"
         run_status = "partial" if server_status == "failed" else "success"
         _save_backup_run(
             kind=kind,
@@ -919,9 +930,21 @@ def apply_schedule(app) -> None:
                 )
         return _job
 
+    job_defaults = {
+        "misfire_grace_time": MISFIRE_GRACE_SECONDS,
+        "coalesce": True,
+        "max_instances": 1,
+    }
+
     if settings.get("daily_enabled", True):
         hour, minute = _time_parts_value(str(settings.get("daily_time") or "20:00"))
-        _scheduler.add_job(_make_job("daily"), CronTrigger(hour=hour, minute=minute), id=JOB_DAILY, replace_existing=True)
+        _scheduler.add_job(
+            _make_job("daily"),
+            CronTrigger(hour=hour, minute=minute),
+            id=JOB_DAILY,
+            replace_existing=True,
+            **job_defaults,
+        )
     if settings.get("monthly_enabled", True):
         hour, minute = _time_parts_value(str(settings.get("monthly_time") or "20:00"))
         day = int(settings.get("day_of_month") or 28)
@@ -930,6 +953,7 @@ def apply_schedule(app) -> None:
             CronTrigger(day=day, hour=hour, minute=minute),
             id=JOB_MONTHLY,
             replace_existing=True,
+            **job_defaults,
         )
     if settings.get("yearly_enabled", True):
         hour, minute = _time_parts_value(str(settings.get("yearly_time") or "20:00"))
@@ -940,17 +964,109 @@ def apply_schedule(app) -> None:
             CronTrigger(month=month, day=day, hour=hour, minute=minute),
             id=JOB_YEARLY,
             replace_existing=True,
+            **job_defaults,
         )
     if settings.get("full_enabled", True):
         hour, minute = _time_parts_value(str(settings.get("full_time") or "20:05"))
-        _scheduler.add_job(_make_job("full"), CronTrigger(hour=hour, minute=minute), id=JOB_ID, replace_existing=True)
+        _scheduler.add_job(
+            _make_job("full"),
+            CronTrigger(hour=hour, minute=minute),
+            id=JOB_ID,
+            replace_existing=True,
+            **job_defaults,
+        )
     logger.info(
-        "Automatic backup scheduled: daily=%s monthly=%s yearly=%s full=%s",
+        "Automatic backup scheduled: daily=%s monthly=%s yearly=%s full=%s (misfire_grace=%ss)",
         settings.get("daily_enabled"),
         settings.get("monthly_enabled"),
         settings.get("yearly_enabled"),
         settings.get("full_enabled"),
+        MISFIRE_GRACE_SECONDS,
     )
+
+
+def _backup_period_already_done(kind: str, period_key: str, base_dir: Path) -> bool:
+    """True if this period already has a usable zip (history or on disk)."""
+    from models import BackupRun
+
+    last = (
+        BackupRun.query.filter_by(kind=kind, period_key=period_key)
+        .order_by(BackupRun.created_at.desc())
+        .first()
+    )
+    if last is not None and (last.status or "") in ("success", "partial", "skipped"):
+        if last.file_rel:
+            path, _err = resolve_period_backup_path(base_dir, last.file_rel)
+            if path is not None:
+                return True
+        if (last.status or "") == "skipped":
+            return True
+
+    local_root = local_backup_root(base_dir)
+    if kind == "full":
+        candidate = auto_backup_dir(base_dir) / daily_full_backup_filename(
+            datetime.strptime(period_key, "%Y-%m-%d") if period_key else datetime.now()
+        )
+        return candidate.is_file()
+
+    try:
+        when = datetime.strptime(period_key, "%Y-%m-%d" if kind == "daily" else ("%Y-%m" if kind == "monthly" else "%Y"))
+    except ValueError:
+        when = datetime.now()
+    folder = period_folder(local_root, kind, when)
+    return (folder / period_filename(kind, period_key)).is_file()
+
+
+def _scheduled_time_passed_today(time_hhmm: str, now: Optional[datetime] = None) -> bool:
+    now = now or datetime.now()
+    hour, minute = _time_parts_value(str(time_hhmm or "20:00"))
+    due = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    return now >= due
+
+
+def catch_up_missed_backups(app) -> None:
+    """
+    If the app starts after today's scheduled daily/full time and that backup
+    is missing, run it once. Prevents silent misses after sleep or late start.
+    """
+    base_dir = _runtime.get("base_dir")
+    upload_dir = _runtime.get("upload_dir")
+    if base_dir is None or upload_dir is None:
+        return
+    settings = load_settings(base_dir)
+    if not settings.get("enabled"):
+        return
+
+    now = datetime.now()
+    audit = _runtime.get("audit_callback")
+
+    def _maybe_run(kind: str, time_key: str, enabled_key: str) -> None:
+        if not settings.get(enabled_key, True):
+            return
+        if not _scheduled_time_passed_today(str(settings.get(time_key) or "20:00"), now):
+            return
+        if kind == "full":
+            period_key = daily_backup_stamp(now)
+        else:
+            _s, _e, period_key = period_bounds(kind, now)
+        if _backup_period_already_done(kind, period_key, base_dir):
+            return
+        logger.info("Catch-up: running missed %s backup for %s", kind, period_key)
+        try:
+            run_auto_backup(
+                base_dir=base_dir,
+                upload_dir=upload_dir,
+                audit_callback=audit,
+                trigger="catchup",
+                kind=kind,
+                force=False,
+            )
+        except Exception:
+            logger.exception("Catch-up %s backup failed", kind)
+
+    with app.app_context():
+        _maybe_run("daily", "daily_time", "daily_enabled")
+        _maybe_run("full", "full_time", "full_enabled")
 
 
 def init_auto_backup_scheduler(
@@ -972,6 +1088,10 @@ def init_auto_backup_scheduler(
 
         if _scheduler is not None:
             apply_schedule(app)
+            try:
+                catch_up_missed_backups(app)
+            except Exception:
+                logger.exception("Backup catch-up failed")
             return
 
         try:
@@ -980,9 +1100,20 @@ def init_auto_backup_scheduler(
             logger.warning("APScheduler is not installed; automatic backup is unavailable.")
             return
 
-        _scheduler = BackgroundScheduler(daemon=True)
+        _scheduler = BackgroundScheduler(
+            daemon=True,
+            job_defaults={
+                "misfire_grace_time": MISFIRE_GRACE_SECONDS,
+                "coalesce": True,
+                "max_instances": 1,
+            },
+        )
         _scheduler.start()
         apply_schedule(app)
+        try:
+            catch_up_missed_backups(app)
+        except Exception:
+            logger.exception("Backup catch-up failed")
 
 
 def settings_from_form(form, base_dir: Path) -> dict[str, Any]:

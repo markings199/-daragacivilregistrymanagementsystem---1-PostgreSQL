@@ -118,9 +118,10 @@
     if (status) {
       if (name) {
         status.hidden = false;
-        status.textContent = "Document in use: " + name + " (kept while OCR runs if you leave this page)";
+        status.textContent = "Selected: " + name;
       } else {
         status.hidden = true;
+        status.textContent = "";
       }
     }
     var fnEl = document.getElementById("scan-preview-filename");

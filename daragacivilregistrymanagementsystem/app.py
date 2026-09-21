@@ -623,6 +623,86 @@ def _parse_ocr_input_from_request():
     return doc_type, save_path, image_filename, None
 
 
+def _set_staged_scan(image_filename: str, doc_type: str = "", original_name: str = "") -> None:
+    """Keep the uploaded/scanned certificate until Cancel OCR, cancel review, or save."""
+    rel = _normalize_upload_relpath(image_filename or "")
+    if not rel:
+        return
+    prev = session.get("scan_staged") if isinstance(session.get("scan_staged"), dict) else {}
+    prev_rel = _normalize_upload_relpath(prev.get("image_filename") or "")
+    session["scan_staged"] = {
+        "image_filename": rel,
+        "doc_type": (doc_type or prev.get("doc_type") or "").strip(),
+        "original_name": (original_name or prev.get("original_name") or Path(rel).name).strip(),
+    }
+    session.modified = True
+    if prev_rel and prev_rel != rel and prev_rel.startswith("temp/"):
+        old_path = _upload_file_path(prev_rel)
+        if old_path is not None and old_path.exists():
+            try:
+                old_path.unlink()
+            except OSError:
+                pass
+
+
+def _clear_staged_scan(delete_temp_file: bool = False) -> None:
+    staged = session.pop("scan_staged", None)
+    session.modified = True
+    if not delete_temp_file or not isinstance(staged, dict):
+        return
+    rel = _normalize_upload_relpath(staged.get("image_filename") or "")
+    if not rel or not rel.startswith("temp/"):
+        return
+    path = _upload_file_path(rel)
+    if path is not None and path.exists():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def _get_staged_scan() -> dict | None:
+    staged = session.get("scan_staged")
+    if not isinstance(staged, dict):
+        return None
+    rel = _normalize_upload_relpath(staged.get("image_filename") or "")
+    if not rel or not _existing_upload_relpath(rel):
+        session.pop("scan_staged", None)
+        session.modified = True
+        return None
+    return {
+        "image_filename": rel,
+        "image_url": url_for("serve_upload", path=rel),
+        "doc_type": (staged.get("doc_type") or "").strip(),
+        "original_name": (staged.get("original_name") or Path(rel).name).strip(),
+    }
+
+
+def _get_active_ocr_for_page() -> dict | None:
+    """Running OCR job payload for Scan Workflow (preview + busy UI)."""
+    _prune_ocr_jobs()
+    user_id = session.get("user_id")
+    job_id = session.get("last_ocr_job_id")
+    with _OCR_JOBS_LOCK:
+        job = _OCR_JOBS.get(job_id) if job_id else None
+        if job and job.get("user_id") not in (None, user_id):
+            job = None
+        if not job or job.get("status") not in ("queued", "running"):
+            return None
+        image_filename = job.get("image_filename") or ""
+        payload = {
+            "job_id": job_id,
+            "status": job.get("status"),
+            "progress": _job_display_progress(job),
+            "message": job.get("message", ""),
+            "doc_type": job.get("doc_type") or "",
+            "image_filename": image_filename,
+        }
+        if image_filename:
+            payload["image_url"] = url_for("serve_upload", path=image_filename)
+        return payload
+
+
 def _set_ocr_job(job_id: str, **fields):
     with _OCR_JOBS_LOCK:
         job = _OCR_JOBS.get(job_id)
@@ -675,7 +755,7 @@ def _clear_ocr_job(job_id: str, user_id=None) -> bool:
 
 
 def _consume_ocr_session(job_id=None) -> None:
-    """Drop a finished OCR review so Auto-Filled Form cannot reopen a saved scan."""
+    """Drop a finished OCR review and clear Scan Workflow preview after save."""
     user_id = session.get("user_id")
     jid = (job_id or session.get("last_ocr_job_id") or "").strip()
     with _OCR_JOBS_LOCK:
@@ -687,6 +767,8 @@ def _consume_ocr_session(job_id=None) -> None:
     if session.get("last_ocr_job_id"):
         session.pop("last_ocr_job_id", None)
         session.modified = True
+    # Saved (or consumed) reviews must not leave the certificate in Document preview.
+    _clear_staged_scan(delete_temp_file=True)
 
 
 def _prune_ocr_jobs(max_age_hours: int = 2, max_jobs: int = 40, stuck_minutes: int = 8):
@@ -1097,15 +1179,31 @@ def index():
         if err:
             flash(err)
             return redirect(url_for("index"))
+        _set_staged_scan(image_filename, doc_type=doc_type if doc_type != "auto" else "")
         job_id = _start_ocr_job(doc_type, save_path, image_filename)
         session["last_ocr_job_id"] = job_id
         session.modified = True
         return redirect(url_for("index"))
+    active_ocr = _get_active_ocr_for_page()
+    staged_scan = _get_staged_scan()
+    scan_preview = None
+    if active_ocr and active_ocr.get("image_url"):
+        scan_preview = {
+            "image_filename": active_ocr.get("image_filename") or "",
+            "image_url": active_ocr.get("image_url"),
+            "doc_type": (active_ocr.get("doc_type") or "").strip(),
+            "original_name": Path(active_ocr.get("image_filename") or "").name,
+        }
+    elif staged_scan:
+        scan_preview = staged_scan
     return render_template(
         "index.html",
         document_types=DOCUMENT_TYPES,
         current_user=get_current_user(),
         nav_active="scan",
+        active_ocr=active_ocr,
+        staged_scan=staged_scan,
+        scan_preview=scan_preview,
     )
 
 
@@ -1131,8 +1229,31 @@ def api_scan():
     if rel.startswith("..") or os.path.isabs(rel):
         return {"ok": False, "error": "Invalid scan path"}, 500
     rel = _normalize_upload_relpath(rel.replace("\\", "/"))
+    _set_staged_scan(rel, original_name=Path(rel).name)
     image_url = url_for("serve_upload", path=rel)
     return {"ok": True, "image_url": image_url, "image_filename": rel}
+
+
+@app.route("/api/scan/stage", methods=["POST"])
+@login_required
+def api_scan_stage():
+    """Persist an uploaded/scanned image in the session until Cancel OCR."""
+    save_path, image_filename, err = _save_ocr_image_from_request()
+    if err:
+        return {"ok": False, "error": err}, 400
+    doc_type = (request.form.get("document_type") or "").strip()
+    if doc_type not in ("birth", "marriage", "death"):
+        doc_type = ""
+    file = request.files.get("image")
+    original_name = Path(file.filename).name if file and file.filename else Path(image_filename).name
+    _set_staged_scan(image_filename, doc_type=doc_type, original_name=original_name)
+    return {
+        "ok": True,
+        "image_filename": image_filename,
+        "image_url": url_for("serve_upload", path=image_filename),
+        "original_name": original_name,
+        "doc_type": doc_type,
+    }
 
 
 @app.route("/api/detect-document-type", methods=["POST"])
@@ -1143,7 +1264,11 @@ def api_detect_document_type():
     if err:
         return {"ok": False, "error": err}, 400
     detected = _detect_document_type_sync(save_path)
-    payload = {
+    doc_type = detected.get("doc_type") or ""
+    if doc_type not in ("birth", "marriage", "death"):
+        doc_type = ""
+    _set_staged_scan(image_filename, doc_type=doc_type)
+    return {
         "ok": True,
         "image_filename": image_filename,
         "image_url": url_for("serve_upload", path=image_filename),
@@ -1152,7 +1277,6 @@ def api_detect_document_type():
         "confidence": detected.get("confidence") or "none",
         "reason": detected.get("reason") or "",
     }
-    return payload
 
 
 @app.route("/api/ocr/start", methods=["POST"])
@@ -1162,6 +1286,10 @@ def api_ocr_start():
     if err:
         return {"ok": False, "error": err}, 400
 
+    _set_staged_scan(
+        image_filename,
+        doc_type=doc_type if doc_type in ("birth", "marriage", "death") else "",
+    )
     job_id = _start_ocr_job(doc_type, save_path, image_filename)
     session["last_ocr_job_id"] = job_id
     session.modified = True
@@ -1264,6 +1392,7 @@ def api_ocr_cancel():
             _OCR_JOBS.pop(jid, None)
             cleared = True
     session.pop("last_ocr_job_id", None)
+    _clear_staged_scan(delete_temp_file=True)
     session.modified = True
     return {"ok": True, "cancelled": True, "cleared": cleared}
 
@@ -1497,13 +1626,14 @@ def autofilled_form_latest():
 def autofilled_form_cancel():
     """
     Cancel the current auto-filled review session without saving.
-    Clears the session pointer so Auto-Filled Form no longer reopens stale data.
+    Clears the session pointer and Document preview so Scan Workflow starts clean.
     """
     job_id = session.get("last_ocr_job_id")
     if job_id:
         with _OCR_JOBS_LOCK:
             _OCR_JOBS.pop(job_id, None)
     session.pop("last_ocr_job_id", None)
+    _clear_staged_scan(delete_temp_file=True)
     session.modified = True
     flash("Auto-filled form review cancelled.")
     return redirect(url_for("index"))

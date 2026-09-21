@@ -47,12 +47,7 @@
     },
     {
       "key": "Place of Birth",
-      "box": [
-        0.2,
-        0.208,
-        0.965,
-        0.248
-      ],
+      "box": [0.20, 0.208, 0.96, 0.242],
       "kind": "place",
       "printed": "Place of Birth Name Hospital Clinic Institution House Street Barangay City Municipality Province"
     },
