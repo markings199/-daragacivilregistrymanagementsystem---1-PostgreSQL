@@ -265,6 +265,150 @@ body.page-administration .admin-user-form input:focus,
 body.page-administration .admin-user-form select:focus { outline: none; border-color: #008a3a; box-shadow: 0 0 0 3px rgba(0, 138, 58, 0.14); }
 body.page-administration .admin-user-form-submit { display: flex; align-items: flex-end; padding-bottom: 1px; }
 body.page-administration .admin-user-form-submit .btn-primary { white-space: nowrap; padding: 10px 18px; font-weight: 800; border-radius: 10px; }
+body.page-administration .admin-pw-field {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+body.page-administration .admin-pw-field input { flex: 1 1 auto; min-width: 0; }
+body.page-administration .admin-pw-generate {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  align-self: stretch;
+}
+body.page-administration .admin-cred-banner,
+body.page-administration .admin-set-password-card {
+  margin: 0 0 16px;
+  padding: 16px 18px;
+  border: 1px solid #c7d7f5;
+  border-radius: 12px;
+  background: #f4f7fd;
+  border-left: 4px solid #1a4a9e;
+}
+body.page-administration .admin-cred-kicker,
+body.page-administration .admin-set-password-kicker {
+  margin: 0 0 2px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #1e4a9c;
+}
+body.page-administration .admin-cred-lead,
+body.page-administration .admin-set-password-copy {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #1e293b;
+  line-height: 1.45;
+}
+body.page-administration .admin-cred-grid {
+  display: grid;
+  grid-template-columns: minmax(8rem, auto) minmax(6rem, auto) minmax(12rem, 1fr);
+  gap: 12px 18px;
+  margin: 0 0 12px;
+}
+body.page-administration .admin-cred-grid dt {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+body.page-administration .admin-cred-grid dd {
+  margin: 4px 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+body.page-administration .admin-cred-password input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.95rem;
+  background: #fff;
+}
+body.page-administration .admin-cred-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+body.page-administration .admin-cred-note {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+body.page-administration .admin-set-password-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+body.page-administration .admin-set-password-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #002080;
+}
+body.page-administration .admin-set-password-cancel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e4a9c;
+  text-decoration: none;
+}
+body.page-administration .admin-set-password-cancel:hover { text-decoration: underline; }
+body.page-administration .admin-set-password-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+body.page-administration .admin-set-password-form .admin-pw-field { flex: 1 1 16rem; }
+body.page-administration .admin-accounts-table .admin-account-name { font-weight: 700; }
+body.page-administration .admin-account-you {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #dbeafe;
+  color: #1e40af;
+}
+body.page-administration .admin-account-self-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+body.page-administration .admin-account-self-note a {
+  font-weight: 700;
+  color: #1e4a9c;
+  text-decoration: none;
+}
+body.page-administration .admin-account-self-note a:hover { text-decoration: underline; }
+body.page-administration .admin-accounts-table tbody tr.is-self td { background: #f8fafc; }
+body.page-administration .admin-accounts-table tbody tr.is-password-target td {
+  background: #eef4ff;
+  box-shadow: inset 3px 0 0 #1a4a9e;
+}
+body.page-administration .admin-user-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+body.page-administration .admin-user-actions form { margin: 0; }
+body.page-administration .admin-user-actions .btn-sm { white-space: nowrap; }
+body.page-administration .admin-user-actions .btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+@media (max-width: 720px) {
+  body.page-administration .admin-cred-grid { grid-template-columns: 1fr; }
+}
 body.page-administration .cell-reason { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.page-administration .admin-requests-table .cell-reason,
 body.page-administration .admin-requests-table .cell-details {
@@ -438,8 +582,7 @@ body.page-administration .admin-requests-table .status-badge {
 
 /* Edit requests — fit container like print requests (no horizontal scroll) */
 body.page-administration .admin-edit-requests-table-wrap {
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: visible;
 }
 body.page-administration .admin-edit-requests-table {
   width: 100%;
@@ -449,14 +592,15 @@ body.page-administration .admin-edit-requests-table {
   border-collapse: collapse;
 }
 body.page-administration .admin-edit-requests-table .col-id { width: 4%; }
-body.page-administration .admin-edit-requests-table .col-record { width: 11%; }
-body.page-administration .admin-edit-requests-table .col-view { width: 7%; }
-body.page-administration .admin-edit-requests-table .col-type { width: 7%; }
+body.page-administration .admin-edit-requests-table .col-record { width: 10%; }
+body.page-administration .admin-edit-requests-table .col-view { width: 6%; }
+body.page-administration .admin-edit-requests-table .col-type { width: 6%; }
 body.page-administration .admin-edit-requests-table .col-status { width: 8%; }
 body.page-administration .admin-edit-requests-table .col-staff { width: 6%; }
-body.page-administration .admin-edit-requests-table .col-requested { width: 12%; }
-body.page-administration .admin-edit-requests-table .col-reason { width: 24%; }
-body.page-administration .admin-edit-requests-table .col-actions { width: 21%; }
+body.page-administration .admin-edit-requests-table .col-requested { width: 11%; }
+body.page-administration .admin-edit-requests-table .col-reason { width: 14%; }
+body.page-administration .admin-edit-requests-table .col-reject { width: 14%; }
+body.page-administration .admin-edit-requests-table .col-actions { width: 21%; min-width: 11rem; }
 body.page-administration .admin-edit-requests-table thead th {
   white-space: nowrap;
   overflow: hidden;
@@ -476,18 +620,20 @@ body.page-administration .admin-edit-requests-table .col-requested {
   text-overflow: ellipsis;
 }
 body.page-administration .admin-edit-requests-table .col-reason,
-body.page-administration .admin-edit-requests-table .cell-reason {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: middle;
+body.page-administration .admin-edit-requests-table .cell-reason,
+body.page-administration .admin-edit-requests-table .col-reject {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
+  vertical-align: top;
+  position: relative;
 }
 body.page-administration .admin-edit-requests-table .col-actions,
 body.page-administration .admin-edit-requests-table .cell-actions {
-  white-space: normal !important;
-  vertical-align: middle;
-  padding: 4px 6px;
-  overflow: hidden;
+  white-space: nowrap !important;
+  vertical-align: top;
+  padding: 6px;
+  overflow: visible;
 }
 body.page-administration .admin-edit-requests-table .col-view {
   text-align: center;
@@ -518,8 +664,7 @@ body.page-administration .admin-edit-requests-table .action-form-approve .btn-sm
 
 /* Print requests table — fit container, compact badges */
 body.page-administration .admin-print-requests-table-wrap {
-  overflow-x: hidden;
-  overflow-y: visible;
+  overflow: visible;
 }
 body.page-administration .admin-print-requests-table {
   min-width: 0;
@@ -534,15 +679,17 @@ body.page-administration .admin-print-requests-table .col-print-format { width: 
 body.page-administration .admin-print-requests-table .col-status { width: 92px; }
 body.page-administration .admin-print-requests-table .col-staff { width: 72px; }
 body.page-administration .admin-print-requests-table .col-requested { width: 128px; }
-body.page-administration .admin-print-requests-table .col-reason {
+body.page-administration .admin-print-requests-table .col-reason,
+body.page-administration .admin-print-requests-table .col-reject {
   width: auto;
-  min-width: 0;
+  min-width: 8rem;
   max-width: 180px;
   line-height: 1.25;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: middle;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  vertical-align: top;
+  position: relative;
 }
 body.page-administration .admin-print-requests-table .col-view {
   width: 76px;
@@ -801,6 +948,34 @@ body.page-administration .ab-dest-grid {
   align-items: stretch;
   margin-bottom: 8px;
 }
+body.page-administration .ab-how {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #eef4ff;
+  border: 1px solid rgba(0, 32, 128, 0.12);
+  color: #1e3a67;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+body.page-administration .ab-how p {
+  margin: 0 0 6px;
+}
+body.page-administration .ab-how p:last-child {
+  margin-bottom: 0;
+}
+body.page-administration .ab-loc-hint {
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+body.page-administration .ab-last-run {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: #334155;
+  line-height: 1.4;
+}
 body.page-administration .ab-loc {
   display: flex;
   flex-direction: column;
@@ -841,6 +1016,56 @@ body.page-administration .ab-loc-badge-on {
 body.page-administration .ab-loc-badge-off {
   background: rgba(107, 132, 153, 0.14);
   color: #5a7388;
+}
+body.page-administration .ab-loc-badge-warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+body.page-administration .ab-loc-hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: #6b8499;
+  font-weight: 600;
+}
+body.page-administration .ab-loc-hint code {
+  font-size: 0.7rem;
+  background: rgba(15, 43, 92, 0.06);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+body.page-administration .ab-ready {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 43, 92, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+body.page-administration .ab-ready strong {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #002080;
+}
+body.page-administration .ab-ready span {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #5a7388;
+  font-weight: 600;
+}
+body.page-administration .ab-ready-ok {
+  background: #ecfdf5;
+  border-color: rgba(16, 128, 72, 0.22);
+}
+body.page-administration .ab-ready-ok strong { color: #0f7a45; }
+body.page-administration .ab-ready-warn {
+  background: #fffbeb;
+  border-color: rgba(180, 130, 20, 0.28);
+}
+body.page-administration .ab-ready-warn strong { color: #92400e; }
+body.page-administration .ab-ready-wait {
+  background: #f8fafc;
 }
 body.page-administration .backup-auto-page .auto-backup-path {
   color: #3d5670;
@@ -1000,6 +1225,7 @@ body.page-administration .backup-auto-page .auto-backup-table-wrap {
 }
 body.page-administration .backup-auto-page .auto-backup-table {
   margin: 0;
+  min-width: 720px;
 }
 body.page-administration .backup-auto-page .auto-backup-table thead th {
   background: transparent;
@@ -1008,12 +1234,12 @@ body.page-administration .backup-auto-page .auto-backup-table thead th {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 800;
-  border-bottom: 1px solid rgba(15, 43, 92, 0.08);
-  padding: 6px 8px;
+  border-bottom: 1px solid rgba(15, 43, 92, 0.1);
+  padding: 8px 10px;
 }
 body.page-administration .backup-auto-page .auto-backup-table tbody td {
-  padding: 8px;
-  border-bottom: 1px solid rgba(15, 43, 92, 0.05);
+  padding: 10px;
+  border-bottom: 1px solid rgba(15, 43, 92, 0.06);
   font-size: 0.84rem;
   color: #0b1f40;
 }
@@ -1024,6 +1250,9 @@ body.page-administration .backup-auto-page .auto-backup-empty {
   background: transparent;
   border: none;
   color: #6b8499;
+}
+body.page-administration .ab-restore-panel .app-note {
+  margin: 0 0 10px;
 }
 body.page-administration .ab-restore-row {
   display: flex;
@@ -1457,6 +1686,7 @@ body.page-administration .auto-backup-pill {
   color: #334155;
 }
 body.page-administration .auto-backup-pill-ok { background: #dcfce7; color: #166534; }
+body.page-administration .auto-backup-pill-warn { background: #fef3c7; color: #92400e; }
 body.page-administration .auto-backup-pill-err { background: #fee2e2; color: #991b1b; }
 body.page-administration .auto-backup-list-wrap {
   padding: 0 16px 16px;
@@ -1493,7 +1723,7 @@ body.page-administration .auto-backup-table-wrap {
 body.page-administration .auto-backup-table {
   margin: 0;
   width: 100%;
-  min-width: 640px;
+  min-width: 720px;
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -1505,18 +1735,73 @@ body.page-administration .auto-backup-table thead th {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-bottom: 1px solid rgba(70, 130, 180, 0.18);
-  padding: 8px 12px;
+  padding: 8px 10px;
   vertical-align: middle;
+  text-align: left;
+  white-space: nowrap;
 }
 body.page-administration .auto-backup-table tbody td {
-  padding: 9px 12px;
+  padding: 10px;
   vertical-align: middle;
   border-bottom: 1px solid rgba(70, 130, 180, 0.12);
   font-size: 0.82rem;
+  text-align: left;
 }
 body.page-administration .auto-backup-table tbody tr:last-child td {
   border-bottom: none;
 }
+body.page-administration .auto-backup-table tbody tr:hover td {
+  background: rgba(0, 32, 128, 0.02);
+}
+
+/* Backup History — fixed columns so headers line up with cells */
+body.page-administration .auto-backup-history-table col.ab-col-when { width: 22%; }
+body.page-administration .auto-backup-history-table col.ab-col-type { width: 10%; }
+body.page-administration .auto-backup-history-table col.ab-col-period { width: 16%; }
+body.page-administration .auto-backup-history-table col.ab-col-docs { width: 12%; }
+body.page-administration .auto-backup-history-table col.ab-col-status { width: 14%; }
+body.page-administration .auto-backup-history-table col.ab-col-actions { width: 26%; }
+
+body.page-administration .auto-backup-history-table th.ab-col-when,
+body.page-administration .auto-backup-history-table td.ab-col-when {
+  text-align: left;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+body.page-administration .auto-backup-history-table th.ab-col-type,
+body.page-administration .auto-backup-history-table td.ab-col-type {
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 600;
+}
+body.page-administration .auto-backup-history-table th.ab-col-period,
+body.page-administration .auto-backup-history-table td.ab-col-period {
+  text-align: left;
+  white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: #1e3a5f;
+}
+body.page-administration .auto-backup-history-table th.ab-col-docs,
+body.page-administration .auto-backup-history-table td.ab-col-docs {
+  text-align: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+body.page-administration .auto-backup-history-table th.ab-col-status,
+body.page-administration .auto-backup-history-table td.ab-col-status {
+  text-align: left;
+  white-space: nowrap;
+}
+body.page-administration .auto-backup-history-table th.ab-col-actions,
+body.page-administration .auto-backup-history-table td.ab-col-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
 body.page-administration .auto-backup-table .col-file {
   width: 44%;
   text-align: left;
@@ -1556,6 +1841,7 @@ body.page-administration .auto-backup-row-actions {
   justify-content: flex-end;
   align-items: center;
   gap: 6px;
+  width: 100%;
 }
 body.page-administration .auto-backup-delete-form {
   display: inline-flex;

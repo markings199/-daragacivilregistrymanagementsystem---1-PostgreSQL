@@ -94,7 +94,7 @@
         <h2 class="section-title">Confirmed {{ doc_label }} data</h2>
         <div class="confirm-meta-card">
           <div class="confirm-fields-grid">
-            {% for k, v in data.items() %}
+            {% for k, v in public_record_fields(data).items() %}
               <div class="confirm-field">
                 <div class="confirm-field-label">{{ k }}</div>
                 <div class="confirm-field-value{% if not v %} confirm-empty{% endif %}">{{ v }}</div>
@@ -117,7 +117,7 @@
       <h2 class="section-title">Confirmed {{ doc_label }} data</h2>
       <div class="confirm-meta-card">
         <div class="confirm-fields-grid">
-          {% for k, v in data.items() %}
+          {% for k, v in public_record_fields(data).items() %}
             <div class="confirm-field">
               <div class="confirm-field-label">{{ k }}</div>
               <div class="confirm-field-value{% if not v %} confirm-empty{% endif %}">{{ v }}</div>

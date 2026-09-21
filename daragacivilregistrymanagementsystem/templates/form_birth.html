@@ -24,20 +24,18 @@
             {% set document_viewer_section_id = 'form-birth-doc-viewer' %}
             {% include '_document_viewer.html' %}
           {% else %}
-            <p class="scan-preview-empty">No image for this session.</p>
+            <p class="scan-preview-empty">No scanned image is attached to this review. Go to Scan Workflow, choose a document, and run OCR again.</p>
           {% endif %}
         </div>
       </div>
 
       <div class="main-card form-review-meta">
-        <div class="form-review-card-head">
-          <h2 class="section-title">Extracted metadata</h2>
-        </div>
+        {% include '_extracted_metadata_head.html' %}
         <div class="form-meta-scroll">
           {% set confidence = data.get('__confidence__', {}) %}
           {% set source = data.get('__source__', {}) %}
           <div class="confirm-grid">
-            {% for key in ['Registry Number', 'Page Number', 'Book Number', 'Date of Registration', 'Name of Child', 'Sex', 'Date of Birth', 'Place of Birth', 'Name of Mother', 'Citizenship of Mother', 'Name of Father', 'Citizenship of Father', 'Date of Marriage of Parents', 'Place of Marriage of Parents', 'Remarks'] %}
+            {% for key in ['Registry Number', 'Date of Registration', 'Name of Child', 'Sex', 'Date of Birth', 'Place of Birth', 'Name of Mother', 'Citizenship of Mother', 'Name of Father', 'Citizenship of Father', 'Date of Marriage of Parents', 'Place of Marriage of Parents', 'Remarks'] %}
               {% set field_id = 'field_' ~ loop.index %}
               {% include '_ocr_meta_field.html' %}
             {% endfor %}
@@ -46,13 +44,17 @@
         </div>
 
         <div class="button-row form-review-actions">
-          <a href="{{ url_for('search_records') }}" class="btn btn-secondary">Back to Search</a>
+          <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Scan Workflow</a>
           <button
             type="submit"
             class="btn btn-secondary"
             formaction="{{ url_for('autofilled_form_cancel') }}"
             formmethod="post"
-            onclick="return confirm('Cancel this auto-filled form review? Unsaved changes will be lost.');"
+            data-app-confirm
+            data-confirm-title="Cancel review"
+            data-confirm-message="This auto-filled form will be closed. Unsaved changes will be lost."
+            data-confirm-ok="Cancel review"
+            data-confirm-cancel="Keep review"
           >
             Cancel
           </button>

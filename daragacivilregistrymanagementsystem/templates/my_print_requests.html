@@ -90,8 +90,8 @@
                     —
                   {% endif %}
                 </td>
-                <td class="col-reason cell-reason" title="{{ req.reason or '' }}">{{ req.reason or '—' }}</td>
-                <td class="col-reject cell-reject" title="{{ req.rejection_reason or '' }}">{{ req.rejection_reason or '—' }}</td>
+                <td class="col-reason cell-reason">{% set text = req.reason %}{% set note_kind = 'reason' %}{% include '_expandable_text.html' %}</td>
+                <td class="col-reject cell-reject">{% set text = req.rejection_reason %}{% set note_kind = 'rejection' %}{% include '_expandable_text.html' %}</td>
                 <td class="col-actions cell-actions">
                   {% if req.record %}
                     {% if req.status == 'APPROVED' and not req.used_at %}

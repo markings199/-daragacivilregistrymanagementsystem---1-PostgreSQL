@@ -66,6 +66,7 @@
         padding: 0 18px 0 16px;
         border-bottom: none;
         box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 6px 16px rgba(6, 22, 51, 0.28);
+        overflow: visible;
         z-index: 40;
       }
       .topbar::after {
@@ -136,9 +137,12 @@
         margin-left: auto;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         flex-shrink: 0;
         min-width: 0;
+        overflow: visible;
+        position: relative;
+        z-index: 50;
       }
       .topbar .theme-toggle {
         padding: 4px 12px 4px 5px;
@@ -342,7 +346,7 @@
         background: #ffffff;
         color: #002080;
       }
-      .sidebar-footer { flex-shrink: 0; padding: 10px 12px 14px; border-top: 1px solid var(--sidebar-footer-border, rgba(0, 32, 128, 0.14)); }
+      .sidebar-footer { flex-shrink: 0; padding: 10px 12px 14px; border-top: 1px solid var(--sidebar-footer-border, rgba(0, 32, 128, 0.14)); display: flex; flex-direction: column; gap: 8px; }
       .sidebar-footer .btn-logout {
         display: flex;
         align-items: center;
@@ -439,22 +443,34 @@
         color: #1f3556;
         margin: 0;
       }
-      /* Pane: no inner padding so the certificate spans the full width at 100% zoom */
+      /* Pane: scroll both ways when zoomed so the certificate can move left/right */
       .scan-preview-viewer-inner .document-viewer-pane {
         background: #d8e2ee;
         border: 1px solid #c8d5e7;
         border-radius: 12px;
         height: auto;
         min-height: 0;
-        max-height: none;
+        max-height: min(72vh, 820px);
         overflow: auto;
+        overflow-x: auto;
+        overflow-y: auto;
         width: 100%;
         box-sizing: border-box;
         padding: 0;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
+      .scan-preview-viewer-inner .document-viewer-pane.is-zoomed {
+        cursor: grab;
+      }
+      .scan-preview-viewer-inner .document-viewer-pane.is-panning {
+        cursor: grabbing;
+        user-select: none;
       }
       .scan-preview-viewer-inner .document-viewer-image-wrap {
         display: block;
-        width: 100%;
+        width: auto;
+        max-width: none;
         min-height: 0;
         line-height: 0;
         font-size: 0;
@@ -548,6 +564,48 @@
         padding: 10px 14px;
         background: linear-gradient(135deg, #002080 0%, #1a4a9e 100%);
       }
+      .form-review-meta .form-review-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .btn-meta-clear {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+        flex-shrink: 0;
+        border: 1px solid rgba(255, 255, 255, 0.42);
+        background: rgba(255, 255, 255, 0.12);
+        color: #ffffff;
+        border-radius: 8px;
+        padding: 5px 11px;
+        min-height: 30px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+      }
+      .btn-meta-clear svg {
+        width: 14px;
+        height: 14px;
+      }
+      .btn-meta-clear:hover {
+        background: rgba(255, 255, 255, 0.22);
+        border-color: rgba(255, 255, 255, 0.7);
+      }
+      .btn-meta-clear:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+      .form-review-meta .ocr-conf-empty {
+        color: #64748b;
+        background: #e2e8f0;
+      }
+      @media print {
+        .btn-meta-clear { display: none !important; }
+      }
       .form-review-card-head .section-title,
       .form-review-preview .form-review-card-head .section-title,
       .form-review-meta .form-review-card-head .section-title {
@@ -562,6 +620,9 @@
       .form-review-preview .scan-preview-viewer-inner {
         margin: 0 12px 12px;
         border-radius: 12px;
+      }
+      body.page-form-review .form-review-preview .scan-preview-viewer-inner .document-viewer-pane {
+        min-height: 420px;
       }
       .form-review-meta .form-meta-scroll {
         background: transparent;
@@ -601,6 +662,36 @@
         border-top: none;
         padding-bottom: 6px;
         border-bottom: 1px solid #e2e8f0;
+      }
+      .form-review-meta .form-meta-name-row {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 4.25rem;
+        column-gap: 18px;
+        align-items: end;
+      }
+      .form-review-meta .form-meta-name-row .form-meta-field {
+        min-width: 0;
+      }
+      .form-review-meta .form-meta-name-row .form-meta-field:last-child {
+        width: 4.25rem;
+      }
+      .form-review-meta .form-meta-name-row .form-meta-field:last-child .form-meta-field-head {
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 3px;
+        min-height: 2.15rem;
+      }
+      .form-review-meta .form-meta-name-row .form-meta-field:first-child .form-meta-field-head {
+        min-height: 2.15rem;
+      }
+      .form-review-meta .form-meta-name-row .form-meta-field:last-child .confirm-item-value input:not([type="radio"]) {
+        width: 4.25rem;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+        padding-left: 6px;
+        padding-right: 6px;
       }
       .form-review-meta .form-meta-field {
         margin: 0;
@@ -649,7 +740,7 @@
       .form-review-meta .confirm-item-value {
         line-height: 1.35;
       }
-      .form-review-meta .confirm-item-value input {
+      .form-review-meta .confirm-item-value input:not([type="radio"]) {
         width: 100%;
         box-sizing: border-box;
         padding: 7px 10px;
@@ -667,17 +758,17 @@
         height: auto;
         transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
       }
-      .form-review-meta .confirm-item-value input:hover {
+      .form-review-meta .confirm-item-value input:not([type="radio"]):hover {
         background: #f1f5f9;
         border-color: #cbd5e1;
       }
-      .form-review-meta .confirm-item-value input:focus {
+      .form-review-meta .confirm-item-value input:not([type="radio"]):focus {
         outline: none;
         background: #fff;
         border-color: #002080;
         box-shadow: 0 0 0 2px rgba(0, 32, 128, 0.12);
       }
-      .form-review-meta .confirm-item-value input::placeholder {
+      .form-review-meta .confirm-item-value input:not([type="radio"])::placeholder {
         color: #94a3b8;
         font-weight: 500;
         text-transform: none;
@@ -713,6 +804,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/document_annotation.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flash.css') }}" />
     {% block after_theme %}{% endblock %}
   </head>
   <body class="{% block body_class %}{% endblock %}">
@@ -742,12 +834,14 @@
           <div id="ocr-job-bar" class="ocr-job-bar" hidden
             data-active-url="{{ url_for('api_ocr_active') }}"
             data-status-url="{{ url_for('api_ocr_status', job_id='JOB_ID') }}"
+            data-cancel-url="{{ url_for('api_ocr_cancel') }}"
           >
             <span class="ocr-job-bar-dot" aria-hidden="true"></span>
             <span id="ocr-job-bar-label" class="ocr-job-bar-label">OCR running</span>
             <span id="ocr-job-bar-pct" class="ocr-job-bar-pct">1%</span>
             <span class="ocr-job-bar-track" aria-hidden="true"><span id="ocr-job-bar-fill" class="ocr-job-bar-fill"></span></span>
             <a id="ocr-job-bar-open" class="ocr-job-bar-open" hidden>Open form</a>
+            <button type="button" id="ocr-job-bar-cancel" class="ocr-job-bar-cancel" hidden>Cancel</button>
           </div>
           <div class="notif-wrap" id="notif-wrap" data-url="{{ url_for('api_notifications') }}" data-count="0">
             <button
@@ -838,23 +932,24 @@
         </nav>
         {% block sidebar_extra %}{% endblock %}
         <div class="sidebar-footer">
-          {% if current_user %}<a href="{{ url_for('logout') }}" class="btn-logout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Logout</a>{% endif %}
+          {% if current_user %}
+            <a href="{{ url_for('account') }}" class="btn-logout{% if nav_active == 'account' %} is-active{% endif %}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              My account
+            </a>
+            <a href="{{ url_for('logout') }}" class="btn-logout"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Logout</a>
+          {% endif %}
         </div>
       </aside>
       <main class="main">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="flash-container">
-              {% for category, msg in messages %}
-                <div class="flash">{{ msg }}</div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endwith %}
         {% block content %}{% endblock %}
       </main>
     </div>
+    {% include '_flash_toasts.html' %}
+    {% include '_app_confirm.html' %}
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/flash.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app_confirm.js') }}"></script>
     <script src="{{ url_for('static', filename='js/document_annotation.js') }}"></script>
     {% if current_user %}
       <script src="{{ url_for('static', filename='js/ocr_job.js') }}"></script>

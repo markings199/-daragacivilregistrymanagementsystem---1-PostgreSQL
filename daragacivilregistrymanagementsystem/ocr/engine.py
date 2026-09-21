@@ -58,30 +58,123 @@ class MatchResult:
     reason: str
 
 
+_FORM_BIRTH = re.compile(
+    r"\b(?:MUNICIPAL\s+)?FORM\s*(?:NO\.?|NUMBER|#)?\s*102\b",
+    re.IGNORECASE,
+)
+_FORM_MARRIAGE = re.compile(
+    r"\b(?:MUNICIPAL\s+)?FORM\s*(?:NO\.?|NUMBER|#)?\s*97\b",
+    re.IGNORECASE,
+)
+_FORM_DEATH = re.compile(
+    r"\b(?:MUNICIPAL\s+)?FORM\s*(?:NO\.?|NUMBER|#)?\s*103\b",
+    re.IGNORECASE,
+)
+
+_DOC_TYPE_LABELS = {
+    "birth": "Birth certificate",
+    "marriage": "Marriage certificate",
+    "death": "Death certificate",
+}
+
+
+def document_type_label(doc_type: Optional[str]) -> str:
+    return _DOC_TYPE_LABELS.get((doc_type or "").strip().lower(), "")
+
+
+def _squash_alpha(s: str) -> str:
+    return re.sub(r"[^A-Z0-9]+", "", (s or "").upper())
+
+
+def detect_document_type_detail(ocr_text: str) -> Dict[str, Any]:
+    """
+    Identify a PSA civil-registry certificate from OCR text.
+    Returns doc_type (birth|marriage|death|None), confidence, reason, label.
+    """
+    empty = {
+        "doc_type": None,
+        "confidence": "none",
+        "reason": "No readable heading",
+        "label": "",
+    }
+    t = _norm_upper(ocr_text)
+    if not t:
+        return empty
+    squash = _squash_alpha(t)
+
+    def _hit(doc_type: str, confidence: str, reason: str) -> Dict[str, Any]:
+        return {
+            "doc_type": doc_type,
+            "confidence": confidence,
+            "reason": reason,
+            "label": document_type_label(doc_type),
+        }
+
+    if "CERTIFICATEOFLIVEBIRTH" in squash or "LIVEBIRTH" in squash:
+        return _hit("birth", "high", "Certificate of Live Birth")
+    if "CERTIFICATEOFDEATH" in squash:
+        return _hit("death", "high", "Certificate of Death")
+    if "CERTIFICATEOFMARRIAGE" in squash:
+        return _hit("marriage", "high", "Certificate of Marriage")
+    if "CERTIF" in squash and "MARRIAG" in squash and "LIVEBIRTH" not in squash:
+        return _hit("marriage", "high", "Marriage certificate heading")
+    if "CERTIF" in squash and "DEATH" in squash and "LIVEBIRTH" not in squash and "MARRIAG" not in squash:
+        return _hit("death", "high", "Death certificate heading")
+
+    if _FORM_BIRTH.search(t) or "FORMNO102" in squash or "MUNICIPALFORMNO102" in squash:
+        return _hit("birth", "high", "Municipal Form No. 102")
+    if _FORM_DEATH.search(t) or "FORMNO103" in squash or "MUNICIPALFORMNO103" in squash:
+        return _hit("death", "high", "Municipal Form No. 103")
+    if _FORM_MARRIAGE.search(t) or "FORMNO97" in squash or "MUNICIPALFORMNO97" in squash:
+        return _hit("marriage", "high", "Municipal Form No. 97")
+
+    if "CAUSEOFDEATH" in squash:
+        return _hit("death", "high", "Cause of Death")
+
+    birth_keys = (
+        "NAME OF CHILD",
+        "TYPE OF BIRTH",
+        "WEIGHT AT BIRTH",
+        "ATTENDANT",
+        "PLACE OF BIRTH",
+    )
+    death_keys = (
+        "NAME OF DECEASED",
+        "DATE OF DEATH",
+        "PLACE OF DEATH",
+        "CAUSE OF DEATH",
+        "CORPSE DISPOSAL",
+    )
+    marriage_keys = (
+        "HUSBAND",
+        "WIFE",
+        "DATE OF MARRIAGE",
+        "PLACE OF MARRIAGE",
+        "SOLEMNIZING",
+    )
+    birth_hits = sum(1 for k in birth_keys if k in t)
+    death_hits = sum(1 for k in death_keys if k in t)
+    marriage_hits = sum(1 for k in marriage_keys if k in t)
+    ranked = sorted(
+        ((birth_hits, "birth"), (death_hits, "death"), (marriage_hits, "marriage")),
+        key=lambda item: item[0],
+        reverse=True,
+    )
+    best_score, best_type = ranked[0]
+    second = ranked[1][0]
+    if best_score >= 3 and best_score > second:
+        return _hit(best_type, "medium", "Matching certificate fields")
+    if best_score >= 2 and best_score > second:
+        return _hit(best_type, "low", "Partial field match")
+    return empty
+
+
 def detect_document_type(ocr_text: str) -> Optional[str]:
     """
     Heuristic document type detection from OCR text.
     Returns: "birth" | "death" | "marriage" | None
     """
-    t = _norm_upper(ocr_text)
-    if not t:
-        return None
-
-    # Strong indicators first
-    if "CERTIFICATE OF LIVE BIRTH" in t or ("LIVE BIRTH" in t and "CERTIFICATE" in t):
-        return "birth"
-    if "CERTIFICATE OF DEATH" in t or ("CAUSE OF DEATH" in t and "DEATH" in t):
-        return "death"
-    if "CERTIFICATE OF MARRIAGE" in t or ("MARRIAGE" in t and ("HUSBAND" in t or "WIFE" in t)):
-        return "marriage"
-
-    # Weaker heuristics
-    birth_hits = sum(1 for k in ("NAME OF CHILD", "DATE OF BIRTH", "PLACE OF BIRTH") if k in t)
-    death_hits = sum(1 for k in ("NAME OF DECEASED", "DATE OF DEATH", "PLACE OF DEATH", "CAUSE OF DEATH") if k in t)
-    marriage_hits = sum(1 for k in ("HUSBAND", "WIFE", "DATE OF MARRIAGE", "PLACE OF MARRIAGE") if k in t)
-
-    best = max((birth_hits, "birth"), (death_hits, "death"), (marriage_hits, "marriage"), key=lambda x: x[0])
-    return best[1] if best[0] >= 2 else None
+    return detect_document_type_detail(ocr_text).get("doc_type")
 
 
 def load_templates(doc_type: str, template_root: Path = TEMPLATE_ROOT) -> List[Dict[str, Any]]:

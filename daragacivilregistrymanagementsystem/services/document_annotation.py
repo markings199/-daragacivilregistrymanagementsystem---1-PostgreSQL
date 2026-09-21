@@ -14,9 +14,6 @@ KINDS = (
     ("other", "Other annotation"),
 )
 
-DEFAULT_SIGNATORY = "MICHELLE M. MARINAY"
-DEFAULT_TITLE = "MGDH I / MUN. CIVIL REGISTRAR"
-
 FORM_KEYS = frozenset(
     {
         "annotation_kind",
@@ -28,11 +25,25 @@ FORM_KEYS = frozenset(
     }
 )
 
+# Not labeled fields on Civil Registry Form 1A / 2A / 3A (only appear in the print intro).
+HIDDEN_METADATA_KEYS = frozenset(
+    {
+        "Page Number",
+        "Book Number",
+        "Page",
+        "Book",
+    }
+)
+
 
 def public_fields(data: dict | None) -> dict:
     if not isinstance(data, dict):
         return {}
-    return {k: v for k, v in data.items() if not str(k).startswith("_")}
+    return {
+        k: v
+        for k, v in data.items()
+        if not str(k).startswith("_") and str(k) not in HIDDEN_METADATA_KEYS
+    }
 
 
 def from_data(data: dict | None) -> dict | None:
@@ -47,8 +58,8 @@ def from_data(data: dict | None) -> dict | None:
     return {
         "kind": str(raw.get("kind") or "other").strip() or "other",
         "text": text,
-        "signatory": str(raw.get("signatory") or "").strip() or DEFAULT_SIGNATORY,
-        "title": str(raw.get("title") or "").strip() or DEFAULT_TITLE,
+        "signatory": str(raw.get("signatory") or "").strip(),
+        "title": str(raw.get("title") or "").strip(),
         "new_name": str(raw.get("new_name") or "").strip(),
         "marriage_registry": str(raw.get("marriage_registry") or "").strip(),
     }
@@ -59,8 +70,8 @@ def form_defaults(data: dict | None) -> dict:
     return {
         "kind": ann.get("kind") or "legitimation",
         "text": ann.get("text") or "",
-        "signatory": ann.get("signatory") or DEFAULT_SIGNATORY,
-        "title": ann.get("title") or DEFAULT_TITLE,
+        "signatory": ann.get("signatory") or "",
+        "title": ann.get("title") or "",
         "new_name": ann.get("new_name") or "",
         "marriage_registry": ann.get("marriage_registry") or "",
     }
@@ -73,8 +84,8 @@ def from_form(form) -> dict | None:
     return {
         "kind": (form.get("annotation_kind") or "other").strip() or "other",
         "text": text,
-        "signatory": (form.get("annotation_signatory") or "").strip() or DEFAULT_SIGNATORY,
-        "title": (form.get("annotation_title") or "").strip() or DEFAULT_TITLE,
+        "signatory": (form.get("annotation_signatory") or "").strip(),
+        "title": (form.get("annotation_title") or "").strip(),
         "new_name": (form.get("annotation_new_name") or "").strip(),
         "marriage_registry": (form.get("annotation_marriage_registry") or "").strip(),
     }

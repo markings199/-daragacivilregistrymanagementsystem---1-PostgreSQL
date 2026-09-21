@@ -6,6 +6,8 @@ import cv2
 
 from ocr.shared import run_ocr_on_image
 from ocr.engine import extract_from_ocr_text, ocr_pages_to_text
+from ocr.field_boxes import extract_field_boxes, is_plausible_cause_of_death
+from ocr.sex import sex_from_ocr_text, sex_from_tokens
 
 DEBUG_TEMPLATE_MATCH = False
 
@@ -25,7 +27,17 @@ MONTHS = {
     "DECEMBER",
 }
 
-STATUS_WORDS = {"SINGLE", "MARRIED", "WIDOWED", "DIVORCED", "SEPARATED"}
+STATUS_WORDS = {"SINGLE", "MARRIED", "WIDOWED", "DIVORCED", "SEPARATED", "ANNULLED"}
+STATUS_ALIASES = {
+    "WIDOW": "WIDOWED",
+    "WIDOWER": "WIDOWED",
+    "WIDOWED": "WIDOWED",
+    "SINGLE": "SINGLE",
+    "MARRIED": "MARRIED",
+    "DIVORCED": "DIVORCED",
+    "SEPARATED": "SEPARATED",
+    "ANNULLED": "ANNULLED",
+}
 
 NAME_BANNED = {
     "NAME",
@@ -49,6 +61,11 @@ NAME_BANNED = {
     # avoid picking the big title line as the person's name
     "CERTIFICATE",
     "CERTIFICATE OF DEATH",
+    "FILL",
+    "TYPEWRITE",
+    "TYPEWRITTEN",
+    "HANDWRITTEN",
+    "DECEASED",
 }
 
 # Location keywords to help identify place of death
@@ -266,6 +283,32 @@ def _normalize_month_word(word: str) -> str:
     return w
 
 
+_MONTH_ALT = "|".join(sorted(MONTHS, key=len, reverse=True))
+_DATE_BLOB_RE = re.compile(
+    rf"(?<!\d)(\d{{1,2}})\s+({_MONTH_ALT})\s+(\d{{4}})\b"
+)
+
+
+def _insert_month_spaces(text: str) -> str:
+    """Turn 'March2025' / '10January' into spaced date parts."""
+    n = _norm_text(text)
+    for month in sorted(MONTHS, key=len, reverse=True):
+        n = re.sub(rf"(?<=\d)({month})", r" \1", n)
+        n = re.sub(rf"({month})(?=\d)", r"\1 ", n)
+    return re.sub(r"\s+", " ", n).strip()
+
+
+def _parse_date_from_blob(text: str) -> str:
+    """Read Form 103 dates even when OCR glues month and year together."""
+    n = _insert_month_spaces(text)
+    n = re.sub(r"\b(DAY|MONTH|YEAR|DATE|OF|DEATH|BIRTH)\b", " ", n)
+    n = re.sub(r"\s+", " ", n).strip()
+    m = _DATE_BLOB_RE.search(n)
+    if m:
+        return f"{m.group(1)} {m.group(2)} {m.group(3)}"
+    return ""
+
+
 def _normalize_date_text(text: str) -> str:
     text = _norm_text(text)
     parts = text.split()
@@ -295,6 +338,16 @@ def _extract_date_candidates(tokens):
         row = sorted(row, key=lambda x: x["x1"])
 
         for it in row:
+            parsed = _parse_date_from_blob(it["text"])
+            if parsed:
+                found.append(
+                    {
+                        "text": parsed,
+                        "x1": it["x1"],
+                        "y1": it["y1"],
+                    }
+                )
+                continue
             nt = _normalize_date_text(it["text"])
             if _is_full_date(nt):
                 found.append(
@@ -302,6 +355,19 @@ def _extract_date_candidates(tokens):
                         "text": nt,
                         "x1": it["x1"],
                         "y1": it["y1"],
+                    }
+                )
+
+        for i in range(len(row) - 1):
+            parsed = _parse_date_from_blob(
+                row[i]["text"] + " " + row[i + 1]["text"]
+            )
+            if parsed:
+                found.append(
+                    {
+                        "text": parsed,
+                        "x1": row[i]["x1"],
+                        "y1": min(row[i]["y1"], row[i + 1]["y1"]),
                     }
                 )
 
@@ -443,7 +509,7 @@ def _extract_name(items, img_w, img_h):
             best_name = text
             best_tuple = tup
 
-    return best_name
+    return _sanitize_person_name(best_name)
 
 
 def _extract_name_of_mother(items, img_w, img_h) -> str:
@@ -500,7 +566,7 @@ def _extract_name_of_mother(items, img_w, img_h) -> str:
         if text and _alpha_count(text) >= 4:
             nt = _norm_text(text)
             if nt not in STATUS_WORDS and nt not in {"FILIPINO", "MALE", "FEMALE"}:
-                return _clean_text(text)
+                return _sanitize_person_name(text)
 
         region_below = _tokens_in_region(
             items,
@@ -518,7 +584,7 @@ def _extract_name_of_mother(items, img_w, img_h) -> str:
         if text and _alpha_count(text) >= 4:
             nt = _norm_text(text)
             if nt not in STATUS_WORDS and nt not in {"FILIPINO", "MALE", "FEMALE"}:
-                return _clean_text(text)
+                return _sanitize_person_name(text)
 
     # Fallback: row below father's name when mother label OCR fails.
     if father_label:
@@ -538,34 +604,12 @@ def _extract_name_of_mother(items, img_w, img_h) -> str:
         if text and _alpha_count(text) >= 4:
             nt = _norm_text(text)
             if nt not in STATUS_WORDS and nt not in {"FILIPINO", "MALE", "FEMALE"}:
-                return _clean_text(text)
+                return _sanitize_person_name(text)
 
     return ""
 
 
 def _extract_sex(items, img_w, img_h):
-    def _to_sex_value(text: str) -> str:
-        nt = _norm_text(text)
-        if not nt:
-            return ""
-        # Direct forms
-        if nt in {"MALE", "M"}:
-            return "MALE"
-        if nt in {"FEMALE", "F"}:
-            return "FEMALE"
-        # OCR-noisy forms
-        if nt in {"FENALE", "FEMAIE", "FEM ALE", "FE MALE"}:
-            return "FEMALE"
-        if nt in {"MAL E", "MAI E"}:
-            return "MALE"
-        # Fuzzy fallback
-        joined = nt.replace(" ", "")
-        if joined:
-            m = difflib.get_close_matches(joined, ["MALE", "FEMALE"], n=1, cutoff=0.72)
-            if m:
-                return m[0]
-        return ""
-
     region = _tokens_in_region(
         items,
         img_w * 0.72,
@@ -574,18 +618,10 @@ def _extract_sex(items, img_w, img_h):
         img_h * 0.17,
         min_score=0.30,
     )
-    # First pass: strict+fuzzy in expected sex field box
-    best_local = ""
-    best_local_score = -1.0
-    for it in region:
-        sv = _to_sex_value(it["text"])
-        if sv and it["score"] > best_local_score:
-            best_local = sv
-            best_local_score = it["score"]
-    if best_local:
-        return best_local
+    value = sex_from_tokens(region)
+    if value:
+        return value
 
-    # Second pass: anchor on SEX label then read tokens to its right
     sex_label = _find_label(
         items,
         required_any=["SEX"],
@@ -601,45 +637,52 @@ def _extract_sex(items, img_w, img_h):
             sex_label["x2"] + 2,
             img_w * 0.98,
             sex_label["y1"] - 10,
-            sex_label["y2"] + 18,
+            sex_label["y2"] + 28,
             min_score=0.20,
         )
-        best_near = ""
-        best_near_score = -1.0
-        for it in near:
-            sv = _to_sex_value(it["text"])
-            if sv and it["score"] > best_near_score:
-                best_near = sv
-                best_near_score = it["score"]
-        if best_near:
-            return best_near
+        value = sex_from_tokens(near) or sex_from_ocr_text(
+            " ".join(it["text"] for it in [sex_label, *near])
+        )
+        if value:
+            return value
 
-    # Fallback: look anywhere on the page for a clear MALE/FEMALE token
-    best = ""
-    best_score = -1.0
-    for it in items:
-        sv = _to_sex_value(it["text"])
-        if sv and it["score"] > best_score:
-            best = sv
-            best_score = it["score"]
-    return best
+    value = sex_from_tokens(items)
+    return value
+
+
+def _extract_date_in_region(items, xmin, xmax, ymin, ymax) -> str:
+    """Read a Form 103 date from one write-in cell, including glued OCR tokens."""
+    cell = _tokens_in_region(items, xmin, xmax, ymin, ymax, min_score=0.22)
+    if not cell:
+        return ""
+    cell.sort(key=lambda it: (it["x1"], it["cy"]))
+    for it in cell:
+        parsed = _parse_date_from_blob(it["text"])
+        if parsed:
+            return parsed
+    for i in range(len(cell) - 1):
+        parsed = _parse_date_from_blob(cell[i]["text"] + " " + cell[i + 1]["text"])
+        if parsed:
+            return parsed
+    return _parse_date_from_blob(" ".join(it["text"] for it in cell))
 
 
 def _extract_dates_and_age(items, img_w, img_h):
-    top_band = _tokens_in_region(
+    # Item 3 is the left cell; item 4 (birth) is center. Keep them separate.
+    date_of_death = _extract_date_in_region(
         items,
-        img_w * 0.05,
-        img_w * 0.62,
-        img_h * 0.13,
-        img_h * 0.20,
-        min_score=0.30,
+        img_w * 0.04,
+        img_w * 0.33,
+        img_h * 0.156,
+        img_h * 0.195,
     )
-
-    dates = _extract_date_candidates(top_band)
-    dates = sorted(dates, key=lambda d: d["x1"])
-
-    date_of_death = dates[0]["text"] if len(dates) >= 1 else ""
-    date_of_birth = dates[-1]["text"] if len(dates) >= 2 else ""
+    date_of_birth = _extract_date_in_region(
+        items,
+        img_w * 0.33,
+        img_w * 0.56,
+        img_h * 0.156,
+        img_h * 0.195,
+    )
 
     age_region = _tokens_in_region(
         items,
@@ -651,18 +694,29 @@ def _extract_dates_and_age(items, img_w, img_h):
     )
 
     age_candidates = []
-    target_x = img_w * 0.64
+    target_x = img_w * 0.66
 
     for it in age_region:
+        parsed = _parse_completed_age(it["text"])
+        if parsed:
+            age_candidates.append(
+                (
+                    0 if re.search(r"YEAR|YRS", _norm_text(it["text"])) else 1,
+                    abs(it["cx"] - target_x),
+                    -it["score"],
+                    parsed,
+                )
+            )
+            continue
         nt = _norm_text(it["text"])
         if re.fullmatch(r"\d{1,3}", nt):
             val = int(nt)
             if 0 <= val <= 130:
                 age_candidates.append(
                     (
+                        1,
                         abs(it["cx"] - target_x),
                         -it["score"],
-                        it["x1"],
                         nt,
                     )
                 )
@@ -673,6 +727,145 @@ def _extract_dates_and_age(items, img_w, img_h):
         age = age_candidates[0][3]
 
     return date_of_death, date_of_birth, age
+
+
+_MONTH_WORD_RE = re.compile(
+    r"\b(?:JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER)\b"
+)
+_AGE_WITH_UNIT_RE = re.compile(r"(?<!\d)(\d{1,3})\s*(YEARS?|YRS)\b")
+
+
+def _parse_completed_age(text: str) -> str:
+    """Read '55', '55 Years', or '55Years' from Form 103 item 5 (1 year or above)."""
+    n = _norm_text(text)
+    if not n or _MONTH_WORD_RE.search(n) or re.search(r"\b(?:19|20)\d{2}\b", n):
+        return ""
+    # Printed prompt "If 1 year or above" — never treat bare 1 as age.
+    if re.search(r"\b1\s*(YEAR|YRS?)?\s*(OR\s+)?ABOVE\b", n) or re.search(
+        r"\bIF\s+1\b", n
+    ):
+        n = re.sub(r"\bIF\s+1\s*(YEAR|YRS?)?\s*(OR\s+)?ABOVE\b", " ", n)
+        n = re.sub(r"\b1\s*(YEAR|YRS?)?\s*(OR\s+)?ABOVE\b", " ", n)
+        n = re.sub(r"\s+", " ", n).strip()
+    hits = []
+    for m in _AGE_WITH_UNIT_RE.finditer(n):
+        val = int(m.group(1))
+        after = n[m.end() : m.end() + 18].strip()
+        before = n[max(0, m.start() - 18) : m.start()]
+        if val == 1 and (after.startswith("OR") or "ABOVE" in after[:18] or "UNDER" in before):
+            continue
+        if 0 <= val <= 130:
+            hits.append((2, val))
+    if hits:
+        hits.sort(reverse=True)
+        return str(hits[0][1])
+    for m in re.finditer(r"(?:YEARS?|YRS)\s+(\d{1,3})\b", n):
+        val = int(m.group(1))
+        if 1 <= val <= 130:
+            return str(val)
+    if re.fullmatch(r"\d{1,3}", n):
+        val = int(n)
+        # Bare "1" is almost always the printed "If 1 year or above" label.
+        if val == 1:
+            return ""
+        if 2 <= val <= 130:
+            return str(val)
+    return ""
+
+
+def _extract_age(items, img_w, img_h) -> str:
+    """
+    Form 103 item 5: Age at the time of death, 'If 1 year or above'.
+    Handwriting is often '55 Years' as one OCR line, not a bare '55'.
+    """
+    band = [
+        it
+        for it in items
+        if it.get("score", 0) >= 0.22
+        and img_h * 0.08 <= it["cy"] <= img_h * 0.32
+        and it["cx"] >= img_w * 0.42
+    ]
+    band.sort(key=lambda it: (it["cy"], it["x1"]))
+
+    unit_hits = []
+    for it in band:
+        parsed = _parse_completed_age(it["text"])
+        if not parsed:
+            continue
+        n = _norm_text(it["text"])
+        if _AGE_WITH_UNIT_RE.search(n):
+            unit_hits.append((it["score"], parsed))
+    if unit_hits:
+        unit_hits.sort(reverse=True)
+        return unit_hits[0][1]
+
+    for i, it in enumerate(band):
+        if i + 1 >= len(band):
+            break
+        nxt = band[i + 1]
+        if abs(it["cy"] - nxt["cy"]) > img_h * 0.03:
+            continue
+        parsed = _parse_completed_age(it["text"] + " " + nxt["text"])
+        if parsed:
+            return parsed
+
+    age_label = _find_label(
+        items,
+        required_all=["AGE"],
+        forbidden=["MARRIAGE", "PARENTS"],
+        x_min=img_w * 0.48,
+        x_max=img_w,
+        y_min=img_h * 0.10,
+        y_max=img_h * 0.28,
+        min_score=0.22,
+    )
+    above_label = _find_label(
+        items,
+        required_any=["ABOVE"],
+        x_min=img_w * 0.50,
+        x_max=img_w,
+        y_min=img_h * 0.12,
+        y_max=img_h * 0.28,
+        min_score=0.22,
+    )
+    anchor = age_label or above_label
+    if anchor:
+        region = _tokens_in_region(
+            items,
+            max(0.0, anchor["x1"] - img_w * 0.04),
+            min(float(img_w), max(anchor["x2"], img_w * 0.82)),
+            anchor["y1"] - img_h * 0.01,
+            min(float(img_h), anchor["y2"] + img_h * 0.09),
+            min_score=0.22,
+        )
+        for it in region:
+            parsed = _parse_completed_age(it["text"])
+            if parsed and parsed != "1":
+                return parsed
+        for i, it in enumerate(region):
+            if i + 1 >= len(region):
+                break
+            parsed = _parse_completed_age(it["text"] + " " + region[i + 1]["text"])
+            if parsed:
+                return parsed
+
+    value_cell = _tokens_in_region(
+        items,
+        img_w * 0.52,
+        img_w * 0.86,
+        img_h * 0.14,
+        img_h * 0.26,
+        min_score=0.22,
+    )
+    cell_hits = []
+    for it in value_cell:
+        parsed = _parse_completed_age(it["text"])
+        if parsed and parsed != "1":
+            cell_hits.append((it["score"], parsed))
+    if cell_hits:
+        cell_hits.sort(reverse=True)
+        return cell_hits[0][1]
+    return ""
 
 
 def _extract_place_of_birth(items, img_w, img_h):
@@ -736,34 +929,91 @@ def _strip_place_of_death_instruction(text: str) -> str:
     """Remove the field label/instruction so only the actual place remains."""
     if not text or not text.strip():
         return ""
-    # Work with normalized text (only letters/digits/spaces)
     t = _norm_text(text)
-
-    # Drop leading item number, e.g. "6. "
     t = re.sub(r"^\d+\.?\s*", "", t)
-
-    # Remove the "PLACE OF DEATH" label itself
     t = re.sub(r"\bPLACE\s+OF\s+DEATH\b", " ", t, flags=re.I)
-
-    # Remove the long instruction block that often appears instead of data:
-    # "NAME OF HOSPITAL INSTITUTION HOUSE NO ST BARANGAY CITY MUNICIPALITY PROVINCE"
     t = re.sub(
-        r"NAME\s+OF\s+HOSPITAL\s+INSTITUTION\s+HOUSE\s+NO\s+ST(?:REET)?\s+BARANGAY\s+CITY\s+MUNICIPALITY\s+PROVINCE",
+        r"NAME\s+OF\s+HOSPITAL\s*(?:/?\s*CLINIC)?\s*(?:/?\s*INSTITUTION)?\s*(?:/?\s*HOUSE)?\b[A-Z0-9 /]*",
         " ",
         t,
         flags=re.I,
     )
-
-    # Be defensive and also strip shorter variants if they appear
     t = re.sub(
-        r"NAME\s+OF\s+HOSPITAL\s+INSTITUTION\s+HOUSE\s+NO\s+ST(?:REET)?",
+        r"\bHOSPITAL\s*/?\s*CLINIC\s*/?\s*INSTITUTION\s*/?\s*HOUSE\b[A-Z0-9 /]*",
         " ",
         t,
         flags=re.I,
     )
+    t = re.sub(
+        r"\b(?:HOUSE\s+NO|STREET|BARANGAY|CITY|MUNICIPALITY|PROVINCE)\b",
+        " ",
+        t,
+        flags=re.I,
+    )
+    t = re.sub(r"\s+", " ", t).strip(" .:-,/")
+    words = [w for w in t.split() if w]
+    form_tokens = {
+        "HOSPITAL", "CLINIC", "INSTITUTION", "HOUSE", "STREET", "BARANGAY",
+        "CITY", "MUNICIPALITY", "PROVINCE", "NAME", "PLACE", "DEATH", "NO", "ST",
+    }
+    if not words:
+        return ""
+    formish = sum(1 for w in words if w in form_tokens)
+    if formish >= max(2, len(words) - 1):
+        return ""
+    return t if _alpha_count(t) >= 4 else ""
 
-    t = re.sub(r"\s+", " ", t).strip(" .:-,")
-    return t.strip() if _alpha_count(t) >= 2 else ""
+
+def _sanitize_person_name(text: str) -> str:
+    """Drop form chrome that sticks to deceased/mother name rows."""
+    raw = _clean_text(text or "")
+    if not raw:
+        return ""
+    # Cut off common Form 103 instruction tails.
+    raw = re.split(
+        r"(?i)\b(?:fill\s+in|typewrite|print\s+in|write\s+in|use\s+black)\b",
+        raw,
+        maxsplit=1,
+    )[0]
+    parts = []
+    for tok in re.sub(r"[:;|/]+", " ", raw).split():
+        nt = _norm_text(tok)
+        if not nt or nt in NAME_BANNED or nt in MONTHS:
+            continue
+        if nt in {"AT", "OF", "THE", "AND", "BY", "IN", "OR"}:
+            continue
+        if re.fullmatch(r"\d+", nt):
+            continue
+        if _alpha_count(tok) < 2:
+            continue
+        parts.append(tok.upper() if tok.isalpha() else tok)
+    while parts and _norm_text(parts[-1]) in {"AT", "OF", "THE", "AND", "BY", "IN"}:
+        parts.pop()
+    name = " ".join(parts).strip()
+    return name if _alpha_count(name) >= 4 else ""
+
+
+def _normalize_civil_status(text: str, sex: str = "") -> str:
+    """Map Widow/Widower → Widowed; ignore printed multi-option checklists."""
+    if not text:
+        return ""
+    stripped = re.sub(r"\([^)]*\)", " ", text)
+    n = _norm_text(stripped)
+    hits = []
+    for key, canon in STATUS_ALIASES.items():
+        if re.search(rf"\b{key}\b", n):
+            if canon not in hits:
+                hits.append(canon)
+    if len(hits) != 1:
+        return ""
+    status = hits[0]
+    sex_n = _norm_text(sex)
+    # Soft gender consistency (do not invent a different status).
+    if sex_n in {"FEMALE", "F"} and status == "WIDOWED":
+        return "Widowed"
+    if sex_n in {"MALE", "M"} and status == "WIDOWED":
+        return "Widowed"
+    return status.title() if status != "WIDOWED" else "Widowed"
 
 
 def _is_date_text(text: str) -> bool:
@@ -931,10 +1181,38 @@ def _extract_civil_status(items, img_w, img_h):
         img_w * 0.72,
         img_w * 0.95,
         img_h * 0.17,
-        img_h * 0.22,
-        min_score=0.30,
+        img_h * 0.24,
+        min_score=0.25,
     )
-    return _best_exact_choice(region, STATUS_WORDS)
+    # Prefer a single write-in token, not the printed Single/Married/Widow/... line.
+    best = ""
+    best_score = -1.0
+    for it in region:
+        status = _normalize_civil_status(it["text"])
+        if status and it["score"] > best_score:
+            # Skip rows that still look like the printed option list.
+            if "/" in it["text"] or it["text"].count("(") + it["text"].count(")") >= 2:
+                continue
+            best = status
+            best_score = it["score"]
+    if best:
+        return best
+    joined = _join_tokens(region)
+    return _normalize_civil_status(joined)
+
+
+def _best_status_anywhere(items) -> str:
+    """Fallback for civil status if the fixed region misses it."""
+    best = ""
+    best_score = -1.0
+    for it in items:
+        if "/" in (it.get("text") or ""):
+            continue
+        status = _normalize_civil_status(it["text"])
+        if status and it["score"] > best_score:
+            best = status
+            best_score = it["score"]
+    return best
 
 
 def _extract_nationality(items, img_w, img_h):
@@ -1071,58 +1349,106 @@ def _extract_nationality(items, img_w, img_h):
 
 
 def _extract_cause_of_death(items, img_w, img_h):
-    immediate_label = _find_label(
-        items,
-        required_all=["IMMEDIATE", "CAUSE"],
-        x_min=0,
-        x_max=img_w * 0.30,
-        y_min=img_h * 0.26,
-        y_max=img_h * 0.35,
-    )
+    """
+    Read medical causes from Form 103 (19a Immediate / 19b Antecedent / 19c Underlying).
+    Do not harvest mother-section lines such as 10b/10c (children still living).
+    """
+    cause_ban = [
+        "IMMEDIATE", "CAUSE", "ANTECEDENT", "UNDERLYING", "INTERVAL",
+        "ONSET", "DEATH", "EXTERNAL", "MATERNAL", "AUTOPSY", "MEDICAL",
+        "CERTIFICATE", "PREGNANT", "LABOUR", "LABOR", "DELIVERY",
+        "ACCOMPLISH", "FOR AGES", "CHILDREN", "OCCUPATION", "RESIDENCE",
+        "ATTENDANT", "HILOT", "PHYSICIAN", "MIDWIFE",
+    ]
 
-    if immediate_label:
+    def _value_near_label(label, extra_bottom=42, x2_ratio=0.82):
+        if not label:
+            return ""
+        left = max(label["x2"] + 8, img_w * 0.18)
+        if left >= img_w * (x2_ratio - 0.05):
+            left = img_w * 0.20
         region = _tokens_in_region(
             items,
-            immediate_label["x2"] + 15,
-            img_w * 0.72,
-            immediate_label["y1"] - 8,
-            immediate_label["y2"] + 12,
-            min_score=0.30,
+            left,
+            img_w * x2_ratio,
+            label["y1"] - 8,
+            label["y2"] + extra_bottom,
+            min_score=0.22,
         )
         text = _choose_best_row(
             region,
-            banned_words=["IMMEDIATE", "CAUSE", "ANTECEDENT", "UNDERLYING", "INTERVAL"],
-            prefer_y=immediate_label["cy"],
+            banned_words=cause_ban,
+            prefer_y=label["cy"],
         )
-        text = re.sub(r"^\bA\b\s*", "", text, flags=re.I).strip(" .:-")
-        if text:
-            return text
+        text = re.sub(r"^\b[ABC]\b\s*", "", text, flags=re.I).strip(" .:-")
+        return text if is_plausible_cause_of_death(text) else ""
 
+    band_top = img_h * 0.22
+    band_bot = img_h * 0.72
+    left = img_w * 0.02
+    mid = img_w * 0.62
+
+    immediate_label = _find_label(
+        items,
+        required_any=["IMMEDIATE"],
+        x_min=left,
+        x_max=mid,
+        y_min=band_top,
+        y_max=band_bot,
+        min_score=0.18,
+    )
+    antecedent_label = _find_label(
+        items,
+        required_any=["ANTECEDENT"],
+        x_min=left,
+        x_max=mid,
+        y_min=band_top,
+        y_max=band_bot,
+        min_score=0.18,
+    )
+    underlying_label = _find_label(
+        items,
+        required_any=["UNDERLYING"],
+        x_min=left,
+        x_max=mid,
+        y_min=band_top,
+        y_max=band_bot,
+        min_score=0.18,
+    )
     cause_label = _find_label(
         items,
         required_all=["CAUSE", "DEATH"],
         forbidden=["EXTERNAL"],
-        x_min=0,
-        x_max=img_w * 0.50,
-        y_min=img_h * 0.26,
-        y_max=img_h * 0.35,
+        x_min=left,
+        x_max=mid,
+        y_min=band_top,
+        y_max=band_bot,
+        min_score=0.18,
     )
+
+    parts = []
+    for label in (immediate_label, antecedent_label, underlying_label):
+        val = _value_near_label(label)
+        if val and val not in parts:
+            parts.append(val)
+    if parts:
+        return "; ".join(parts)
 
     if cause_label:
         region = _tokens_in_region(
             items,
-            img_w * 0.30,
-            img_w * 0.72,
-            cause_label["y1"] - 5,
-            cause_label["y2"] + 25,
-            min_score=0.30,
+            img_w * 0.16,
+            img_w * 0.82,
+            cause_label["y1"] - 4,
+            cause_label["y2"] + 48,
+            min_score=0.22,
         )
         text = _choose_best_row(
             region,
-            banned_words=["CAUSE", "DEATH", "INTERVAL", "EXTERNAL", "PLACE OF OCCURENCE"],
-            prefer_y=cause_label["cy"] + 8,
+            banned_words=cause_ban + ["PLACE OF OCCURENCE"],
+            prefer_y=cause_label["cy"] + 10,
         )
-        if text:
+        if is_plausible_cause_of_death(text):
             return text
 
     return ""
@@ -1130,10 +1456,24 @@ def _extract_cause_of_death(items, img_w, img_h):
 
 def _extract_date_of_registration(items, img_w, img_h) -> str:
     """
-    Try to read Date of Registration from the upper-right area.
-    Common layout places this near the registry number.
+    Form 103 puts the registrar date at items 28/29 near the bottom.
+    Some older scans also write it near the registry number at the top.
     """
-    region = _tokens_in_region(
+    bottom = _tokens_in_region(
+        items,
+        img_w * 0.08,
+        img_w * 0.96,
+        img_h * 0.70,
+        img_h * 0.94,
+        min_score=0.25,
+    )
+    dates = _extract_date_candidates(bottom)
+    if dates:
+        dates.sort(key=lambda d: (d["x1"], d["y1"]))
+        right = [d for d in dates if d.get("x1", 0) >= img_w * 0.42]
+        return (right[-1] if right else dates[-1])["text"]
+
+    top = _tokens_in_region(
         items,
         img_w * 0.45,
         img_w * 0.98,
@@ -1141,51 +1481,16 @@ def _extract_date_of_registration(items, img_w, img_h) -> str:
         img_h * 0.22,
         min_score=0.25,
     )
-    dates = _extract_date_candidates(region)
+    dates = _extract_date_candidates(top)
     if not dates:
         return ""
     dates.sort(key=lambda d: d["x1"])
-    # Usually the registration date is farther to the right in the top band.
     return dates[-1]["text"]
 
 
-def _best_status_anywhere(items) -> str:
-    """Fallback for civil status if the fixed region misses it."""
-    best = ""
-    best_score = -1.0
-    for it in items:
-        nt = _norm_text(it["text"])
-        if nt in STATUS_WORDS and it["score"] > best_score:
-            best = nt
-            best_score = it["score"]
-    return best
-
-
 def _extract_age_anywhere(items, img_w, img_h) -> str:
-    """
-    Fallback age detector: look in the upper-middle section for 1-3 digit values.
-    Keeps realistic human ages only.
-    """
-    region = _tokens_in_region(
-        items,
-        img_w * 0.45,
-        img_w * 0.82,
-        img_h * 0.10,
-        img_h * 0.26,
-        min_score=0.25,
-    )
-    candidates = []
-    for it in region:
-        nt = _norm_text(it["text"])
-        if not re.fullmatch(r"\d{1,3}", nt):
-            continue
-        val = int(nt)
-        if 0 <= val <= 130:
-            candidates.append((it["score"], -abs(it["cx"] - (img_w * 0.64)), nt))
-    if not candidates:
-        return ""
-    candidates.sort(reverse=True)
-    return candidates[0][2]
+    """Fallback: any completed-age phrase in the upper right of Form 103."""
+    return _extract_age(items, img_w, img_h)
 
 
 def _extract_nationality_anywhere(items, img_w, img_h) -> str:
@@ -1254,7 +1559,11 @@ def _field_confidence(field_name: str, value: str, source: str = "layout") -> st
         if re.fullmatch(r"[A-Z0-9]{2,10}[-/][A-Z0-9]{2,10}", compact):
             return "HIGH"
         return "MEDIUM"
-    if field_name in {"Name of Deceased", "Name of Mother", "Place of Death", "Cause of Death", "Civil Status", "Nationality"}:
+    if field_name == "Cause of Death":
+        return "HIGH" if is_plausible_cause_of_death(v) and _alpha_count(v) >= 6 else (
+            "MEDIUM" if is_plausible_cause_of_death(v) else "LOW"
+        )
+    if field_name in {"Name of Deceased", "Name of Mother", "Place of Death", "Civil Status", "Nationality"}:
         return "HIGH" if _alpha_count(v) >= 4 else "MEDIUM"
     return "MEDIUM"
 
@@ -1272,6 +1581,11 @@ def extract_death_data(img_path: str) -> Dict[str, Any]:
 
     img_h, img_w = img.shape[:2]
     result = run_ocr_on_image(img)
+    box_map: Dict[str, str] = {}
+    try:
+        box_map = extract_field_boxes(img, "death", pages=result)
+    except Exception:
+        box_map = {}
 
     # Template-first extraction (folder-based JSON templates).
     # Merge mode: fill blanks using templates, then keep existing extractor as primary.
@@ -1309,27 +1623,37 @@ def extract_death_data(img_path: str) -> Dict[str, Any]:
 
     registry_number = _extract_registry_number(items, img_w, img_h)
     date_of_registration = _extract_date_of_registration(items, img_w, img_h)
-    name_of_deceased = _extract_name(items, img_w, img_h)
+    name_of_deceased = _sanitize_person_name(_extract_name(items, img_w, img_h))
     sex = _extract_sex(items, img_w, img_h)
     date_of_death, _, age = _extract_dates_and_age(items, img_w, img_h)
-    place_of_death = _extract_place_of_death(items, img_w, img_h)
-    civil_status = _extract_civil_status(items, img_w, img_h)
+    extracted_age = _extract_age(items, img_w, img_h)
+    if extracted_age:
+        age = extracted_age
+    place_of_death = _strip_place_of_death_instruction(
+        _extract_place_of_death(items, img_w, img_h)
+    )
+    civil_status = _normalize_civil_status(
+        _extract_civil_status(items, img_w, img_h), sex
+    )
     nationality = _extract_nationality(items, img_w, img_h)
-    name_of_mother = _extract_name_of_mother(items, img_w, img_h)
+    name_of_mother = _sanitize_person_name(_extract_name_of_mother(items, img_w, img_h))
     cause_of_death = _extract_cause_of_death(items, img_w, img_h)
 
     # Global fallbacks for fields that often become blank on noisy scans.
     if not age:
         age = _extract_age_anywhere(items, img_w, img_h)
     if not civil_status:
-        civil_status = _best_status_anywhere(items)
+        civil_status = _normalize_civil_status(_best_status_anywhere(items), sex)
     if not nationality:
         nationality = _extract_nationality_anywhere(items, img_w, img_h)
     if not date_of_death:
-        all_dates = _extract_date_candidates(items)
-        if all_dates:
-            all_dates.sort(key=lambda d: (d["y1"], d["x1"]))
-            date_of_death = all_dates[0]["text"]
+        date_of_death = _extract_date_in_region(
+            items,
+            img_w * 0.04,
+            img_w * 0.33,
+            img_h * 0.145,
+            img_h * 0.210,
+        )
     if not date_of_registration:
         # Final fallback: pick a top-right date if present.
         top_right = _tokens_in_region(items, img_w * 0.50, img_w * 0.98, 0, img_h * 0.25, min_score=0.25)
@@ -1355,7 +1679,57 @@ def extract_death_data(img_path: str) -> Dict[str, Any]:
     # Fill missing values with template results (if any).
     for k, v in (tpl_map or {}).items():
         if v and not (out.get(k) or "").strip():
+            if k == "Cause of Death" and not is_plausible_cause_of_death(v):
+                continue
+            if k == "Date of Death" and not (_is_full_date(v) or re.search(r"\d{4}", v or "")):
+                continue
             out[k] = v
+    for k, v in (box_map or {}).items():
+        if not v:
+            continue
+        if k == "Cause of Death" and not is_plausible_cause_of_death(v):
+            continue
+        if k in {"Date of Death", "Date of Registration"}:
+            if not (_is_full_date(v) or re.search(r"\d{4}", v or "")):
+                continue
+            existing = (out.get(k) or "").strip()
+            if existing and _is_full_date(existing) and not _is_full_date(v):
+                continue
+        if k == "Age":
+            parsed_age = _parse_completed_age(v)
+            if not parsed_age:
+                continue
+            v = parsed_age
+        if k in {"Name of Deceased", "Name of Mother"}:
+            v = _sanitize_person_name(v)
+            if not v:
+                continue
+        if k == "Place of Death":
+            v = _strip_place_of_death_instruction(v)
+            if not v:
+                continue
+        if k == "Civil Status":
+            v = _normalize_civil_status(v, out.get("Sex") or sex)
+            if not v:
+                continue
+        out[k] = v
+    # Final hygiene after box/template merges.
+    if out.get("Name of Deceased"):
+        out["Name of Deceased"] = _sanitize_person_name(out["Name of Deceased"])
+    if out.get("Name of Mother"):
+        out["Name of Mother"] = _sanitize_person_name(out["Name of Mother"])
+    if out.get("Place of Death"):
+        out["Place of Death"] = _strip_place_of_death_instruction(out["Place of Death"])
+    if out.get("Civil Status"):
+        out["Civil Status"] = _normalize_civil_status(
+            out["Civil Status"], out.get("Sex") or ""
+        )
+    if out.get("Age"):
+        out["Age"] = _parse_completed_age(out["Age"]) or (
+            out["Age"] if re.fullmatch(r"\d{1,3}", _norm_text(out["Age"] or "")) and _norm_text(out["Age"]) != "1" else ""
+        )
+    if out.get("Cause of Death") and not is_plausible_cause_of_death(out["Cause of Death"]):
+        out["Cause of Death"] = ""
     ordered_fields = [
         "Registry Number",
         "Date of Registration",
@@ -1373,12 +1747,15 @@ def extract_death_data(img_path: str) -> Dict[str, Any]:
     source_map: Dict[str, str] = {}
     for key in ordered_fields:
         val = (out.get(key) or "").strip()
-        is_template_fill = (
-            not (before_template.get(key) or "").strip()
-            and bool(val)
-            and bool((tpl_map or {}).get(key))
-        )
-        source = "template" if is_template_fill else "layout"
+        if (box_map or {}).get(key) and val:
+            source = "box"
+        else:
+            is_template_fill = (
+                not (before_template.get(key) or "").strip()
+                and bool(val)
+                and bool((tpl_map or {}).get(key))
+            )
+            source = "template" if is_template_fill else "layout"
         source_map[key] = source
         confidence_map[key] = _field_confidence(key, val, source=source)
     out["__confidence__"] = confidence_map

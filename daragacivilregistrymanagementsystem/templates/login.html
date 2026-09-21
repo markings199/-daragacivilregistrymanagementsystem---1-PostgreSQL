@@ -14,6 +14,7 @@
     <title>Log in – Municipal Civil Registry of Daraga, Albay</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#002080" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/flash.css') }}" />
     <style>
       :root {
         --brand-blue: #002080;
@@ -333,9 +334,36 @@
             </div>
           </header>
           <div class="login-card-inner">
-            {% with messages = get_flashed_messages() %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
-                {% for msg in messages %}<div class="flash" role="alert">{{ msg }}</div>{% endfor %}
+                {% for category, msg in messages %}
+                  {% set ns = namespace(tone='info') %}
+                  {% set cat = (category or '')|lower %}
+                  {% set text = (msg or '')|lower %}
+                  {% if cat in ['success', 'error', 'warning', 'info'] %}
+                    {% set ns.tone = cat %}
+                  {% elif cat in ['danger', 'fatal'] %}
+                    {% set ns.tone = 'error' %}
+                  {% elif 'fail' in text or 'invalid' in text or 'incorrect' in text or 'required' in text %}
+                    {% set ns.tone = 'error' %}
+                  {% endif %}
+                  {% set tone = ns.tone %}
+                  <article class="app-toast app-toast--{{ tone }} app-toast--static" role="{{ 'alert' if tone == 'error' else 'status' }}">
+                    <span class="app-toast-ic" aria-hidden="true">
+                      {% if tone == 'success' %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                      {% elif tone == 'error' %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+                      {% else %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>
+                      {% endif %}
+                    </span>
+                    <div class="app-toast-copy">
+                      <p class="app-toast-kicker">{{ {'success': 'Done', 'error': 'Action needed', 'warning': 'Please check', 'info': 'Notice'}[tone] }}</p>
+                      <p class="app-toast-msg">{{ msg }}</p>
+                    </div>
+                  </article>
+                {% endfor %}
               {% endif %}
             {% endwith %}
 

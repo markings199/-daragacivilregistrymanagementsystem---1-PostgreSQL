@@ -1,0 +1,102 @@
+{# Read-only extracted metadata. Expects: fields, display_registry_number. Optional: record. #}
+{% set ns = namespace(used=[]) %}
+{% set doc = (record.document_type or '')|lower %}
+
+{% macro rd_field(key, label=none, extra_class='') %}
+  {% if key not in ns.used %}
+    {% set ns.used = ns.used + [key] %}
+  {% endif %}
+  {% set raw = display_registry_number if key == 'Registry Number' and display_registry_number else fields.get(key) %}
+  {% set shown = (raw|string).strip() if raw is not none else '' %}
+  {% set wide = key.startswith('Place of') or key in ['Cause of Death', 'Remarks'] %}
+  <div class="rd-meta-field {{ extra_class }}{% if wide %} rd-meta-field--wide{% endif %}{% if not shown %} is-empty{% endif %}">
+    <div class="rd-meta-label">{{ label or metadata_display_label(key) }}</div>
+    <div class="rd-meta-value">{{ shown if shown else '—' }}</div>
+  </div>
+{% endmacro %}
+
+<div class="rd-meta-grid">
+  {% if doc == 'marriage' %}
+    <div class="metadata-section-title">Shared</div>
+    {{ rd_field('Registry Number', extra_class='rd-meta-field--wide') }}
+    {{ rd_field('Date of Registration') }}
+    {{ rd_field('Date of Marriage') }}
+    {{ rd_field('Place of Marriage') }}
+
+    <div class="metadata-section-title">Husband</div>
+    <div class="rd-meta-name-row">
+      {{ rd_field('Husband Name') }}
+      {{ rd_field('Husband Age', label='Age') }}
+    </div>
+    {{ rd_field('Husband Citizenship') }}
+    {{ rd_field('Husband Civil Status') }}
+    {{ rd_field('Husband Father') }}
+    {{ rd_field('Husband Mother') }}
+
+    <div class="metadata-section-title">Wife</div>
+    <div class="rd-meta-name-row">
+      {{ rd_field('Wife Name') }}
+      {{ rd_field('Wife Age', label='Age') }}
+    </div>
+    {{ rd_field('Wife Citizenship') }}
+    {{ rd_field('Wife Civil Status') }}
+    {{ rd_field('Wife Father') }}
+    {{ rd_field('Wife Mother') }}
+
+  {% elif doc == 'death' %}
+    <div class="metadata-section-title">Record</div>
+    {{ rd_field('Registry Number') }}
+    {{ rd_field('Date of Registration') }}
+
+    <div class="metadata-section-title">Deceased</div>
+    <div class="rd-meta-name-row">
+      {{ rd_field('Name of Deceased') }}
+      {{ rd_field('Age') }}
+    </div>
+    {{ rd_field('Sex') }}
+    {{ rd_field('Civil Status') }}
+    {{ rd_field('Nationality') }}
+
+    <div class="metadata-section-title">Death</div>
+    {{ rd_field('Date of Death') }}
+    {{ rd_field('Place of Death') }}
+    {{ rd_field('Cause of Death') }}
+
+  {% elif doc == 'birth' %}
+    <div class="metadata-section-title">Record</div>
+    {{ rd_field('Registry Number') }}
+    {{ rd_field('Date of Registration') }}
+
+    <div class="metadata-section-title">Child</div>
+    <div class="rd-meta-name-row rd-meta-name-row--sex">
+      {{ rd_field('Name of Child') }}
+      {{ rd_field('Sex') }}
+    </div>
+    {{ rd_field('Date of Birth') }}
+    {{ rd_field('Place of Birth') }}
+
+    <div class="metadata-section-title">Mother</div>
+    {{ rd_field('Name of Mother') }}
+    {{ rd_field('Citizenship of Mother') }}
+
+    <div class="metadata-section-title">Father</div>
+    {{ rd_field('Name of Father') }}
+    {{ rd_field('Citizenship of Father') }}
+
+    <div class="metadata-section-title">Parents’ marriage</div>
+    {{ rd_field('Date of Marriage of Parents') }}
+    {{ rd_field('Place of Marriage of Parents') }}
+    {{ rd_field('Remarks') }}
+  {% endif %}
+
+  {% set other = namespace(shown=false) %}
+  {% for k in fields.keys() %}
+    {% if k not in ns.used %}
+      {% if not other.shown %}
+        <div class="metadata-section-title">{{ 'Other' if ns.used else 'Fields' }}</div>
+        {% set other.shown = true %}
+      {% endif %}
+      {{ rd_field(k) }}
+    {% endif %}
+  {% endfor %}
+</div>

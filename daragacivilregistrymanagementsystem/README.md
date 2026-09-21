@@ -73,9 +73,23 @@ This saves the **application only** (Python, templates, CSS)—not your scanned 
 
 ### 2. Data backup (records, scans, database)
 
-In the running app: **Administration** → **Backup & Restore** → create a **full ZIP backup** (PostgreSQL dump as `database.json` + uploads). Files are stored under `backups/` on your machine (never uploaded to GitHub).
+In the running app: **Administration** → **Automatic Backup**.
 
-You can also copy the whole project folder in File Explorer—include `uploads/`, `backups/`, and your PostgreSQL dump if you want a complete server copy.
+| Setting | Purpose |
+|--------|---------|
+| **Schedule On** + **Daily** | Runs every day at the time you choose (municipal priority) |
+| **Office server (priority)** | Shared folder on the Daraga server, e.g. `\\DARAGA-SERVER\CivilRegistryBackups` |
+| **This computer (safety copy)** | Always kept under `backups/` even if the server is offline |
+
+You can also set the server folder in `.env`:
+
+```
+DARAGA_BACKUP_ROOT=\\DARAGA-SERVER\CivilRegistryBackups
+```
+
+When the office path is set and reachable, each daily/monthly/yearly/full backup is **copied to the server first (priority)**, with a local safety copy retained. Use **Save schedule** after entering the path — the app tests write access and can sync existing zips to the server.
+
+Files under `backups/` are never uploaded to GitHub.
 
 ### What is safe to delete
 

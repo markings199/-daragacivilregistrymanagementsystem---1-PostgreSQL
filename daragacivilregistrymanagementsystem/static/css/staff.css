@@ -203,10 +203,11 @@ body.page-staff-requests .staff-requests-table .doc-type-short {
 }
 body.page-staff-requests .staff-requests-table .col-reason,
 body.page-staff-requests .staff-requests-table .col-reject {
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 18rem;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
+  vertical-align: top;
 }
 body.page-staff-requests .code-cell {
   font-variant-numeric: tabular-nums;
@@ -315,21 +316,15 @@ body.page-staff-requests .staff-print-requests-table .col-print-status {
   min-width: 132px;
   white-space: nowrap;
 }
-body.page-staff-requests .staff-print-requests-table .col-reason {
-  min-width: 0;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+body.page-staff-requests .staff-print-requests-table .col-reason,
 body.page-staff-requests .staff-print-requests-table .col-reject {
-  width: 88px;
-  max-width: 88px;
+  min-width: 0;
+  max-width: 18rem;
+  overflow: visible;
+  text-overflow: unset;
+  white-space: normal;
   font-size: 0.75rem;
   color: #64748b;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 body.page-staff-requests .staff-print-requests-table .col-actions {
   width: 108px;
@@ -549,5 +544,259 @@ body.page-record-detail .record-detail-page-grid .form-review-meta {
   body.page-form-review .form-review-actions .form-review-confirm {
     margin-left: 0;
     width: 100%;
+  }
+}
+
+/* Archived record — extracted metadata (read-only) */
+body.page-record-detail .rd-meta-head-aside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+body.page-record-detail .rd-meta-head-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+body.page-record-detail .rd-meta-head-chip--reg {
+  background: rgba(255, 255, 255, 0.2);
+  font-variant-numeric: tabular-nums;
+}
+body.page-record-detail .rd-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 14px;
+  row-gap: 0;
+  align-items: start;
+}
+@media (min-width: 720px) {
+  body.page-record-detail .rd-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+body.page-record-detail .rd-meta-grid .metadata-section-title {
+  grid-column: 1 / -1;
+}
+body.page-record-detail .rd-meta-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 10px;
+}
+body.page-record-detail .rd-meta-field--wide {
+  grid-column: 1 / -1;
+}
+body.page-record-detail .rd-meta-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  margin-bottom: 5px;
+}
+body.page-record-detail .rd-meta-value {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid #d7e0ec;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+body.page-record-detail .rd-meta-field.is-empty .rd-meta-value {
+  color: #94a3b8;
+  font-weight: 500;
+  background: #f1f5f9;
+  border-style: dashed;
+}
+body.page-record-detail .rd-meta-name-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
+  column-gap: 14px;
+  align-items: end;
+}
+body.page-record-detail .rd-meta-name-row--sex {
+  grid-template-columns: minmax(0, 1fr) 7.5rem;
+}
+body.page-record-detail .rd-meta-name-row .rd-meta-field:last-child .rd-meta-value {
+  justify-content: center;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+body.page-record-detail .rd-meta-annotation {
+  grid-column: 1 / -1;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 32, 128, 0.16);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f5fb 100%);
+}
+body.page-record-detail .rd-meta-annotation-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #002080;
+  margin-bottom: 8px;
+}
+body.page-record-detail .rd-meta-annotation .doc-annotation-stamp {
+  position: static;
+  top: auto;
+  left: auto;
+  right: auto;
+  z-index: auto;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+  font-size: 0.82rem;
+}
+body.page-record-detail .rd-meta-annotation .doc-annotation-text {
+  font-size: 0.82rem;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #1e293b;
+}
+body.page-record-detail .rd-meta-annotation .doc-annotation-sign {
+  margin-top: 8px;
+  text-align: left;
+}
+body.page-record-detail .rd-meta-annotation .doc-annotation-signatory,
+body.page-record-detail .rd-meta-annotation .doc-annotation-title {
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+}
+body.page-record-detail .annotation-admin-form {
+  margin: 4px 14px 0;
+  padding-top: 4px;
+}
+body.page-record-detail .annotation-admin-actions {
+  margin-top: 8px;
+}
+body.page-record-detail .record-detail-toolbar {
+  margin: 8px 12px 0;
+  flex-wrap: wrap;
+}
+body.page-record-detail .record-detail-toolbar .btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+body.page-record-detail .record-detail-print-slot {
+  margin: 12px 14px 0;
+}
+body.page-record-detail .record-detail-print-slot .print-panel {
+  margin-top: 0;
+}
+body.page-record-detail .record-print-block {
+  margin-top: 20px;
+}
+body.page-record-detail .record-print-block--surfaces-only {
+  margin-top: 0 !important;
+  padding: 0;
+  border: none;
+  min-height: 0;
+}
+body.page-record-detail .rd-code-card {
+  margin: 12px 14px 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(0, 32, 128, 0.14);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+body.page-record-detail .rd-code-card-title {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #002080;
+}
+body.page-record-detail .rd-code-card-hint {
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: #64748b;
+  font-weight: 600;
+}
+body.page-record-detail .rd-code-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 5px;
+}
+body.page-record-detail .rd-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+body.page-record-detail .rd-code-input {
+  width: 8.5rem;
+  padding: 8px 12px;
+  border: 1px solid #c7d4e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+body.page-record-detail .rd-code-input:focus {
+  outline: none;
+  border-color: #002080;
+  box-shadow: 0 0 0 3px rgba(0, 32, 128, 0.12);
+}
+body.page-record-detail .rd-code-form + .rd-code-form {
+  margin-top: 10px;
+}
+body.page-record-detail .record-detail-preview .scan-preview-viewer-inner {
+  margin: 0 12px 12px;
+  border-radius: 12px;
+}
+@media (max-width: 719px) {
+  body.page-record-detail .rd-meta-name-row,
+  body.page-record-detail .rd-meta-name-row--sex {
+    grid-template-columns: 1fr;
+  }
+  body.page-record-detail .rd-meta-name-row .rd-meta-field:last-child .rd-meta-value {
+    justify-content: flex-start;
+    text-align: left;
+  }
+}
+
+@media print {
+  .form-review-hero,
+  .no-print {
+    display: none !important;
   }
 }

@@ -12,6 +12,14 @@ os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 os.environ.setdefault("KMP_WARNINGS", "0")
 os.environ.setdefault("OMP_DISPLAY_ENV", "FALSE")
 os.environ.setdefault("WERKZEUG_DEBUG_PIN", "off")
+_cpu_n = os.cpu_count() or 4
+_ocr_threads = "2" if _cpu_n >= 4 else "1"
+os.environ.setdefault("OCR_CPU_THREADS", _ocr_threads)
+os.environ.setdefault("OMP_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("MKL_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("OPENBLAS_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("NUMEXPR_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("FLAGS_omp_num_threads", _ocr_threads)
 
 
 class _QuietConsole:
@@ -58,8 +66,13 @@ if not isinstance(sys.stdout, _QuietConsole):
 if not isinstance(sys.stderr, _QuietConsole):
     sys.stderr = _QuietConsole(sys.stderr)
 
+import atexit
+import base64
+import hashlib
+import hmac
 import random
 import re
+import secrets
 import shutil
 import threading
 import traceback
@@ -86,6 +99,8 @@ from services.auto_backup import (
     delete_auto_backup,
     delete_backup_run,
     ensure_backup_dir_writable,
+    clean_destination_path,
+    get_backup_readiness,
     init_auto_backup_scheduler,
     list_auto_backups,
     list_backup_history,
@@ -105,6 +120,15 @@ from services.auto_backup import (
 from ocr.birth import extract_birth_data
 from ocr.marriage import extract_marriage_data
 from ocr.death import extract_death_data
+from ocr.worker import (
+    get_result as _ocr_worker_get_result,
+    set_below_normal_priority,
+    start_ocr_worker,
+    stop_ocr_worker,
+    submit_detect_job,
+    submit_ocr_job,
+    worker_is_alive,
+)
 from services.certification_print import (
     cert_field,
     cert_issue_date,
@@ -118,6 +142,7 @@ from services.certification_print import (
 )
 from services.document_annotation import (
     FORM_KEYS as ANNOTATION_FORM_KEYS,
+    HIDDEN_METADATA_KEYS,
     KINDS as ANNOTATION_KINDS,
     apply_to_data as apply_annotation_to_data,
     form_defaults as annotation_form_defaults,
@@ -185,6 +210,14 @@ def _upload_file_path(rel: str) -> Path | None:
     except ValueError:
         return None
     return full
+
+
+def _existing_upload_relpath(rel: str) -> str:
+    """Return a safe uploads-relative path only if that file is still on disk."""
+    path = _upload_file_path(rel)
+    if path is None or not path.is_file():
+        return ""
+    return _normalize_upload_relpath(rel)
 
 
 def _flatten_nested_uploads() -> None:
@@ -285,6 +318,15 @@ DOCUMENT_TYPES = {
     "death": "Death Certificate",
 }
 
+DATE_FIELD_KEYS = {
+    "Date of Birth",
+    "Date of Death",
+    "Date of Marriage",
+    "Date of Registration",
+    "Date of Marriage of Parents",
+}
+SEX_FIELD_KEYS = {"Sex"}
+
 # JSON keys used for mother's name across document types (stored in Record.data_json).
 MOTHER_NAME_JSON_KEYS = (
     "Name of Mother",   # birth
@@ -377,7 +419,101 @@ def metadata_display_label(key: str) -> str:
     return METADATA_DISPLAY_LABELS.get(key or "", key or "")
 
 
+_FLASH_ERROR_MARKERS = (
+    "fail",
+    "invalid",
+    "blocked",
+    "not found",
+    "incorrect",
+    "could not",
+    "cannot",
+    "expired",
+    "not allowed",
+    "required",
+    "corrupted",
+    "unable",
+)
+_FLASH_SUCCESS_MARKERS = (
+    "saved",
+    "approved",
+    "created",
+    "updated",
+    "deleted",
+    "restored",
+    "accepted",
+    "sent",
+    "success",
+    "reset",
+    "copied",
+)
+_FLASH_TITLES = {
+    "success": "Done",
+    "error": "Action needed",
+    "warning": "Please check",
+    "info": "Notice",
+}
+
+
+def flash_tone(category: str | None, message: str | None = None) -> str:
+    cat = (category or "").strip().lower()
+    if cat in {"success", "error", "warning", "info"}:
+        return cat
+    if cat in {"danger", "fatal"}:
+        return "error"
+    text = (message or "").lower()
+    if any(marker in text for marker in _FLASH_ERROR_MARKERS):
+        return "error"
+    if any(marker in text for marker in _FLASH_SUCCESS_MARKERS):
+        return "success"
+    return "info"
+
+
+def flash_title(tone: str | None) -> str:
+    return _FLASH_TITLES.get((tone or "").strip().lower(), "Notice")
+
+
 app.jinja_env.globals["metadata_display_label"] = metadata_display_label
+app.jinja_env.globals["flash_tone"] = flash_tone
+app.jinja_env.globals["flash_title"] = flash_title
+app.jinja_env.globals["DATE_FIELD_KEYS"] = DATE_FIELD_KEYS
+app.jinja_env.globals["SEX_FIELD_KEYS"] = SEX_FIELD_KEYS
+
+
+def date_input_value(raw: str) -> str:
+    """Convert stored OCR dates into YYYY-MM-DD for <input type='date'>."""
+    from services.civil_registry_reports import split_date
+    day, month, year = split_date(raw or "")
+    if day and month and year and len(str(year)) == 4:
+        try:
+            return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+        except ValueError:
+            return ""
+    text = (raw or "").strip()
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", text):
+        return text
+    return ""
+
+
+app.jinja_env.globals["date_input_value"] = date_input_value
+
+
+def sex_choice(raw: str) -> str:
+    """Map OCR / stored sex text to Male or Female for radio buttons."""
+    from ocr.sex import sex_from_ocr_text
+    mapped = sex_from_ocr_text(raw or "")
+    if mapped:
+        return mapped
+    text = (raw or "").strip().upper()
+    if not text:
+        return ""
+    if text in {"M", "MALE", "LALAKE", "BOY"}:
+        return "Male"
+    if text in {"F", "FEMALE", "BABAE", "GIRL"}:
+        return "Female"
+    return ""
+
+
+app.jinja_env.globals["sex_choice"] = sex_choice
 
 
 @app.context_processor
@@ -399,6 +535,8 @@ def inject_template_globals():
         "annotation_form_defaults": annotation_form_defaults,
         "annotation_kinds": ANNOTATION_KINDS,
         "metadata_display_label": metadata_display_label,
+        "flash_tone": flash_tone,
+        "flash_title": flash_title,
     }
 
 
@@ -421,6 +559,11 @@ def login_required(f):
             session.clear()
             flash("Please log in to continue.")
             return redirect(url_for("login"))
+        expected = int(getattr(user, "session_version", 0) or 0)
+        if int(session.get("session_version") or 0) != expected:
+            session.clear()
+            flash("You were signed out. Please log in again.")
+            return redirect(url_for("login"))
         return f(*args, **kwargs)
 
     return wrapper
@@ -432,62 +575,136 @@ def get_current_user():
     return db.session.get(User, session["user_id"])
 
 
-def _parse_ocr_input_from_request():
-    doc_type = (request.form.get("document_type") or "").strip().lower()
-    if doc_type not in DOCUMENT_TYPES:
-        return None, None, None, "Please select a valid document type."
+def _parse_requested_doc_type():
+    raw = (request.form.get("document_type") or "").strip().lower()
+    if raw in DOCUMENT_TYPES:
+        return raw
+    if raw in ("", "auto"):
+        return "auto"
+    return None
 
+
+def _save_ocr_image_from_request():
     file = request.files.get("image")
     image_filename_form = (request.form.get("image_filename") or "").strip()
-    save_path = None
-    image_filename = ""
 
     if file and file.filename:
         ext = os.path.splitext(file.filename)[1].lower()
         if ext not in {".jpg", ".jpeg", ".png"}:
-            return None, None, None, "Only JPG and PNG images are supported."
-        subdir = UPLOAD_DIR / doc_type
+            return None, None, "Only JPG and PNG images are supported."
+        subdir = UPLOAD_DIR / "temp"
         subdir.mkdir(exist_ok=True)
         original_name = Path(file.filename).name
         stem = _sanitize_filename_part(Path(original_name).stem, 36)
         ext = os.path.splitext(original_name)[1].lower() or ".jpg"
-        save_path = subdir / f"{doc_type}_{uuid.uuid4().hex[:10]}_{stem}{ext}"
+        save_path = subdir / f"scan_{uuid.uuid4().hex[:10]}_{stem}{ext}"
         file.save(save_path)
-        image_filename = f"{doc_type}/{save_path.name}"
-    elif image_filename_form:
+        image_filename = f"temp/{save_path.name}"
+        return save_path, image_filename, None
+    if image_filename_form:
         safe_path = Path(image_filename_form)
         if safe_path.is_absolute() or ".." in image_filename_form:
-            return None, None, None, "Invalid image path."
+            return None, None, "Invalid image path."
         image_filename = _normalize_upload_relpath(image_filename_form)
         save_path = _upload_file_path(image_filename)
         if save_path is None or not save_path.exists():
-            return None, None, None, "Scanned image no longer found. Please scan again."
-    else:
-        return None, None, None, "Please scan from printer or choose an image file first."
+            return None, None, "Scanned image no longer found. Please scan again."
+        return save_path, image_filename, None
+    return None, None, "Please scan from printer or choose an image file first."
 
+
+def _parse_ocr_input_from_request():
+    doc_type = _parse_requested_doc_type()
+    if doc_type is None:
+        return None, None, None, "Please select a valid document type."
+    save_path, image_filename, err = _save_ocr_image_from_request()
+    if err:
+        return None, None, None, err
     return doc_type, save_path, image_filename, None
 
 
 def _set_ocr_job(job_id: str, **fields):
     with _OCR_JOBS_LOCK:
         job = _OCR_JOBS.get(job_id)
-        if not job:
+        if not job or job.get("status") == "cancelled":
             return
         job.update(fields)
+        job["updated_at"] = datetime.utcnow().isoformat()
 
 
-def _prune_ocr_jobs(max_age_hours: int = 2, max_jobs: int = 40):
-    """Drop finished OCR sessions so memory does not grow during a workday."""
-    cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+def _parse_job_time(value: str):
+    try:
+        return datetime.fromisoformat(value or "")
+    except (TypeError, ValueError):
+        return None
+
+
+def _job_display_progress(job: dict) -> int:
+    """Keep the percent moving while Paddle is still reading the page."""
+    try:
+        raw = int(job.get("progress") or 1)
+    except (TypeError, ValueError):
+        raw = 1
+    status = job.get("status") or ""
+    if status == "done":
+        return 100
+    if status not in ("queued", "running"):
+        return raw
+    started = _parse_job_time(job.get("created_at") or "")
+    if started is None:
+        return max(raw, 8)
+    elapsed = max(0.0, (datetime.utcnow() - started).total_seconds())
+    estimated = min(88, 12 + int(elapsed * 2))
+    return max(raw, estimated)
+
+
+def _clear_ocr_job(job_id: str, user_id=None) -> bool:
+    """Remove an OCR job from memory. Returns True if a job was cleared."""
+    with _OCR_JOBS_LOCK:
+        job = _OCR_JOBS.get(job_id)
+        if not job:
+            return False
+        if user_id is not None and job.get("user_id") not in (None, user_id):
+            return False
+        job["status"] = "cancelled"
+        _OCR_JOBS.pop(job_id, None)
+    if session.get("last_ocr_job_id") == job_id:
+        session.pop("last_ocr_job_id", None)
+        session.modified = True
+    return True
+
+
+def _consume_ocr_session(job_id=None) -> None:
+    """Drop a finished OCR review so Auto-Filled Form cannot reopen a saved scan."""
+    user_id = session.get("user_id")
+    jid = (job_id or session.get("last_ocr_job_id") or "").strip()
+    with _OCR_JOBS_LOCK:
+        if jid:
+            _OCR_JOBS.pop(jid, None)
+        for key, job in list(_OCR_JOBS.items()):
+            if job.get("user_id") == user_id and job.get("status") == "done":
+                _OCR_JOBS.pop(key, None)
+    if session.get("last_ocr_job_id"):
+        session.pop("last_ocr_job_id", None)
+        session.modified = True
+
+
+def _prune_ocr_jobs(max_age_hours: int = 2, max_jobs: int = 40, stuck_minutes: int = 8):
+    """Drop finished/stale OCR sessions so memory does not grow during a workday."""
+    now = datetime.utcnow()
+    cutoff = now - timedelta(hours=max_age_hours)
+    stuck_cutoff = now - timedelta(minutes=stuck_minutes)
     with _OCR_JOBS_LOCK:
         stale = []
         for job_id, job in _OCR_JOBS.items():
-            created = job.get("created_at") or ""
-            try:
-                created_dt = datetime.fromisoformat(created)
-            except (TypeError, ValueError):
-                created_dt = cutoff
+            created_dt = _parse_job_time(job.get("created_at") or "") or cutoff
+            updated_dt = _parse_job_time(job.get("updated_at") or "") or created_dt
+            status = job.get("status")
             if created_dt < cutoff:
+                stale.append(job_id)
+            elif status in ("queued", "running") and updated_dt < stuck_cutoff:
+                stale.append(job_id)
+            elif status == "cancelled":
                 stale.append(job_id)
         for job_id in stale:
             _OCR_JOBS.pop(job_id, None)
@@ -500,9 +717,169 @@ def _prune_ocr_jobs(max_age_hours: int = 2, max_jobs: int = 40):
                 _OCR_JOBS.pop(job_id, None)
 
 
+_OCR_LISTENER_STARTED = False
+
+
+_DETECT_WAITS = {}
+_DETECT_WAITS_LOCK = threading.Lock()
+
+
+def _register_detect_wait(job_id: str):
+    holder = {"event": threading.Event(), "payload": None}
+    with _DETECT_WAITS_LOCK:
+        _DETECT_WAITS[job_id] = holder
+    return holder
+
+
+def _finish_detect_wait(job_id: str, payload: dict) -> None:
+    with _DETECT_WAITS_LOCK:
+        holder = _DETECT_WAITS.get(job_id)
+    if holder:
+        holder["payload"] = payload
+        holder["event"].set()
+
+
+def _pop_detect_wait(job_id: str):
+    with _DETECT_WAITS_LOCK:
+        return _DETECT_WAITS.pop(job_id, None)
+
+
+def _detect_document_type_sync(save_path: Path, prefer_worker: bool = True) -> dict:
+    from ocr.detect import detect_from_image
+    from ocr.engine import document_type_label
+
+    visual = detect_from_image(str(save_path), ocr_fallback=False)
+    doc_type = (visual.get("doc_type") or "").strip().lower()
+    if doc_type in DOCUMENT_TYPES:
+        return {
+            "doc_type": doc_type,
+            "label": visual.get("label") or DOCUMENT_TYPES[doc_type],
+            "confidence": visual.get("confidence") or "high",
+            "reason": visual.get("reason") or "",
+        }
+
+    job_id = f"detect-{uuid.uuid4().hex}"
+    holder = _register_detect_wait(job_id)
+    queued = False
+    if prefer_worker and (worker_is_alive() or start_ocr_worker()):
+        _ensure_ocr_listener()
+        queued = submit_detect_job(job_id, str(save_path))
+    if prefer_worker and queued:
+        holder["event"].wait(timeout=90)
+        _pop_detect_wait(job_id)
+        payload = holder.get("payload") or {}
+        found = (payload.get("doc_type") or "").strip().lower()
+        if found in DOCUMENT_TYPES:
+            return {
+                "doc_type": found,
+                "label": payload.get("label") or DOCUMENT_TYPES[found],
+                "confidence": payload.get("confidence") or "medium",
+                "reason": payload.get("reason") or "",
+            }
+        return {
+            "doc_type": None,
+            "label": "",
+            "confidence": "none",
+            "reason": payload.get("reason") or "Could not identify the document type",
+        }
+
+    _pop_detect_wait(job_id)
+    result = detect_from_image(str(save_path), ocr_fallback=True)
+    found = (result.get("doc_type") or "").strip().lower()
+    if found not in DOCUMENT_TYPES:
+        found = None
+    return {
+        "doc_type": found,
+        "label": result.get("label") or document_type_label(found),
+        "confidence": result.get("confidence") or ("none" if not found else "medium"),
+        "reason": result.get("reason") or "",
+    }
+
+
+def _apply_ocr_worker_message(msg: dict) -> None:
+    if not msg:
+        return
+    kind = msg.get("type")
+    job_id = msg.get("job_id") or ""
+    if kind == "detect_done" and job_id:
+        _finish_detect_wait(job_id, msg)
+        return
+    if kind == "boot_error":
+        print(msg.get("error") or "OCR worker failed to start.", flush=True)
+        return
+    if kind == "progress" and job_id:
+        _set_ocr_job(
+            job_id,
+            status="running",
+            progress=msg.get("progress") or 20,
+            message=msg.get("message") or "OCR running...",
+        )
+        return
+    if kind == "done" and job_id:
+        _set_ocr_job(
+            job_id,
+            status="done",
+            progress=100,
+            message="OCR complete.",
+            doc_type=msg.get("doc_type"),
+            image_filename=msg.get("image_filename"),
+            data=msg.get("data"),
+        )
+        return
+    if kind == "error" and job_id:
+        err = msg.get("error") or "OCR failed."
+        print(err, flush=True)
+        _set_ocr_job(
+            job_id,
+            status="error",
+            progress=100,
+            message="OCR failed.",
+            error=err,
+        )
+
+
+def _ocr_worker_listener():
+    while True:
+        try:
+            msg = _ocr_worker_get_result(timeout=0.4)
+        except Exception:
+            msg = None
+        if not msg:
+            if not worker_is_alive():
+                threading.Event().wait(0.8)
+            continue
+        _apply_ocr_worker_message(msg)
+
+
+def _ensure_ocr_listener():
+    global _OCR_LISTENER_STARTED
+    if _OCR_LISTENER_STARTED:
+        return
+    _OCR_LISTENER_STARTED = True
+    threading.Thread(target=_ocr_worker_listener, daemon=True, name="ocr-listener").start()
+
+
 def _run_ocr_job(job_id: str, doc_type: str, save_path: Path, image_filename: str):
+    set_below_normal_priority()
     try:
         _set_ocr_job(job_id, status="running", progress=20, message="OCR started...")
+        if doc_type not in DOCUMENT_TYPES:
+            _set_ocr_job(job_id, progress=28, message="Identifying document type...")
+            detected = _detect_document_type_sync(save_path, prefer_worker=False)
+            doc_type = detected.get("doc_type")
+            if doc_type not in DOCUMENT_TYPES:
+                _set_ocr_job(
+                    job_id,
+                    status="error",
+                    progress=100,
+                    message="Could not identify document type.",
+                    error=(
+                        "Could not identify whether this is a birth, marriage, "
+                        "or death certificate. Choose the type and run OCR again."
+                    ),
+                )
+                return
+            _set_ocr_job(job_id, doc_type=doc_type)
         if doc_type == "birth":
             _set_ocr_job(job_id, progress=45, message="Extracting birth fields...")
             data = extract_birth_data(str(save_path))
@@ -512,6 +889,10 @@ def _run_ocr_job(job_id: str, doc_type: str, save_path: Path, image_filename: st
         else:
             _set_ocr_job(job_id, progress=45, message="Extracting death fields...")
             data = extract_death_data(str(save_path))
+        with _OCR_JOBS_LOCK:
+            job = _OCR_JOBS.get(job_id)
+            if not job or job.get("status") == "cancelled":
+                return
         _set_ocr_job(
             job_id,
             status="done",
@@ -524,6 +905,10 @@ def _run_ocr_job(job_id: str, doc_type: str, save_path: Path, image_filename: st
     except Exception:
         err = traceback.format_exc()
         print(err, flush=True)
+        with _OCR_JOBS_LOCK:
+            job = _OCR_JOBS.get(job_id)
+            if not job or job.get("status") == "cancelled":
+                return
         _set_ocr_job(
             job_id,
             status="error",
@@ -531,6 +916,38 @@ def _run_ocr_job(job_id: str, doc_type: str, save_path: Path, image_filename: st
             message="OCR failed.",
             error=err,
         )
+
+
+def _start_ocr_job(doc_type: str, save_path: Path, image_filename: str) -> str:
+    """Queue OCR off the web request thread so other pages stay responsive."""
+    job_id = uuid.uuid4().hex
+    _prune_ocr_jobs()
+    now_iso = datetime.utcnow().isoformat()
+    with _OCR_JOBS_LOCK:
+        _OCR_JOBS[job_id] = {
+            "status": "queued",
+            "progress": 1,
+            "message": "Queued OCR job...",
+            "doc_type": doc_type,
+            "image_filename": image_filename,
+            "data": None,
+            "error": None,
+            "user_id": session.get("user_id"),
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+    queued = False
+    if worker_is_alive() or start_ocr_worker():
+        _ensure_ocr_listener()
+        queued = submit_ocr_job(job_id, doc_type, str(save_path), image_filename)
+    if not queued:
+        threading.Thread(
+            target=_run_ocr_job,
+            args=(job_id, doc_type, save_path, image_filename),
+            daemon=True,
+            name=f"ocr-job-{job_id[:8]}",
+        ).start()
+    return job_id
 
 
 def admin_required(f):
@@ -581,6 +998,10 @@ def login():
         session["user_id"] = user.id
         session["username"] = user.username
         session["role"] = user.role
+        session["session_version"] = int(getattr(user, "session_version", 0) or 0)
+        user.last_login_at = datetime.utcnow()
+        db.session.commit()
+        _remember_password_vault(user, password)
         return redirect(url_for("index"))
 
     return render_template("login.html")
@@ -592,6 +1013,82 @@ def logout():
     return redirect(url_for("login"))
 
 
+def _bump_session_version(user, keep_current_session: bool = False) -> None:
+    user.session_version = int(getattr(user, "session_version", 0) or 0) + 1
+    if keep_current_session and session.get("user_id") == user.id:
+        session["session_version"] = int(user.session_version)
+
+
+@app.route("/account")
+@login_required
+def account():
+    user = get_current_user()
+    role = ((user.role if user else "") or "").upper()
+    staff_queue = None
+    if user and role == "STAFF":
+        staff_queue = {
+            "edit_pending": EditRequest.query.filter_by(requested_by_id=user.id, status="PENDING").count(),
+            "edit_ready": (
+                EditRequest.query.filter_by(requested_by_id=user.id, status="APPROVED")
+                .filter(EditRequest.code_used_at.is_(None))
+                .count()
+            ),
+            "print_pending": PrintRequest.query.filter_by(requested_by_id=user.id, status="PENDING").count(),
+            "print_ready": (
+                PrintRequest.query.filter_by(requested_by_id=user.id, status="APPROVED")
+                .filter(PrintRequest.used_at.is_(None))
+                .count()
+            ),
+        }
+    return render_template(
+        "account.html",
+        current_user=user,
+        nav_active="account",
+        staff_queue=staff_queue,
+    )
+
+
+@app.route("/account/sessions/revoke", methods=["POST"])
+@login_required
+def account_revoke_sessions():
+    user = get_current_user()
+    if not user:
+        return redirect(url_for("login"))
+    _bump_session_version(user, keep_current_session=True)
+    db.session.commit()
+    _log_audit(user.id, "SESSION_REVOKE", f"username={user.username}")
+    flash("Other devices were signed out. This computer is still signed in.", "success")
+    return redirect(url_for("account"))
+
+
+@app.route("/account/password", methods=["POST"])
+@login_required
+def account_change_password():
+    user = get_current_user()
+    current_password = request.form.get("current_password") or ""
+    new_password = request.form.get("new_password") or ""
+    confirm_password = request.form.get("confirm_password") or ""
+    if not user or not check_password_hash(user.password_hash, current_password):
+        flash("Current password is incorrect.", "error")
+        return redirect(url_for("account"))
+    if len(new_password) < 6:
+        flash("New password must be at least 6 characters.", "error")
+        return redirect(url_for("account"))
+    if new_password != confirm_password:
+        flash("New password and confirmation do not match.", "error")
+        return redirect(url_for("account"))
+    if check_password_hash(user.password_hash, new_password):
+        flash("Choose a password that is different from the current one.", "error")
+        return redirect(url_for("account"))
+    user.password_hash = _safe_hash(new_password)
+    _set_password_vault(user, new_password)
+    _bump_session_version(user, keep_current_session=True)
+    db.session.commit()
+    _log_audit(user.id, "PASSWORD_CHANGE", f"username={user.username}")
+    flash("Password updated. Other devices were signed out.", "success")
+    return redirect(url_for("account"))
+
+
 @app.route("/", methods=["GET", "POST"])
 @login_required
 def index():
@@ -600,27 +1097,10 @@ def index():
         if err:
             flash(err)
             return redirect(url_for("index"))
-        try:
-            if doc_type == "birth":
-                data = extract_birth_data(str(save_path))
-            elif doc_type == "marriage":
-                data = extract_marriage_data(str(save_path))
-            else:
-                data = extract_death_data(str(save_path))
-        except Exception:
-            traceback.print_exc()
-            flash("OCR failed while reading this document. Try a clearer scan or another image.")
-            return redirect(url_for("index"))
-        return render_template(
-            f"form_{doc_type}.html",
-            doc_type=doc_type,
-            doc_label=DOCUMENT_TYPES[doc_type],
-            data=data,
-            image_filename=image_filename,
-            current_user=get_current_user(),
-            nav_active="form",
-            can_print=user_can_print_during_review(get_current_user()),
-        )
+        job_id = _start_ocr_job(doc_type, save_path, image_filename)
+        session["last_ocr_job_id"] = job_id
+        session.modified = True
+        return redirect(url_for("index"))
     return render_template(
         "index.html",
         document_types=DOCUMENT_TYPES,
@@ -655,6 +1135,26 @@ def api_scan():
     return {"ok": True, "image_url": image_url, "image_filename": rel}
 
 
+@app.route("/api/detect-document-type", methods=["POST"])
+@login_required
+def api_detect_document_type():
+    """Identify birth, marriage, or death from the scanned certificate heading."""
+    save_path, image_filename, err = _save_ocr_image_from_request()
+    if err:
+        return {"ok": False, "error": err}, 400
+    detected = _detect_document_type_sync(save_path)
+    payload = {
+        "ok": True,
+        "image_filename": image_filename,
+        "image_url": url_for("serve_upload", path=image_filename),
+        "doc_type": detected.get("doc_type"),
+        "label": detected.get("label") or "",
+        "confidence": detected.get("confidence") or "none",
+        "reason": detected.get("reason") or "",
+    }
+    return payload
+
+
 @app.route("/api/ocr/start", methods=["POST"])
 @login_required
 def api_ocr_start():
@@ -662,30 +1162,9 @@ def api_ocr_start():
     if err:
         return {"ok": False, "error": err}, 400
 
-    job_id = uuid.uuid4().hex
-    _prune_ocr_jobs()
-    with _OCR_JOBS_LOCK:
-        _OCR_JOBS[job_id] = {
-            "status": "queued",
-            "progress": 1,
-            "message": "Queued OCR job...",
-            "doc_type": doc_type,
-            "image_filename": image_filename,
-            "data": None,
-            "error": None,
-            "user_id": session.get("user_id"),
-            "created_at": datetime.utcnow().isoformat(),
-        }
-
+    job_id = _start_ocr_job(doc_type, save_path, image_filename)
     session["last_ocr_job_id"] = job_id
     session.modified = True
-
-    t = threading.Thread(
-        target=_run_ocr_job,
-        args=(job_id, doc_type, save_path, image_filename),
-        daemon=True,
-    )
-    t.start()
     return {"ok": True, "job_id": job_id}
 
 
@@ -695,11 +1174,12 @@ def api_ocr_status(job_id):
     with _OCR_JOBS_LOCK:
         job = _OCR_JOBS.get(job_id)
         if not job:
-            return {"ok": False, "error": "OCR job not found."}, 404
+            return {"ok": True, "status": "cancelled", "progress": 0, "message": "OCR cancelled."}
         payload = {
             "ok": True,
+            "job_id": job_id,
             "status": job.get("status"),
-            "progress": job.get("progress", 1),
+            "progress": _job_display_progress(job),
             "message": job.get("message", ""),
         }
         if job.get("status") == "done":
@@ -713,6 +1193,7 @@ def api_ocr_status(job_id):
 @login_required
 def api_ocr_active():
     """Resume the current user's in-progress or last completed OCR job in the top bar."""
+    _prune_ocr_jobs()
     user_id = session.get("user_id")
     job_id = session.get("last_ocr_job_id")
     with _OCR_JOBS_LOCK:
@@ -724,29 +1205,67 @@ def api_ocr_active():
                 (jid, j)
                 for jid, j in _OCR_JOBS.items()
                 if j.get("user_id") == user_id
-                and j.get("status") in ("queued", "running", "done")
+                and j.get("status") in ("queued", "running")
             ]
             if not candidates:
+                if session.get("last_ocr_job_id"):
+                    session.pop("last_ocr_job_id", None)
+                    session.modified = True
                 return {"ok": True, "active": False}
             job_id, job = max(candidates, key=lambda item: item[1].get("created_at") or "")
         status = job.get("status")
-        if status == "error":
+        if status in ("error", "cancelled"):
+            if session.get("last_ocr_job_id") == job_id:
+                session.pop("last_ocr_job_id", None)
+                session.modified = True
             return {"ok": True, "active": False}
+        if status == "done":
+            return {
+                "ok": True,
+                "active": False,
+                "completed": True,
+                "job_id": job_id,
+                "redirect_url": url_for("ocr_result", job_id=job_id),
+            }
         payload = {
             "ok": True,
             "active": True,
             "job_id": job_id,
             "status": status,
-            "progress": job.get("progress", 1),
+            "progress": _job_display_progress(job),
             "message": job.get("message", ""),
             "doc_type": job.get("doc_type"),
             "image_filename": job.get("image_filename") or "",
         }
         if job.get("image_filename"):
             payload["image_url"] = url_for("serve_upload", path=job["image_filename"])
-        if status == "done":
-            payload["redirect_url"] = url_for("ocr_result", job_id=job_id)
         return payload
+
+
+@app.route("/api/ocr/cancel", methods=["POST"])
+@login_required
+def api_ocr_cancel():
+    """Cancel the current user's OCR job and unlock the scan page."""
+    user_id = session.get("user_id")
+    payload = request.get_json(silent=True) or {}
+    job_id = (payload.get("job_id") or request.form.get("job_id") or session.get("last_ocr_job_id") or "").strip()
+    cleared = False
+    if job_id:
+        cleared = _clear_ocr_job(job_id, user_id=user_id)
+    # Also drop any other in-progress jobs for this user (stuck after restart / hang).
+    with _OCR_JOBS_LOCK:
+        extra = [
+            jid
+            for jid, j in list(_OCR_JOBS.items())
+            if j.get("user_id") == user_id and j.get("status") in ("queued", "running")
+        ]
+        for jid in extra:
+            _OCR_JOBS[jid]["status"] = "cancelled"
+            _OCR_JOBS.pop(jid, None)
+            cleared = True
+    session.pop("last_ocr_job_id", None)
+    session.modified = True
+    return {"ok": True, "cancelled": True, "cleared": cleared}
 
 
 def _record_notice_label(record) -> str:
@@ -790,6 +1309,7 @@ def _collect_notifications(user) -> dict:
                 "kind": "edit",
                 "title": "New edit request",
                 "body": f"{who} asked to edit {_record_notice_label(req.record)}",
+                "detail": (req.reason or "").strip(),
                 "url": url_for("administration", tab="edit_requests"),
                 "at": _notice_iso(req.requested_at),
             })
@@ -800,6 +1320,7 @@ def _collect_notifications(user) -> dict:
                 "kind": "print",
                 "title": "New print request",
                 "body": f"{who} asked to print {_record_notice_label(req.record)}",
+                "detail": (req.reason or "").strip(),
                 "url": url_for("administration", tab="print_requests"),
                 "at": _notice_iso(req.requested_at),
             })
@@ -834,6 +1355,18 @@ def _collect_notifications(user) -> dict:
             .filter(PrintRequest.used_at.is_(None))
             .order_by(PrintRequest.reviewed_at.desc())
             .limit(8)
+            .all()
+        )
+        rejected_edits = (
+            EditRequest.query.filter_by(requested_by_id=user.id, status="REJECTED")
+            .order_by(EditRequest.reviewed_at.desc())
+            .limit(6)
+            .all()
+        )
+        rejected_prints = (
+            PrintRequest.query.filter_by(requested_by_id=user.id, status="REJECTED")
+            .order_by(PrintRequest.reviewed_at.desc())
+            .limit(6)
             .all()
         )
         for req in ready_edits:
@@ -871,6 +1404,26 @@ def _collect_notifications(user) -> dict:
                 "body": f"Waiting for admin on {_record_notice_label(req.record)}",
                 "url": url_for("my_print_requests"),
                 "at": _notice_iso(req.requested_at),
+            })
+        for req in rejected_edits:
+            items.append({
+                "id": f"edit-rej-{req.id}",
+                "kind": "edit-rejected",
+                "title": "Edit request rejected",
+                "body": f"Admin rejected {_record_notice_label(req.record)}",
+                "detail": (req.rejection_reason or "").strip() or "No reason given",
+                "url": url_for("my_edit_requests"),
+                "at": _notice_iso(req.reviewed_at or req.requested_at),
+            })
+        for req in rejected_prints:
+            items.append({
+                "id": f"print-rej-{req.id}",
+                "kind": "print-rejected",
+                "title": "Print request rejected",
+                "body": f"Admin rejected {_record_notice_label(req.record)}",
+                "detail": (req.rejection_reason or "").strip() or "No reason given",
+                "url": url_for("my_print_requests"),
+                "at": _notice_iso(req.reviewed_at or req.requested_at),
             })
         badges = {
             "staff_my_requests_pending": EditRequest.query.filter_by(requested_by_id=user.id, status="PENDING").count(),
@@ -918,15 +1471,23 @@ def api_notifications():
 @app.route("/workflow/autofilled-form")
 @login_required
 def autofilled_form_latest():
-    """Sidebar link: reopen the latest completed OCR form for this session."""
+    """Sidebar link: open the unsaved OCR review, or send staff back to scan."""
     job_id = session.get("last_ocr_job_id")
     if not job_id:
-        flash("Run OCR from Scan Workflow first to open the auto-filled form.")
+        flash("Scan a new document and run OCR first. Auto-Filled Form opens after OCR, before you save.")
         return redirect(url_for("index"))
     with _OCR_JOBS_LOCK:
         job = _OCR_JOBS.get(job_id)
-    if not job or job.get("status") != "done":
-        flash("Your last OCR session is no longer available. Run OCR again from Scan Workflow.")
+        status = job.get("status") if job else None
+        image_filename = (job.get("image_filename") if job else "") or ""
+    if not job or status != "done":
+        if status in ("queued", "running"):
+            flash("OCR is still running. Wait for it to finish, then open Auto-Filled Form.")
+            return redirect(url_for("index"))
+        flash("That OCR review is no longer available. Scan a new document and run OCR again.")
+        return redirect(url_for("index"))
+    if image_filename and not _existing_upload_relpath(image_filename):
+        flash("The scanned image for this review is missing. Scan the document again.")
         return redirect(url_for("index"))
     return redirect(url_for("ocr_result", job_id=job_id))
 
@@ -963,8 +1524,14 @@ def ocr_result(job_id):
             flash("OCR is still processing. Please wait.")
             return redirect(url_for("index"))
         doc_type = job.get("doc_type")
-        image_filename = job.get("image_filename")
+        stored_image = job.get("image_filename") or ""
+        image_filename = _existing_upload_relpath(stored_image)
         data = job.get("data") or {}
+
+    if stored_image and not image_filename:
+        flash("That scan was already saved (or the image is missing). Scan a new document to open Auto-Filled Form.")
+        _consume_ocr_session(job_id)
+        return redirect(url_for("index"))
 
     if doc_type not in DOCUMENT_TYPES:
         flash("OCR session is invalid. Please run OCR again.")
@@ -1017,9 +1584,16 @@ def _is_registry_metadata_key(key: str) -> bool:
     return "REGISTRY" in nk and "NUMBER" in nk
 
 
+def _strip_hidden_metadata(data: dict | None) -> dict:
+    """Drop Page/Book fields — they are not on Civil Registry Form 1A / 2A / 3A."""
+    if not data:
+        return {}
+    return {k: v for k, v in data.items() if str(k) not in HIDDEN_METADATA_KEYS}
+
+
 def _submitted_from_request_form():
     """Build flat dict from POST; last value wins per field (fixes duplicate keys / MultiDict quirks)."""
-    skip = {"csrf_token", "submit", "clear_annotation"} | set(ANNOTATION_FORM_KEYS)
+    skip = {"csrf_token", "submit", "clear_annotation"} | set(ANNOTATION_FORM_KEYS) | set(HIDDEN_METADATA_KEYS)
     submitted = {}
     for key in request.form:
         if key in skip:
@@ -1030,7 +1604,7 @@ def _submitted_from_request_form():
         else:
             last = values[-1]
             submitted[key] = (last or "").strip() if isinstance(last, str) else last
-    return submitted
+    return _strip_hidden_metadata(submitted)
 
 
 def _registry_number_from_submitted(submitted: dict) -> str:
@@ -1157,7 +1731,7 @@ def _load_record_data_json(record: Record) -> dict:
                 db.session.commit()
             except Exception:
                 db.session.rollback()
-    return merged
+    return _strip_hidden_metadata(merged)
 
 
 def _sanitize_filename_part(s: str, max_len: int = 40) -> str:
@@ -1215,17 +1789,17 @@ def _find_duplicate_record(
 ):
     """
     Find an existing duplicate record for the same document type.
-    Priority:
-    1) Same registry number (most reliable key)
-    2) If no registry number, same full name + event date
+    Same registry number always blocks, even if spacing or dashes differ.
     """
     q = Record.query.filter(Record.document_type == doc_type)
     if exclude_record_id:
         q = q.filter(Record.id != exclude_record_id)
 
-    reg = (registry_number or "").strip()
-    if reg:
-        return q.filter(db.func.lower(db.func.trim(Record.registry_number)) == reg.lower()).first()
+    want = _normalize_registry_key(registry_number)
+    if want:
+        for rec in q.filter(Record.registry_number.isnot(None)).all():
+            if _normalize_registry_key(rec.registry_number) == want:
+                return rec
 
     name = (full_name or "").strip()
     evt = (event_date or "").strip()
@@ -1235,6 +1809,10 @@ def _find_duplicate_record(
             db.func.lower(db.func.trim(Record.event_date)) == evt.lower(),
         ).first()
     return None
+
+
+def _normalize_registry_key(reg: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", (reg or "").upper())
 
 
 def _apply_mother_name_filter(query, mother_name: str):
@@ -1541,7 +2119,19 @@ def administration():
             )
         print_requests_list = print_requests_q.order_by(PrintRequest.requested_at.desc()).limit(200).all()
     audit_logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(100).all() if tab == "audit" else []
-    users_list = User.query.order_by(User.username).all() if tab == "users" else []
+    users_list = []
+    password_target = None
+    if tab == "users":
+        users_list = User.query.order_by(User.username).all()
+        users_list.sort(
+            key=lambda u: (
+                0 if (u.role or "").upper() == "ADMIN" else 1,
+                (u.username or "").lower(),
+            )
+        )
+        set_id = request.args.get("set", type=int)
+        if set_id:
+            password_target = next((u for u in users_list if u.id == set_id), None)
     print_logs = []
     if tab == "print_logs":
         print_logs = (
@@ -1565,11 +2155,16 @@ def administration():
     auto_backup_settings = load_auto_backup_settings(BASE_DIR) if backup_tabs else None
     auto_backup_files = []
     backup_history = []
+    backup_readiness = None
     if tab == "automatic_backup":
         try:
             backup_history = list_backup_history()
         except Exception:
             backup_history = []
+        try:
+            backup_readiness = get_backup_readiness(BASE_DIR, auto_backup_settings)
+        except Exception:
+            backup_readiness = None
     return render_template(
         "administration.html",
         current_user=get_current_user(),
@@ -1595,9 +2190,12 @@ def administration():
         auto_backup_settings=auto_backup_settings,
         auto_backup_files=auto_backup_files,
         backup_history=backup_history,
+        backup_readiness=backup_readiness,
         auto_backup_folder=str(local_backup_root(BASE_DIR)) if backup_tabs else "",
         auto_backup_server_folder=server_backup_display(BASE_DIR, auto_backup_settings) if backup_tabs else "",
         today_backup_stamp=daily_backup_stamp(),
+        revealed_password=session.pop("admin_password_reveal", None) if tab == "users" else None,
+        password_target=password_target,
     )
 
 
@@ -1630,12 +2228,17 @@ def _civil_registry_report_context():
         per_page = int(request.args.get("per_page") or 25)
     except ValueError:
         per_page = 25
-    per_page = 25
+    total = len(filtered_rows)
+    if per_page <= 0:
+        per_page = max(total, 1)
+        per_page_arg = 0
+    else:
+        per_page = max(1, min(per_page, 200))
+        per_page_arg = per_page
     try:
         page = int(request.args.get("page") or 1)
     except ValueError:
         page = 1
-    total = len(filtered_rows)
     total_pages = max(1, (total + per_page - 1) // per_page)
     page = max(1, min(page, total_pages))
     start = (page - 1) * per_page
@@ -1646,11 +2249,12 @@ def _civil_registry_report_context():
         excel_args["year"] = year
     if barangay:
         excel_args["barangay"] = barangay
+    if location:
+        excel_args["location"] = location
     query_args = dict(excel_args)
     if find_q:
         query_args["q"] = find_q
-    if per_page != 25:
-        query_args["per_page"] = per_page
+    query_args["per_page"] = per_page_arg
     if focus:
         query_args["focus"] = "1"
     enter_focus_args = dict(query_args)
@@ -1678,14 +2282,14 @@ def _civil_registry_report_context():
         "find_q": find_q,
         "book_count": book_count,
         "page": page,
-        "per_page": per_page,
+        "per_page": per_page_arg,
         "total_pages": total_pages,
         "focus": focus,
         "query_args": query_args,
         "enter_focus_args": enter_focus_args,
         "exit_focus_args": exit_focus_args,
         "doc_links": doc_links,
-        "empty_rows": max(0, 25 - len(rows)),
+        "empty_rows": max(0, min(per_page, 25) - len(rows)) if per_page_arg else 0,
         "page_left": 1,
         "page_right": 2,
         "excel_args": excel_args,
@@ -1742,17 +2346,46 @@ def civil_registry_reports_excel():
     )
 
 
+@app.route("/administration/reports/pdf")
+@admin_required
+def civil_registry_reports_pdf():
+    """Download the same official register form shown on screen as a PDF."""
+    from services.report_pdf import build_register_pdf
+
+    ctx = _civil_registry_report_context()
+    doc_type = ctx["doc_type"]
+    filename = {
+        "death": "register_of_death.pdf",
+        "marriage": "register_of_marriages.pdf",
+    }.get(doc_type, "register_of_live_births.pdf")
+    if ctx.get("year"):
+        filename = filename.replace(".pdf", f"_{ctx['year']}.pdf")
+    try:
+        payload = build_register_pdf(doc_type, ctx["filtered_rows"])
+    except Exception as exc:
+        flash(f"Could not build PDF: {exc}", "error")
+        return redirect(url_for("civil_registry_reports", **ctx["query_args"]))
+    return send_file(
+        BytesIO(payload),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
 @app.route("/administration/users/create", methods=["POST"])
 @admin_required
 def administration_create_user():
     """Create a new system user with a chosen role (ADMIN or STAFF)."""
     admin = get_current_user()
     username = (request.form.get("username") or "").strip()
-    password = request.form.get("password") or ""
+    password = (request.form.get("password") or "").strip()
+    if request.form.get("generate_password") or not password:
+        password = _issue_office_password()
     role = (request.form.get("role") or "").strip().upper()
 
-    if not username or not password:
-        flash("Username and password are required.")
+    if not username:
+        flash("Username is required.")
         return redirect(url_for("administration", tab="users"))
     if len(username) > 64:
         flash("Username must be 64 characters or fewer.")
@@ -1771,30 +2404,93 @@ def administration_create_user():
         username=username,
         password_hash=_safe_hash(password),
         role=role,
+        password_vault=_encrypt_password(password),
     )
     db.session.add(user)
     db.session.commit()
     _log_audit(admin.id if admin else None, "USER_CREATE", f"username={username} role={role}")
-    flash(f'User "{username}" was created with role {role}.', "success")
+    session["admin_password_reveal"] = {
+        "username": username,
+        "password": password,
+        "role": role,
+        "kind": "created",
+    }
+    session.modified = True
+    flash(f'Account "{username}" was created. Give them the login below now — it will not be shown again.', "success")
+    return redirect(url_for("administration", tab="users"))
+
+
+def _admin_target_user(user_id):
+    admin = get_current_user()
+    user = db.session.get(User, user_id)
+    if not user:
+        flash("User not found.")
+        return admin, None
+    if admin and user.id == admin.id:
+        flash("Use My account to change your own password. You cannot force-logout or delete yourself here.")
+        return admin, None
+    return admin, user
+
+
+@app.route("/administration/users/<int:user_id>/reset-password", methods=["POST"])
+@admin_required
+def administration_reset_password(user_id):
+    admin, user = _admin_target_user(user_id)
+    if not user:
+        return redirect(url_for("administration", tab="users"))
+    password = (request.form.get("password") or "").strip()
+    if request.form.get("generate_password") or not password:
+        password = _issue_office_password()
+    if len(password) < 6:
+        flash("Password must be at least 6 characters, or use Generate.")
+        return redirect(url_for("administration", tab="users", set=user.id))
+    user.password_hash = _safe_hash(password)
+    _set_password_vault(user, password)
+    _bump_session_version(user)
+    db.session.commit()
+    _log_audit(admin.id if admin else None, "USER_PASSWORD_RESET", f"username={user.username}")
+    session["admin_password_reveal"] = {
+        "username": user.username,
+        "password": password,
+        "role": user.role,
+        "kind": "reset",
+    }
+    session.modified = True
+    flash(f'Password for "{user.username}" was reset. They must log in again. Give them the new password below.', "success")
+    return redirect(url_for("administration", tab="users"))
+
+
+@app.route("/administration/users/<int:user_id>/view-password", methods=["POST"])
+@admin_required
+def administration_view_password(user_id):
+    """Passwords are not retrieved. Open the Set password panel instead."""
+    admin, user = _admin_target_user(user_id)
+    if not user:
+        return redirect(url_for("administration", tab="users"))
+    return redirect(url_for("administration", tab="users", set=user.id))
+
+
+@app.route("/administration/users/<int:user_id>/force-logout", methods=["POST"])
+@admin_required
+def administration_force_logout(user_id):
+    admin, user = _admin_target_user(user_id)
+    if not user:
+        return redirect(url_for("administration", tab="users"))
+    _bump_session_version(user)
+    db.session.commit()
+    _log_audit(admin.id if admin else None, "USER_FORCE_LOGOUT", f"username={user.username}")
+    flash(f'"{user.username}" was signed out of all sessions.', "success")
     return redirect(url_for("administration", tab="users"))
 
 
 @app.route("/administration/users/<int:user_id>/delete", methods=["POST"])
 @admin_required
 def administration_delete_user(user_id):
-    """Delete a user account with safety checks."""
-    admin = get_current_user()
-    user = db.session.get(User, user_id)
+    """Delete a user account. Related history is reassigned to the deleting admin."""
+    admin, user = _admin_target_user(user_id)
     if not user:
-        flash("User not found.")
         return redirect(url_for("administration", tab="users"))
 
-    # Prevent deleting your own account while logged in.
-    if admin and user.id == admin.id:
-        flash("You cannot delete your own account while logged in.")
-        return redirect(url_for("administration", tab="users"))
-
-    # Keep at least one admin in the system.
     if (user.role or "").upper() == "ADMIN":
         remaining_admins = (
             User.query.filter(db.func.upper(User.role) == "ADMIN", User.id != user.id).count()
@@ -1803,30 +2499,32 @@ def administration_delete_user(user_id):
             flash("Cannot delete this account. At least one ADMIN account must remain.")
             return redirect(url_for("administration", tab="users"))
 
-    # Protect data integrity for related records/logs.
-    req_count = EditRequest.query.filter_by(requested_by_id=user.id).count()
-    reviewed_count = EditRequest.query.filter_by(reviewed_by_id=user.id).count()
-    print_count = PrintLog.query.filter_by(user_id=user.id).count()
-    print_req_count = PrintRequest.query.filter(
-        or_(PrintRequest.requested_by_id == user.id, PrintRequest.reviewed_by_id == user.id)
-    ).count()
-    if req_count or reviewed_count or print_count or print_req_count:
-        flash(
-            "Cannot delete this account because it has related history "
-            f"(edit requests: {req_count}, reviews: {reviewed_count}, "
-            f"print logs: {print_count}, print requests: {print_req_count})."
-        )
-        return redirect(url_for("administration", tab="users"))
-
-    for log in AuditLog.query.filter_by(user_id=user.id).all():
-        log.user_id = None
+    owner_id = admin.id if admin else user.id
+    EditRequest.query.filter_by(requested_by_id=user.id).update(
+        {EditRequest.requested_by_id: owner_id}, synchronize_session=False
+    )
+    EditRequest.query.filter_by(reviewed_by_id=user.id).update(
+        {EditRequest.reviewed_by_id: owner_id}, synchronize_session=False
+    )
+    PrintRequest.query.filter_by(requested_by_id=user.id).update(
+        {PrintRequest.requested_by_id: owner_id}, synchronize_session=False
+    )
+    PrintRequest.query.filter_by(reviewed_by_id=user.id).update(
+        {PrintRequest.reviewed_by_id: owner_id}, synchronize_session=False
+    )
+    PrintLog.query.filter_by(user_id=user.id).update(
+        {PrintLog.user_id: owner_id}, synchronize_session=False
+    )
+    AuditLog.query.filter_by(user_id=user.id).update(
+        {AuditLog.user_id: None}, synchronize_session=False
+    )
 
     username = user.username
     role = (user.role or "").upper()
     db.session.delete(user)
     db.session.commit()
     _log_audit(admin.id if admin else None, "USER_DELETE", f"username={username} role={role}")
-    flash(f'User "{username}" was deleted.', "success")
+    flash(f'User "{username}" was deleted. Their history was kept under your account.', "success")
     return redirect(url_for("administration", tab="users"))
 
 
@@ -1909,28 +2607,21 @@ def administration_auto_backup_settings():
         f"status={status} frequency={settings.get('frequency')} dest={dest_note}",
     )
     if not dest_error:
-        local_where = local_backup_root(BASE_DIR)
         if folder is not None:
-            flash(
-                f"New backups will save on this system ({local_where}) and also on the Daraga Civil Registry server ({folder}).",
-                "success",
-            )
+            flash("Schedule saved. Backups go to the office server and this laptop.", "success")
             if copied:
-                flash(f"Copied {copied} existing backup file(s) to the LGU server.", "success")
+                flash(f"Copied {copied} existing backup(s) to the office server.", "success")
             if failed:
-                flash(f"{failed} existing backup file(s) could not be copied to the LGU server.", "error")
+                flash(f"{failed} existing backup(s) could not be copied to the office server.", "error")
         else:
-            flash(
-                f"Automatic backup will save on this system ({local_where}). Add the LGU server folder later to keep a second copy there.",
-                "success",
-            )
+            flash("Schedule saved. Backups stay on this laptop until an office server path is set.", "success")
     return redirect(url_for("administration", tab="automatic_backup"))
 
 
 def _persist_server_path_from_form() -> Optional[str]:
-    """Save the LGU server path from the current form so Backup now can copy there immediately."""
+    """Save the office server path from the current form so Backup now can copy there immediately."""
     settings = load_auto_backup_settings(BASE_DIR)
-    raw = (request.form.get("auto_backup_destination") or "").strip().strip('"').strip("'")
+    raw = clean_destination_path(request.form.get("auto_backup_destination") or "")
     trial = dict(settings)
     trial["destination_path"] = raw
     folder, dest_error = resolve_server_backup_root(BASE_DIR, trial)
@@ -1945,6 +2636,14 @@ def _persist_server_path_from_form() -> Optional[str]:
     return None
 
 
+def _flash_backup_result(ok: bool, message: str) -> None:
+    text = message or "Backup finished."
+    if not ok:
+        flash(f"Backup failed: {text}", "error")
+        return
+    flash(text, "error" if "failed" in text.lower() else "success")
+
+
 def _run_requested_backup(kind: str, trigger: str):
     kind = (kind or "daily").strip().lower()
     if kind not in ("daily", "monthly", "yearly", "full"):
@@ -1955,7 +2654,7 @@ def _run_requested_backup(kind: str, trigger: str):
         audit_callback=_auto_backup_audit,
         trigger=trigger,
         kind=kind,
-        force=False,
+        force=True,
     ), kind
 
 
@@ -1967,10 +2666,7 @@ def administration_auto_backup_run_now():
     if dest_err:
         flash(dest_err, "error")
     (ok, message, rel_file), kind = _run_requested_backup(request.form.get("backup_kind"), "manual")
-    if ok:
-        flash(message or f"Backup created: {rel_file}", "success")
-    else:
-        flash(f"Backup failed: {message}", "error")
+    _flash_backup_result(ok, message or f"Backup created: {rel_file}")
     return redirect(url_for("administration", tab="automatic_backup"))
 
 
@@ -1985,6 +2681,7 @@ def administration_auto_backup_get_now():
     if not ok:
         flash(f"Backup failed: {message}", "error")
         return redirect(url_for("administration", tab="automatic_backup"))
+    _flash_backup_result(True, message)
     full_path, err = resolve_period_backup_path(BASE_DIR, rel_file)
     if err or full_path is None:
         flash(err or message or "Backup file not found.", "error")
@@ -2355,32 +3052,26 @@ def record_edit(record_id):
         updated_registry_number = _registry_number_from_submitted(submitted)
         updated_full_name = _full_name_from_data(record.document_type, submitted)
         updated_event_date = _event_date_from_data(record.document_type, submitted)
-        # Only enforce duplicate checks if the "identity" of the record changes.
-        # This allows approved edits to update other fields even if the DB already contains
-        # legacy duplicates from older entries/imports.
         prior_registry_number = (record.registry_number or "").strip()
         prior_full_name = (record.full_name or "").strip()
         prior_event_date = (record.event_date or "").strip()
-        identity_changed = False
-        if updated_registry_number and updated_registry_number != prior_registry_number:
-            identity_changed = True
-        elif (not updated_registry_number) and (updated_full_name != prior_full_name or updated_event_date != prior_event_date):
-            identity_changed = True
-
-        if identity_changed:
-            duplicate = _find_duplicate_record(
-                doc_type=record.document_type,
-                registry_number=updated_registry_number,
-                full_name=updated_full_name,
-                event_date=updated_event_date,
-                exclude_record_id=record.id,
+        identity_changed = (
+            _normalize_registry_key(updated_registry_number) != _normalize_registry_key(prior_registry_number)
+            or (not updated_registry_number and (updated_full_name != prior_full_name or updated_event_date != prior_event_date))
+        )
+        duplicate = _find_duplicate_record(
+            doc_type=record.document_type,
+            registry_number=updated_registry_number,
+            full_name=updated_full_name if identity_changed else "",
+            event_date=updated_event_date if identity_changed else "",
+            exclude_record_id=record.id,
+        )
+        if duplicate:
+            flash(
+                f"Update blocked: this document already exists in archiving (Record ID: {duplicate.id}). "
+                "Duplicate registry numbers are not allowed."
             )
-            if duplicate:
-                flash(
-                    f"Update blocked: this document already exists in archiving (Record ID: {duplicate.id}). "
-                    "Please review the existing record instead."
-                )
-                return redirect(url_for("record_edit", record_id=record_id))
+            return redirect(url_for("record_edit", record_id=record_id))
         data_json_str = json.dumps(submitted, ensure_ascii=False)
         record.data_json = data_json_str
         record.extracted_json = data_json_str
@@ -2653,9 +3344,9 @@ def confirm(doc_type):
     )
     db.session.add(record)
     db.session.commit()
-    session.pop("last_ocr_job_id", None)
+    _consume_ocr_session()
 
-    flash(f"{DOCUMENT_TYPES[doc_type]} data has been saved. View it in Archiving or Search Records.")
+    flash(f"{DOCUMENT_TYPES[doc_type]} data has been saved. View it in Archiving or Search Records. Scan a new document to start another Auto-Filled Form.")
     return render_template(
         "confirm.html",
         doc_type=doc_type,
@@ -2663,13 +3354,86 @@ def confirm(doc_type):
         data=public_record_fields(submitted),
         image_filename=image_filename or None,
         current_user=get_current_user(),
-        nav_active="form",
+        nav_active="scan",
         record_id=record.id,
     )
 
 
 def _safe_hash(password: str) -> str:
     return generate_password_hash(password, method="pbkdf2:sha256")
+
+
+def _issue_office_password(length: int = 10) -> str:
+    """Readable temporary password for civil registry staff (no ambiguous characters)."""
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(max(8, length)))
+
+
+def _vault_key() -> bytes:
+    secret = str(app.secret_key or "change-this-secret-key").encode("utf-8")
+    return hashlib.sha256(b"daraga-staff-password-vault|" + secret).digest()
+
+
+def _encrypt_password(plain: str) -> str:
+    raw = (plain or "").encode("utf-8")
+    if not raw:
+        return ""
+    key = _vault_key()
+    iv = os.urandom(16)
+    stream = bytearray()
+    counter = 0
+    while len(stream) < len(raw):
+        stream.extend(hmac.new(key, iv + counter.to_bytes(8, "big"), hashlib.sha256).digest())
+        counter += 1
+    cipher = bytes(a ^ b for a, b in zip(raw, stream[: len(raw)]))
+    mac = hmac.new(key, iv + cipher, hashlib.sha256).digest()[:16]
+    return "v1:" + base64.urlsafe_b64encode(iv + mac + cipher).decode("ascii")
+
+
+def _decrypt_password(token: str) -> str:
+    blob = (token or "").strip()
+    if not blob.startswith("v1:"):
+        return ""
+    try:
+        packed = base64.urlsafe_b64decode(blob[3:].encode("ascii"))
+    except Exception:
+        return ""
+    if len(packed) < 33:
+        return ""
+    iv, mac, cipher = packed[:16], packed[16:32], packed[32:]
+    key = _vault_key()
+    expect = hmac.new(key, iv + cipher, hashlib.sha256).digest()[:16]
+    if not hmac.compare_digest(mac, expect):
+        return ""
+    stream = bytearray()
+    counter = 0
+    while len(stream) < len(cipher):
+        stream.extend(hmac.new(key, iv + counter.to_bytes(8, "big"), hashlib.sha256).digest())
+        counter += 1
+    plain = bytes(a ^ b for a, b in zip(cipher, stream[: len(cipher)]))
+    try:
+        return plain.decode("utf-8")
+    except UnicodeDecodeError:
+        return ""
+
+
+def _set_password_vault(user, password: str) -> None:
+    if not user:
+        return
+    user.password_vault = _encrypt_password(password) if password else None
+
+
+def _remember_password_vault(user, password: str) -> None:
+    """Keep a recoverable copy after a successful login if one is not stored yet."""
+    if not user or not password:
+        return
+    if (getattr(user, "password_vault", None) or "").strip():
+        return
+    try:
+        _set_password_vault(user, password)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 
 def _migrate_records():
@@ -2751,6 +3515,29 @@ def _migrate_print_requests():
             db.session.commit()
 
 
+def _migrate_users():
+    """Add session_version so admins can force-logout existing accounts."""
+    try:
+        existing = _existing_columns("users")
+    except Exception:
+        return
+    if not existing:
+        return
+    if "session_version" not in existing:
+        db.session.execute(
+            db.text("ALTER TABLE users ADD COLUMN session_version INTEGER DEFAULT 0 NOT NULL")
+        )
+        db.session.commit()
+        existing.add("session_version")
+    if "password_vault" not in existing:
+        db.session.execute(db.text("ALTER TABLE users ADD COLUMN password_vault TEXT"))
+        db.session.commit()
+        existing.add("password_vault")
+    if "last_login_at" not in existing:
+        db.session.execute(db.text("ALTER TABLE users ADD COLUMN last_login_at TIMESTAMP"))
+        db.session.commit()
+
+
 def _ensure_database_ready() -> None:
     """Fail fast with setup steps when PostgreSQL is not reachable."""
     uri = app.config.get("SQLALCHEMY_DATABASE_URI") or ""
@@ -2786,6 +3573,10 @@ def _bootstrap_users():
             _migrate_print_requests()
         except Exception:
             pass
+        try:
+            _migrate_users()
+        except Exception:
+            pass
         default_passwords = [
             ("admin", "admin123", "ADMIN"),
             ("staff", "staff123", "STAFF"),
@@ -2793,12 +3584,19 @@ def _bootstrap_users():
         for username, password, role in default_passwords:
             user = User.query.filter_by(username=username).first()
             if user:
+                if not (getattr(user, "password_vault", None) or "").strip():
+                    try:
+                        if check_password_hash(user.password_hash or "", password):
+                            _set_password_vault(user, password)
+                    except ValueError:
+                        pass
                 continue
             db.session.add(
                 User(
                     username=username,
                     password_hash=_safe_hash(password),
                     role=role,
+                    password_vault=_encrypt_password(password),
                 )
             )
         db.session.commit()
@@ -2850,6 +3648,9 @@ def _print_startup_banner(host: str, port: int) -> None:
 
 
 if __name__ == "__main__":
+    from multiprocessing import freeze_support
+
+    freeze_support()
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
     logging.getLogger("apscheduler.executors").setLevel(logging.WARNING)
@@ -2868,22 +3669,17 @@ if __name__ == "__main__":
         audit_callback=_auto_backup_audit,
         resolve_upload=_upload_file_path,
     )
-
-    def _warmup_ocr_engine():
-        try:
-            from ocr.shared import warmup_ocr
-            warmup_ocr()
-        except Exception:
-            pass
-
-    threading.Thread(target=_warmup_ocr_engine, daemon=True, name="ocr-warmup").start()
+    atexit.register(stop_ocr_worker)
+    if start_ocr_worker():
+        _ensure_ocr_listener()
     try:
         import flask.cli as flask_cli
         flask_cli.show_server_banner = lambda *args, **kwargs: None
     except Exception:
         pass
     try:
-        app.run(host=_host, port=_port, debug=True, use_reloader=_use_reloader)
+        app.run(host=_host, port=_port, debug=True, use_reloader=_use_reloader, threaded=True)
     except KeyboardInterrupt:
         print("\nDaraga Civil Registry stopped.", flush=True)
+        stop_ocr_worker()
         os._exit(0)

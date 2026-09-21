@@ -10,8 +10,11 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    password_vault = db.Column(db.Text)  # encrypted copy so admin can view staff passwords
     role = db.Column(db.String(32), nullable=False)  # "ADMIN" or "STAFF"
+    session_version = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    last_login_at = db.Column(db.DateTime)
 
 
 class Record(db.Model):

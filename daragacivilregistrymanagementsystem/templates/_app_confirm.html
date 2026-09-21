@@ -1,0 +1,24 @@
+<div
+  id="app-confirm"
+  class="app-confirm"
+  hidden
+  aria-hidden="true"
+>
+  <div class="app-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="app-confirm-title" aria-describedby="app-confirm-message">
+    <div class="app-confirm-head">
+      <span class="app-confirm-ic" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 8h.01"/>
+          <path d="M11 12h1v4h1"/>
+        </svg>
+      </span>
+      <h2 class="app-confirm-title" id="app-confirm-title" data-confirm-title>Please confirm</h2>
+    </div>
+    <p class="app-confirm-message" id="app-confirm-message" data-confirm-message></p>
+    <div class="app-confirm-actions">
+      <button type="button" class="btn btn-secondary" data-confirm-cancel>Go back</button>
+      <button type="button" class="btn btn-primary" data-confirm-ok>Continue</button>
+    </div>
+  </div>
+</div>

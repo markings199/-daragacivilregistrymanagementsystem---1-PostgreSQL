@@ -51,42 +51,48 @@
     var font = document.getElementById("print-font-family");
     var paperVal = paper && paper.value ? paper.value : "legal";
     var fontVal = font && font.value ? font.value : "arial";
-    var sizes = {
-      legal: "8.5in 13in",
-      "us-legal": "8.5in 14in",
-      letter: "letter",
-      a4: "A4",
+    var papers = {
+      legal: { page: "8.5in 13in", w: "8.5in", h: "13in" },
+      "us-legal": { page: "8.5in 14in", w: "8.5in", h: "14in" },
+      letter: { page: "letter", w: "8.5in", h: "11in" },
+      a4: { page: "A4", w: "210mm", h: "297mm" },
     };
-    var scanH = {
-      legal: "12in",
-      "us-legal": "13in",
-      letter: "10in",
-      a4: "10.5in",
-    };
+    var p = papers[paperVal] || papers.legal;
+    var mode = selectedPrintMode();
+    var defaultMargin = mode === "certification" ? "0.5in 0.75in 0.5in 1in" : "0";
+    document.body.classList.toggle("print-original-only", mode === "original");
     var pageStyle = document.getElementById("print-page-style");
     if (!pageStyle) {
       pageStyle = document.createElement("style");
       pageStyle.id = "print-page-style";
       document.head.appendChild(pageStyle);
     }
-    var h = scanH[paperVal] || "12in";
     pageStyle.textContent =
       "@media print { @page { size: " +
-      (sizes[paperVal] || "8.5in 13in") +
-      " portrait; margin: 0.5in; } " +
-      "@page cert-form { size: " +
-      (sizes[paperVal] || "8.5in 13in") +
-      " portrait; margin: 0.5in 0.75in 0.5in 1in; } " +
-      "#print-area-original.print-surface-active { height: " +
-      h +
-      "; max-height: " +
-      h +
+      p.page +
+      " portrait; margin: " +
+      defaultMargin +
       "; } " +
-      "#print-area-original.print-surface-active .print-cert-image { height: " +
-      h +
-      "; max-height: " +
-      h +
-      "; } }";
+      "@page original-scan { size: " +
+      p.page +
+      " portrait; margin: 0; } " +
+      "@page cert-form { size: " +
+      p.page +
+      " portrait; margin: 0.5in 0.75in 0.5in 1in; } " +
+      "#print-area-original.print-surface-active { page: original-scan; width: " +
+      p.w +
+      "; height: 100vh; max-width: " +
+      p.w +
+      "; max-height: none; min-height: " +
+      p.h +
+      "; } " +
+      "#print-area-original.print-surface-active .print-cert-image { width: " +
+      p.w +
+      " !important; height: 100vh !important; min-height: " +
+      p.h +
+      " !important; max-width: " +
+      p.w +
+      " !important; max-height: none !important; object-fit: fill; object-position: top center; margin: 0; } }";
     document.querySelectorAll(".cert-print-surface").forEach(function (el) {
       el.setAttribute("data-print-font", fontVal);
     });
@@ -160,13 +166,17 @@
       .then(function (result) {
         var data = result.data || {};
         if (!result.httpOk || !data.ok) {
-          alert(data.error || "Print was not allowed.");
+          if (window.DaragaToast && window.DaragaToast.error) {
+            window.DaragaToast.error(data.error, "Print was not allowed.");
+          }
           return;
         }
         triggerPrint();
       })
       .catch(function () {
-        alert("Could not verify print permission.");
+        if (window.DaragaToast && window.DaragaToast.error) {
+          window.DaragaToast.error("Could not verify print permission.");
+        }
       });
   }
 
@@ -204,7 +214,13 @@
     btn.addEventListener("click", function (event) {
       event.preventDefault();
       if (btn.getAttribute("data-can-print") !== "1") {
-        alert("Admin approval is required before you can print this document.");
+        if (window.DaragaToast && window.DaragaToast.show) {
+          window.DaragaToast.show({
+            tone: "warning",
+            title: "Please check",
+            message: "Admin approval is required before you can print this document.",
+          });
+        }
         return;
       }
       runPrint(btn);

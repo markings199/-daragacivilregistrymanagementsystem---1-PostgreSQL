@@ -11,6 +11,8 @@ import cv2
 import numpy as np
 from ocr.shared import run_ocr_on_image
 from ocr.engine import extract_from_ocr_text, ocr_pages_to_text
+from ocr.field_boxes import extract_field_boxes
+from ocr.sex import sex_from_ocr_text
 
 
 # =========================================================
@@ -81,6 +83,12 @@ HELPER_WORDS = {
     "FIRST", "LAST", "MIDDLE", "INITIAL", "DAY", "MONTH", "YEAR",
     "AGE", "HUSBAND", "WIFE", "PARTIES", "PARTIEN", "PARTY",
     "MIDDLE INITIAL", "MIDDIE INITIAL", "MIDDLE INITLAL", "MIDDLE INLTIAL"
+}
+
+NAME_SLOT_LABELS = {
+    "FIRST", "FIRT", "FIST", "FRST",
+    "MIDDLE", "MIDLE", "MIDDDE", "MIDDELE", "MIDDEL", "MIDDLES",
+    "LAST", "LST", "LASTT",
 }
 
 NAME_BANNED_WORDS = {
@@ -207,12 +215,23 @@ def is_date_noise_token(nt: str) -> bool:
     return False
 
 
+def _is_name_slot_label(nt: str) -> bool:
+    token = re.sub(r"[^A-Z]", "", nt or "")
+    if not token:
+        return False
+    if token in NAME_SLOT_LABELS:
+        return True
+    return bool(difflib.get_close_matches(token, ["FIRST", "MIDDLE", "LAST"], n=1, cutoff=0.72))
+
+
 def sanitize_person_name(name: str) -> str:
     """Drop OCR junk, dates, and form words so only a person name remains."""
     parts = []
-    for raw in clean_text(name).split():
+    for raw in re.sub(r"[:;|]+", " ", clean_text(name)).split():
         nt = norm_text(raw)
         if not nt or is_helper_token(raw) or is_form_metadata(raw):
+            continue
+        if _is_name_slot_label(nt):
             continue
         if is_date_noise_token(nt) or nt in NAME_BANNED_WORDS:
             continue
@@ -231,22 +250,272 @@ def sanitize_person_name(name: str) -> str:
         parts.pop(0)
     while parts and norm_text(parts[-1]) not in NAME_SUFFIXES | NAME_PARTICLES and alpha_count(parts[-1]) < 3:
         parts.pop()
-    return " ".join(parts).strip()
+    return collapse_repeated_name(" ".join(parts).strip())
+
+
+def collapse_repeated_name(name: str) -> str:
+    """
+    Undo doubled OCR names, e.g.
+      MIGUEL SANTOS REYES MIGUEL SANTOS REYES → MIGUEL SANTOS REYES
+      ANGELICA FERNANDEZ DELA PENA ANGELICA FERNANDEZ → ANGELICA FERNANDEZ DELA PENA
+      KEVIN SANTOS SANTOS DELA TORRE → KEVIN SANTOS DELA TORRE
+    """
+    words = [w for w in re.sub(r"\s+", " ", str(name or "").strip()).split() if w]
+    if not words:
+        return ""
+
+    def _key(seq):
+        return [norm_text(w) for w in seq]
+
+    # Always drop consecutive duplicate tokens (middle name echoed twice).
+    deduped = [words[0]]
+    for w in words[1:]:
+        if norm_text(w) != norm_text(deduped[-1]):
+            deduped.append(w)
+    words = deduped
+    n = len(words)
+    if n < 4:
+        return " ".join(words)
+
+    # Exact half duplicate: ABC ABC
+    if n % 2 == 0:
+        half = n // 2
+        if half >= 2 and _key(words[:half]) == _key(words[half:]):
+            return " ".join(words[:half])
+
+    # Longest prefix that is repeated as the suffix (length >= 2).
+    for k in range(n // 2, 1, -1):
+        if _key(words[:k]) == _key(words[n - k :]):
+            return " ".join(words[: n - k])
+
+    # Contiguous repeated block of length >= 2 (AB AB C → AB C).
+    out = []
+    i = 0
+    while i < n:
+        matched = False
+        max_block = min((n - i) // 2, 4)
+        for k in range(max_block, 1, -1):
+            if _key(words[i : i + k]) == _key(words[i + k : i + 2 * k]):
+                out.extend(words[i : i + k])
+                i += 2 * k
+                matched = True
+                break
+        if not matched:
+            out.append(words[i])
+            i += 1
+    return " ".join(out)
+
+
+def compose_full_name(*parts: str) -> str:
+    """Join First, Middle, Last in form order. Skip empty, duplicate, or already-contained chunks."""
+    cleaned: List[str] = []
+    for raw in parts:
+        piece = sanitize_person_name(raw or "")
+        if not piece:
+            continue
+        piece_words = piece.split()
+        existing = " ".join(cleaned).split()
+        existing_keys = [norm_text(w) for w in existing]
+        piece_keys = [norm_text(w) for w in piece_words]
+
+        # Skip if this piece already appears as a contiguous run in the name so far.
+        if piece_keys and any(
+            existing_keys[i : i + len(piece_keys)] == piece_keys
+            for i in range(0, max(1, len(existing_keys) - len(piece_keys) + 1))
+        ):
+            continue
+
+        # If the new piece already contains the whole name so far, replace with the fuller piece.
+        if existing_keys and len(piece_keys) > len(existing_keys):
+            if any(
+                piece_keys[i : i + len(existing_keys)] == existing_keys
+                for i in range(0, max(1, len(piece_keys) - len(existing_keys) + 1))
+            ):
+                cleaned = piece_words[:]
+                continue
+
+        # Drop overlapping prefix of the new piece that already ends the name
+        # (First=KEVIN SANTOS + Last=SANTOS DELA TORRE → KEVIN SANTOS DELA TORRE).
+        if existing_keys and piece_keys:
+            max_overlap = min(len(existing_keys), len(piece_keys))
+            for n in range(max_overlap, 0, -1):
+                if existing_keys[-n:] == piece_keys[:n]:
+                    piece_words = piece_words[n:]
+                    piece_keys = piece_keys[n:]
+                    break
+        if not piece_words:
+            continue
+
+        key = norm_text(" ".join(piece_words))
+        if key in {norm_text(c) for c in cleaned}:
+            continue
+        cleaned.append(" ".join(piece_words))
+    return collapse_repeated_name(" ".join(cleaned).strip())
+
+
+def prefer_fuller_name(current: str, incoming: str) -> str:
+    """Keep the value that looks like First + Middle + Last, not last name only."""
+    a = sanitize_person_name(current or "")
+    b = sanitize_person_name(incoming or "")
+    if not a:
+        return b
+    if not b:
+        return a
+    # Prefer non-doubled / shorter when both encode the same person.
+    if collapse_repeated_name(a) == collapse_repeated_name(b):
+        return a if len(a.split()) <= len(b.split()) else b
+    if len(b.split()) != len(a.split()):
+        return b if len(b.split()) > len(a.split()) else a
+    return b if len(b) > len(a) else a
+
+
+def extract_stacked_fml_name(items, x_min, x_max, y_min, y_max) -> str:
+    """
+    Form fills that stack:
+      First:  Kevin
+      Middle: Santos
+      Last:   Dela Torre
+    Read each label and take the value to its right (First → Middle → Last).
+    """
+    region = [
+        it for it in items
+        if it.get("score", 0) >= 0.12
+        and x_min <= it["cx"] <= x_max
+        and y_min <= it["cy"] <= y_max
+    ]
+    if not region:
+        return ""
+
+    def _find_slot(label_words):
+        best = None
+        best_score = -1.0
+        for it in region:
+            nt = norm_text(it["text"]).rstrip(":")
+            if nt in label_words or any(nt == w or nt.startswith(w) for w in label_words):
+                if it["score"] > best_score:
+                    best = it
+                    best_score = it["score"]
+        return best
+
+    parts = []
+    for labels in (("FIRST", "FIRT", "FRST"), ("MIDDLE", "MIDLE", "MIDDDE"), ("LAST", "LST")):
+        lab = _find_slot(labels)
+        if not lab:
+            parts.append("")
+            continue
+        # Value sits on the same row, to the right of the label.
+        vals = [
+            it for it in region
+            if abs(it["cy"] - lab["cy"]) <= max(10.0, (lab["y2"] - lab["y1"]) * 0.9)
+            and it["cx"] > lab["cx"] + 4
+            and norm_text(it["text"]).rstrip(":") not in {"FIRST", "MIDDLE", "LAST"}
+        ]
+        vals.sort(key=lambda it: it["x1"])
+        chunk = []
+        for it in vals:
+            t = clean_text(it["text"])
+            nt = norm_text(t)
+            if not t or is_helper_token(t) or nt in NAME_BANNED_WORDS:
+                continue
+            if alpha_count(t) < 2:
+                continue
+            chunk.append(t)
+        parts.append(" ".join(chunk))
+    if sum(1 for p in parts if p) >= 2:
+        return compose_full_name(*parts)
+    return ""
+
+
+def _name_tokens_to_full(tokens, x_min, x_max) -> str:
+    """
+    Split one spouse column into First | Middle | Last (Municipal Form 97).
+
+    Some scans write First/Middle/Last in three horizontal columns; this template
+    (and many local fills) stack them vertically — First on top, then Middle, then Last.
+    """
+    usable = []
+    for it in tokens:
+        t = clean_text(it["text"])
+        nt = norm_text(t)
+        if not t or is_helper_token(t) or is_form_metadata(t):
+            continue
+        if re.fullmatch(r"\d+", nt) or is_date_noise_token(nt):
+            continue
+        if nt in {"FIRST", "MIDDLE", "LAST", "NAME", "HUSBAND", "WIFE", "INITIAL"} or _is_name_slot_label(nt):
+            continue
+        if nt in NAME_BANNED_WORDS:
+            continue
+        if alpha_count(t) < 2:
+            continue
+        usable.append((it, t))
+
+    if not usable:
+        return ""
+
+    xs = [it["cx"] for it, _ in usable]
+    ys = [it["cy"] for it, _ in usable]
+    x_span = max(xs) - min(xs) if xs else 0.0
+    y_span = max(ys) - min(ys) if ys else 0.0
+    buckets: List[List[str]] = [[], [], []]
+
+    sorted_y = sorted(ys)
+    row_gaps = [sorted_y[i + 1] - sorted_y[i] for i in range(len(sorted_y) - 1)]
+    has_stacked_rows = y_span >= 18 and sum(1 for g in row_gaps if g >= 10) >= 1
+
+    # Vertical First / Middle / Last (stacked rows) — order by top→bottom.
+    if has_stacked_rows and y_span >= x_span * 0.55:
+        y0, y1 = min(ys), max(ys)
+        height = max(1.0, y1 - y0)
+        for it, t in sorted(usable, key=lambda p: p[0]["cy"]):
+            rel = (it["cy"] - y0) / height
+            rel = min(0.999, max(0.0, rel))
+            buckets[0 if rel < 0.34 else 1 if rel < 0.67 else 2].append(t)
+    else:
+        # Horizontal First | Middle | Last — order by left→right.
+        width = max(1.0, float(x_max) - float(x_min))
+        for it, t in sorted(usable, key=lambda p: p[0]["x1"]):
+            rel = (it["cx"] - x_min) / width
+            rel = min(0.999, max(0.0, rel))
+            buckets[0 if rel < 0.34 else 1 if rel < 0.67 else 2].append(t)
+
+    return compose_full_name(
+        " ".join(buckets[0]),
+        " ".join(buckets[1]),
+        " ".join(buckets[2]),
+    )
+
+
+_ADDRESS_TOKENS = {
+    "BLOCK", "LOT", "PUROK", "BARANGAY", "BRGY", "STREET", "HOMES",
+    "SUBDIVISION", "VILLAGE", "SITIO", "PHASE", "ROAD", "AVENUE",
+    "CAMELLA", "HOUSE", "BLDG", "BUILDING",
+}
 
 
 def normalize_citizenship_value(text: str) -> str:
     nt = compact_text(text)
     if not nt:
         return ""
+    upper = norm_text(text)
+    words = [w for w in upper.split() if w not in {"SEX", "MALE", "FEMALE", "CITIZENSHIP"}]
     for key, canon in CITIZENSHIP_CANON.items():
-        if compact_text(key) in nt or nt in compact_text(key):
+        key_n = norm_text(key)
+        if key_n and re.search(rf"\b{re.escape(key_n)}\b", upper):
             return canon
-    match = difflib.get_close_matches(nt, [compact_text(k) for k in CITIZENSHIP_CANON], n=1, cutoff=0.78)
+    if any(word in _ADDRESS_TOKENS for word in words):
+        return ""
+    if re.search(r"\b(MALE|FEMALE|SEX)\b", upper) or sex_from_ocr_text(text):
+        return ""
+    if len(words) != 1:
+        return ""
+    match = difflib.get_close_matches(
+        compact_text(words[0]), [compact_text(k) for k in CITIZENSHIP_CANON], n=1, cutoff=0.78
+    )
     if match:
         for key, canon in CITIZENSHIP_CANON.items():
             if compact_text(key) == match[0]:
                 return canon
-    cleaned = apply_common_word_fix(text)
+    cleaned = apply_common_word_fix(words[0])
     return cleaned if alpha_count(cleaned) >= 4 else ""
 
 
@@ -272,12 +541,7 @@ def normalize_month_word(word: str) -> str:
 
 
 def normalize_sex_value(text: str) -> str:
-    nt = norm_text(text)
-    if "FEMALE" in nt:
-        return "FEMALE"
-    if re.search(r"\bMALE\b", nt):
-        return "MALE"
-    return apply_common_word_fix(text)
+    return sex_from_ocr_text(text)
 
 
 def pattern_score(text: str, patterns):
@@ -650,32 +914,141 @@ def compute_age_from_dates(dob_str, marriage_date_str):
     return ""
 
 
+def _age_from_tokens(tokens, dob_text="") -> str:
+    """Form 97 item 2b: Age is the rightmost small integer, not the birth day or year."""
+    if not tokens:
+        return ""
+    dob_parts = set(norm_text(dob_text).split()) if dob_text else set()
+    min_x = min(it["x1"] for it in tokens)
+    max_x = max(it["x2"] for it in tokens)
+    span = max(max_x - min_x, 1.0)
+    hits = []
+    for it in tokens:
+        nt = norm_text(it["text"])
+        if re.search(r"\b(?:19|20)\d{2}\b", nt) and not re.fullmatch(r"\d{1,3}", nt):
+            continue
+        for m in re.finditer(r"(?<!\d)(\d{1,3})(?!\d)", nt):
+            token = m.group(1)
+            val = int(token)
+            if token in dob_parts or val > 120:
+                continue
+            rel = (it["cx"] - min_x) / span
+            if 12 <= val <= 90:
+                hits.append((0 if rel >= 0.55 else 1, -rel, -it.get("score", 0), val))
+            elif 0 <= val <= 120:
+                hits.append((2, -rel, -it.get("score", 0), val))
+    if not hits:
+        return ""
+    hits.sort()
+    return str(hits[0][3])
+
+
+_BIRTH_YEAR_RE = re.compile(r"\b((?:19|20)\d{2})\b")
+
+
+def _small_age(text: str):
+    hits = []
+    nt = norm_text(text)
+    if _BIRTH_YEAR_RE.search(nt) and not re.fullmatch(r"\d{1,3}", nt):
+        nt = _BIRTH_YEAR_RE.sub(" ", nt)
+    for m in re.finditer(r"(?<!\d)(\d{1,3})(?!\d)", nt):
+        val = int(m.group(1))
+        if 1 <= val <= 120:
+            hits.append(val)
+    return hits
+
+
+def extract_form97_ages(items, img_w, img_h, split_x=None, dob_label=None):
+    """
+    Form 97 item 2: Day / Month / Year / Age for husband, then the same for wife.
+    Age is the small number immediately to the right of each birth year.
+    """
+    y1 = img_h * 0.155
+    y2 = img_h * 0.225
+    if dob_label:
+        y1 = min(y1, dob_label["y1"] - img_h * 0.02)
+        y2 = max(y2, dob_label["y2"] + img_h * 0.10)
+    y1 = max(img_h * 0.12, y1)
+    y2 = min(img_h * 0.28, y2)
+    band = tokens_in_region(items, img_w * 0.14, img_w * 0.995, y1, y2, min_score=0.12)
+    ordered = sorted(band, key=lambda it: (it["cx"], it["x1"]))
+    years = []
+    for it in ordered:
+        if _BIRTH_YEAR_RE.search(norm_text(it["text"])):
+            years.append(it)
+
+    def age_after_year(year_it):
+        same = _small_age(year_it["text"])
+        if same:
+            return str(same[-1])
+        x_min = year_it["x2"] - img_w * 0.012
+        x_max = year_it["cx"] + img_w * 0.16
+        hits = []
+        for it in ordered:
+            if it is year_it:
+                continue
+            if it["cx"] < x_min or it["cx"] > x_max:
+                continue
+            if _BIRTH_YEAR_RE.search(norm_text(it["text"])):
+                continue
+            for val in _small_age(it["text"]):
+                hits.append((it["cx"], val))
+        if not hits:
+            return ""
+        hits.sort()
+        return str(hits[0][1])
+
+    hus = age_after_year(years[0]) if years else ""
+    wife = age_after_year(years[1]) if len(years) >= 2 else ""
+    if wife and hus and wife == hus and len(years) >= 2:
+        # Do not copy the husband age; keep searching farther right of the wife year.
+        x_min = years[1]["cx"] + img_w * 0.04
+        extra = []
+        for it in ordered:
+            if it["cx"] < x_min:
+                continue
+            extra.extend(_small_age(it["text"]))
+        extra = [v for v in extra if str(v) != hus]
+        if extra:
+            wife = str(extra[0])
+        else:
+            wife = ""
+    return hus, wife
+
+
 def extract_dob_and_age(side_tokens, marriage_date_text=""):
     side_tokens = sorted(side_tokens, key=lambda x: (x["cy"], x["x1"]))
     date_candidates = extract_date_candidates(side_tokens)
     dob = date_candidates[0]["text"] if date_candidates else ""
+    handwritten = _age_from_tokens(side_tokens, dob)
+    if handwritten:
+        return dob, handwritten
     computed_age = compute_age_from_dates(dob, marriage_date_text)
-    if computed_age:
-        return dob, computed_age
-    used_parts = set(dob.split()) if dob else set()
-    age_candidates = []
-    for it in side_tokens:
-        nt = norm_text(it["text"])
-        if re.fullmatch(r"\d{1,3}", nt):
-            val = int(nt)
-            if 0 <= val <= 120 and nt not in used_parts:
-                age_candidates.append((it["score"], it["x1"], val))
-    if not age_candidates:
-        return dob, ""
-    age_candidates.sort(key=lambda x: (-(18 <= x[2] <= 80), -x[0], -x[1]))
-    return dob, str(age_candidates[0][2])
+    return dob, computed_age
+
+
+_PLACE_FORM_TAIL = {
+    "CITY", "MUNICIPALITY", "PROVINCE", "OFFICE", "HOUSE", "STREET", "ST",
+    "BARANGAY", "BRGY", "NO", "NUMBER", "MOSQUE", "TEMPLE", "CHAPEL",
+    "ADDRESS", "PLACE", "MARRIAGE", "OF", "THE", "AND",
+}
+
+_MONTH_ALT = (
+    "JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|"
+    "SEPTEMBER|OCTOBER|NOVEMBER|DECEMBER"
+)
 
 
 def normalize_place(text: str) -> str:
+    """Keep only the marriage venue. Drop City/Municipality labels, date, and time bleed."""
+    text = clean_text(text or "")
+    if not text:
+        return ""
     text = re.sub(r"\bPLACE OF MARRIAGE\b", " ", text, flags=re.I)
     text = re.sub(r"\bADDRESS\b", " ", text, flags=re.I)
     text = re.sub(r"\bMANILA CITY HALL\b", " ", text, flags=re.I)
     text = re.sub(r"\(.*?OFFICE OF THE.*?\)", " ", text, flags=re.I)
+    text = re.sub(r"\([^)]*(?:CITY|MUNICIPALITY|PROVINCE|OFFICE|HOUSE|BARANGAY)[^)]*\)", " ", text, flags=re.I)
     text = re.sub(r"\.{2,}", " ", text)
     text = re.sub(r"(?<=\w)\.(?=\w)", "", text)
     text = re.sub(r"\bEBMITA\b", "ERMITA", text, flags=re.I)
@@ -688,7 +1061,66 @@ def normalize_place(text: str) -> str:
             spaced,
         )
     text = re.sub(r"\s+", " ", spaced).strip(" .:-,")
-    return text
+
+    # Hard cut before date of marriage / time of marriage that leaked into this field.
+    cut = re.search(
+        rf"\b\d{{1,2}}\s+(?:{_MONTH_ALT})\s+\d{{2,4}}\b",
+        text,
+        flags=re.I,
+    )
+    if cut:
+        text = text[: cut.start()].strip(" .:-,")
+    cut = re.search(
+        r"\b\d{1,2}\s*[:.]\s*\d{2}\s*(?:AM|PM)?\b|\b\d{1,2}\s+\d{2}\s*(?:AM|PM)\b|\b(?:AM|PM)\b",
+        text,
+        flags=re.I,
+    )
+    if cut:
+        text = text[: cut.start()].strip(" .:-,")
+    # Item numbers + time junk: "17 am pm", "3 00pm"
+    text = re.sub(r"\b\d{1,2}\s*(?:AM|PM)(?:\s*(?:AM|PM))?\s*$", "", text, flags=re.I)
+    text = re.sub(r"\b\d{1,2}\s+\d{2}\s*(?:AM|PM)?\s*$", "", text, flags=re.I)
+
+    # Printed prompt cluster often stuck at the end.
+    text = re.sub(
+        r"(?i)\b(?:OFFICE|HOUSE|BARANGAY|CHURCH|MOSQUE|CITY|MUNICIPALITY|PROVINCE)"
+        r"(?:\s*/?\s*(?:OFFICE|HOUSE|BARANGAY|CHURCH|MOSQUE|CITY|MUNICIPALITY|PROVINCE))+\s*$",
+        " ",
+        text,
+    )
+    text = re.sub(r"(?i)\b(?:CITY\s+)?MUNICIPALITY(?:\s+PROVINCE)?\s*$", " ", text)
+    text = re.sub(r"(?i)\bPROVINCE\s*$", " ", text)
+
+    words = [w for w in re.sub(r"\s+", " ", text).strip().split() if w]
+    # Drop trailing form-only labels (keep real "Parish Church").
+    while words and norm_text(words[-1]) in _PLACE_FORM_TAIL:
+        if norm_text(words[-1]) in {"CHURCH", "MOSQUE", "TEMPLE", "CHAPEL"} and len(words) >= 2:
+            break
+        if norm_text(words[-1]) == "CITY" and len(words) >= 2 and norm_text(words[-2]) not in _PLACE_FORM_TAIL:
+            # Keep "Quezon City" / "Legazpi City"; drop only after province-like tails already cleaned.
+            break
+        words.pop()
+
+    text = " ".join(words).strip(" .:-,/")
+    return text if alpha_count(text) >= 4 else ""
+
+
+def _is_place_noise_token(text: str) -> bool:
+    """True for date/time/form tokens that must not enter Place of Marriage."""
+    nt = norm_text(text)
+    if not nt:
+        return True
+    if nt in _PLACE_FORM_TAIL and nt not in {"CHURCH", "MOSQUE", "TEMPLE", "CHAPEL"}:
+        return True
+    if nt in MONTHS:
+        return True
+    if re.fullmatch(r"\d{1,4}", nt):
+        return True
+    if re.search(r"\b(AM|PM)\b", nt):
+        return True
+    if re.fullmatch(r"\d{1,2}:\d{2}", nt):
+        return True
+    return False
 
 
 def normalize_marriage_date_text(tokens):
@@ -875,7 +1307,7 @@ def extract_citizenship_pair(items, label, working_xmax, split_x, next_label, im
     if label:
         h, w = extract_two_side_band(
             items, label, working_xmax, split_x,
-            next_label=next_label, banned={"CITIZENSHIP", "CITIZENAHIP"}, extra_bottom=36
+            next_label=next_label, banned={"CITIZENSHIP", "CITIZENAHIP"}, extra_bottom=16
         )
     h = normalize_citizenship_value(h)
     w = normalize_citizenship_value(w)
@@ -923,128 +1355,47 @@ def _field_confidence(field_name: str, value: str, source: str = "layout") -> st
 # MAIN NAME EXTRACTION FUNCTION (FIXED)
 # =========================================================
 def extract_names_from_band(items, name_label, dob_label, working_xmax, split_x, img_w=None, img_h=None):
-    """
-    Extract husband and wife names from the name band.
-    
-    Strategy: Use image proportions to find the region between top of form
-    and the DOB label, then identify name tokens and split by column.
-    """
-    # Get image dimensions
+    """Read First + Middle + Last on the same row as 'Name of Contracting Parties'."""
     if img_w is None and items:
         img_w = max(it["x2"] for it in items)
     if img_h is None and items:
         img_h = max(it["y2"] for it in items)
     img_w = img_w or 600
     img_h = img_h or 800
-    
-    # Define search region - names are typically in upper portion of form
-    # From ~8% to ~25% of image height
-    y_start = int(img_h * 0.08)
-    y_end = int(img_h * 0.25)
-    
-    # If we have DOB label, use its position as upper bound
-    if dob_label:
-        y_end = min(y_end, dob_label["y1"] - 5)
-    
-    # If we have name label, use its position as lower bound
+
+    y_start = int(img_h * 0.105)
+    y_end = int(img_h * 0.195)
     if name_label:
-        y_start = max(y_start, name_label["y2"])
-    
-    # Search from left side of form content to right side
+        y_start = min(y_start, int(name_label["y1"] - img_h * 0.012))
+        y_end = max(y_end, int(name_label["y2"] + img_h * 0.01))
+    if dob_label:
+        y_end = min(y_end, dob_label["y1"] - 4)
+    if y_end <= y_start:
+        y_end = y_start + int(img_h * 0.06)
+
     x_start = int(img_w * 0.12)
     x_end = working_xmax
-    
-    # Get all tokens in the name region with low threshold
-    tokens = tokens_in_region(
-        items, x_start, x_end, y_start, y_end, min_score=0.08
-    )
-    
-    if DEBUG_NAME_BAND:
-        print("\n========== NAME REGION SEARCH ==========")
-        print(f"Search region: x={x_start}-{x_end}, y={y_start}-{y_end}")
-        print(f"Found {len(tokens)} tokens in region:")
-        for t in sorted(tokens, key=lambda x: (x["cy"], x["x1"])):
-            print(f'  "{t["text"]}" | cx={t["cx"]:.1f} cy={t["cy"]:.1f} score={t["score"]:.2f}')
-        print(f"Column split x: {split_x}")
-        print("======================================\n")
-    
-    if not tokens:
-        return "", ""
-    
-    # Filter tokens to keep only potential name parts
-    filtered = []
-    for t in tokens:
-        txt = clean_text(t["text"])
-        nt = norm_text(txt)
-        
-        # Skip form metadata
-        if is_form_metadata(txt):
-            continue
-        # Skip pure numbers
-        if re.fullmatch(r"\d+", nt):
-            continue
-        if is_date_noise_token(nt):
-            continue
-        # Skip very short tokens
-        if len(nt) < 2:
-            continue
-        # Skip common label words
-        if nt in {"HUSBAND", "WIFE", "NAME", "OF", "PARTIES", "DATE", "BIRTH", 
-                     "AGE", "PLACE", "SEX", "CIVIL", "STATUS", "RELIGION", 
-                     "CITIZENSHIP", "FATHER", "MOTHER", "MARRIAGE", "FORM", 
-                     "NO", "REPUBLIC", "PHILIPPINES", "MANILA", "OFFICE", 
-                     "REGISTRAR", "LOCAL", "THE", "AND", "FOR", "COPY"}:
-            continue
-        # Must have at least 2 alphabetic characters
-        if alpha_count(txt) < 2:
-            continue
-        filtered.append(t)
-    
-    if DEBUG_NAME_BAND:
-        print("\n========== FILTERED NAME TOKENS ==========")
-        for t in sorted(filtered, key=lambda x: (x["cy"], x["x1"])):
-            print(f'  "{t["text"]}" | cx={t["cx"]:.1f} cy={t["cy"]:.1f}')
-        print("==========================================\n")
-    
-    # Try to split into left/right columns and extract names
-    if filtered:
-        # Use the column split position
-        left, right = split_left_right(filtered, split_x, x_start)
-        
-        h = normalize_name(left)
-        w = normalize_name(right)
-        
-        if DEBUG_NAME_BAND:
-            print(f"Initial split: husband='{h}', wife='{w}'")
-        
-        if h or w:
-            return h, w
-    
-    # Fallback: try with all tokens minus form metadata
-    all_filtered = [t for t in tokens if not is_form_metadata(t["text"])]
-    if all_filtered:
-        left, right = split_left_right(all_filtered, split_x, x_start)
-        h = normalize_name(left)
-        w = normalize_name(right)
-        
-        if DEBUG_NAME_BAND:
-            print(f"Fallback split: husband='{h}', wife='{w}'")
-        
-        if h or w:
-            return h, w
-    
-    # Final fallback: try different split positions
-    for try_ratio in [0.5, 0.45, 0.55, 0.4, 0.6, 0.35, 0.65]:
-        try_split = x_start + (x_end - x_start) * try_ratio
-        left_test, right_test = split_left_right(all_filtered, try_split, x_start)
-        h_test = normalize_name(left_test)
-        w_test = normalize_name(right_test)
-        if h_test or w_test:
-            if DEBUG_NAME_BAND:
-                print(f"Found with split ratio {try_ratio}: husband='{h_test}', wife='{w_test}'")
-            return h_test, w_test
+    mid = split_x if split_x and split_x > x_start else (x_start + x_end) / 2.0
 
-    return "", ""
+    tokens = tokens_in_region(items, x_start, x_end, y_start, y_end, min_score=0.08)
+    left, right = split_left_right(tokens, mid, x_start)
+
+    # Prefer explicit First:/Middle:/Last: stacked rows (correct form order).
+    husband = extract_stacked_fml_name(items, x_start, mid, y_start, y_end)
+    wife = extract_stacked_fml_name(items, mid, x_end, y_start, y_end)
+    if not husband:
+        husband = _name_tokens_to_full(left, x_start, mid)
+    if not wife:
+        wife = _name_tokens_to_full(right, mid, x_end)
+
+    if DEBUG_NAME_BAND:
+        print(f"Name row: husband='{husband}', wife='{wife}' split={mid:.0f}")
+
+    if husband or wife:
+        return husband, wife
+
+    left, right = split_left_right(tokens, mid, x_start)
+    return sanitize_person_name(normalize_name(left)), sanitize_person_name(normalize_name(right))
 
 
 # =========================================================
@@ -1092,6 +1443,11 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
 
     img_h, img_w = img.shape[:2]
     result = run_ocr_on_image(img)
+    box_map: Dict[str, str] = {}
+    try:
+        box_map = extract_field_boxes(img, "marriage", pages=result)
+    except Exception:
+        box_map = {}
 
     # Template-first extraction (folder-based JSON templates).
     tpl_map: Dict[str, str] = {}
@@ -1282,17 +1638,22 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     data["shared"]["Registry Number"] = extract_registry_number(items, img_w, img_h, working_xmax)
 
     if place_mar_label:
-        lower_y = date_mar_label["y1"] - 6 if date_mar_label and date_mar_label["y1"] > place_mar_label["y2"] else place_mar_label["y2"] + 55
+        lower_y = date_mar_label["y1"] - 8 if date_mar_label and date_mar_label["y1"] > place_mar_label["y2"] else place_mar_label["y2"] + 36
         if lower_y <= place_mar_label["y2"]:
-            lower_y = place_mar_label["y2"] + 55
+            lower_y = place_mar_label["y2"] + 36
         region = tokens_in_region(
             items, min(place_mar_label["x2"], img_w * 0.18), working_xmax,
             place_mar_label["y1"] - 4, lower_y, min_score=0.12
         )
-        place_text = normalize_place(join_tokens([
-            it for it in region
-            if "PLACE" not in norm_text(it["text"]) or "MARRIAGE" not in norm_text(it["text"])
-        ]))
+        kept = []
+        for it in region:
+            nt = norm_text(it["text"])
+            if "PLACE" in nt and "MARRIAGE" in nt:
+                continue
+            if _is_place_noise_token(it["text"]):
+                continue
+            kept.append(it)
+        place_text = normalize_place(join_tokens(kept))
         if place_text:
             data["shared"]["Place of Marriage"] = place_text
 
@@ -1338,6 +1699,18 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
             data["wife"]["Date of Birth"] = w_dob
         if w_age:
             data["wife"]["Age"] = w_age
+
+    box_h_age, box_w_age = extract_form97_ages(items, img_w, img_h, split_x, dob_label)
+    if box_h_age:
+        data["husband"]["Age"] = box_h_age
+    if box_w_age:
+        data["wife"]["Age"] = box_w_age
+    elif data["wife"].get("Age") and data["wife"]["Age"] == data["husband"].get("Age"):
+        computed = compute_age_from_dates(data["wife"].get("Date of Birth") or "", marriage_date_text)
+        if computed and computed != data["husband"].get("Age"):
+            data["wife"]["Age"] = computed
+        else:
+            data["wife"]["Age"] = ""
 
     h, w = extract_two_side_band(items, pob_label, working_xmax, split_x, next_label=sex_label, banned={"PLACE OF BIRTH"}, extra_bottom=28)
     if h:
@@ -1426,6 +1799,48 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     for k, v in (tpl_map or {}).items():
         if v and not (out.get(k) or "").strip():
             out[k] = v
+    for k, v in (box_map or {}).items():
+        if not v:
+            continue
+        if k in ("Husband Name", "Wife Name"):
+            incoming = collapse_repeated_name(sanitize_person_name(v))
+            if not incoming:
+                continue
+            # Husband: prefer First→Middle→Last box compose over scrambled layout order.
+            if k == "Husband Name" and len(incoming.split()) >= 2:
+                out[k] = incoming
+                continue
+            out[k] = collapse_repeated_name(
+                prefer_fuller_name(out.get(k) or "", incoming)
+            )
+            continue
+        if k in {"Husband Citizenship", "Wife Citizenship"}:
+            parsed = normalize_citizenship_value(v)
+            if parsed:
+                out[k] = parsed
+            continue
+        if k == "Place of Marriage":
+            parsed = normalize_place(v)
+            if parsed:
+                out[k] = parsed
+            continue
+        if k in {"Husband Age", "Wife Age"}:
+            parsed = _age_from_tokens(
+                [{"text": v, "x1": 0, "x2": 10, "cx": 10, "score": 1.0}]
+            )
+            if not parsed:
+                continue
+            if k == "Wife Age" and parsed == (out.get("Husband Age") or "").strip():
+                continue
+            v = parsed
+        out[k] = v
+    linked_h, linked_w = extract_form97_ages(items, img_w, img_h, split_x, dob_label)
+    if linked_h:
+        out["Husband Age"] = linked_h
+    if linked_w:
+        out["Wife Age"] = linked_w
+    elif (out.get("Wife Age") or "").strip() == (out.get("Husband Age") or "").strip():
+        out["Wife Age"] = ""
     ordered_fields = [
         "Registry Number",
         "Date of Registration",
@@ -1448,12 +1863,15 @@ def extract_marriage_data(img_path: str) -> Dict[str, Any]:
     source_map: Dict[str, str] = {}
     for key in ordered_fields:
         val = (out.get(key) or "").strip()
-        is_template_fill = (
-            not (before_template.get(key) or "").strip()
-            and bool(val)
-            and bool((tpl_map or {}).get(key))
-        )
-        source = "template" if is_template_fill else "layout"
+        if (box_map or {}).get(key) and val:
+            source = "box"
+        else:
+            is_template_fill = (
+                not (before_template.get(key) or "").strip()
+                and bool(val)
+                and bool((tpl_map or {}).get(key))
+            )
+            source = "template" if is_template_fill else "layout"
         source_map[key] = source
         confidence_map[key] = _field_confidence(key, val, source=source)
     out["__confidence__"] = confidence_map

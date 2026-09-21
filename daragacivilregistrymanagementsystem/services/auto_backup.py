@@ -70,8 +70,27 @@ def settings_path(base_dir: Path) -> Path:
     return base_dir / "backups" / SETTINGS_FILENAME
 
 
+_PLACEHOLDER_DESTINATIONS = {
+    r"\\servername\civilregistrybackups",
+    r"//servername/civilregistrybackups",
+}
+
+
+def clean_destination_path(raw: str) -> str:
+    """Normalize a server/share path. Example placeholder text is treated as empty."""
+    dest = (raw or "").strip().strip('"').strip("'")
+    if dest.startswith("//"):
+        dest = "\\\\" + dest[2:]
+    key = dest.replace("/", "\\").rstrip("\\").lower()
+    if not dest or key in _PLACEHOLDER_DESTINATIONS:
+        return ""
+    return dest
+
+
 def env_backup_root() -> str:
-    return (os.environ.get("DARAGA_BACKUP_ROOT") or os.environ.get("BACKUP_ROOT") or "").strip().strip('"').strip("'")
+    return clean_destination_path(
+        os.environ.get("DARAGA_BACKUP_ROOT") or os.environ.get("BACKUP_ROOT") or ""
+    )
 
 
 def local_backup_root(base_dir: Path) -> Path:
@@ -93,7 +112,7 @@ def resolve_server_backup_root(
 ) -> tuple[Optional[Path], Optional[str]]:
     """Optional second copy on the Daraga Civil Registry server. Empty path means 'not set yet'."""
     settings = settings if settings is not None else load_settings(base_dir)
-    raw = env_backup_root() or str(settings.get("destination_path") or "").strip().strip('"').strip("'")
+    raw = env_backup_root() or clean_destination_path(str(settings.get("destination_path") or ""))
     if not raw:
         return None, None
     if raw.startswith("//"):
@@ -101,14 +120,16 @@ def resolve_server_backup_root(
     path = Path(raw)
     if not (raw.startswith("\\\\") or path.is_absolute()):
         return None, (
-            "Use a full server path such as \\\\SERVERNAME\\CivilRegistryBackups."
+            "Enter a full office-server path, for example \\\\DARAGA-SERVER\\CivilRegistryBackups "
+            "or D:\\OfficeBackups."
         )
     app_root = base_dir.resolve()
     try:
         candidate = path if raw.startswith("\\\\") else path.resolve()
         candidate.relative_to(app_root)
         return None, (
-            "That folder is already this system. Enter the LGU server share to keep a second copy at Daraga Civil Registry."
+            "That folder is this laptop's program folder. Enter the office server share or another "
+            "drive so the municipal copy is stored separately."
         )
     except (ValueError, OSError):
         pass
@@ -161,17 +182,28 @@ def server_backup_display(base_dir: Path, settings: Optional[dict[str, Any]] = N
 def ensure_backup_dir_writable(folder: Path) -> Optional[str]:
     """Create the folder and confirm this computer can write to it. Returns an error string or None."""
     try:
-        folder.mkdir(parents=True, exist_ok=True)
+        os.makedirs(str(folder), exist_ok=True)
         probe = folder / ".civil_registry_backup_write_test"
         probe.write_text("ok", encoding="utf-8")
         probe.unlink(missing_ok=True)
     except OSError as exc:
         return (
-            f"Cannot save the second copy to {folder}. "
-            "Check that the Daraga Civil Registry server is on, the folder is shared, "
-            f"and this computer can reach it. Backups will still be saved on this system. ({exc})"
+            f"Cannot save the office-server copy to {folder}. "
+            "Check that the server is on, the folder is shared, and this laptop can reach it. "
+            f"A copy will still be kept on this laptop. ({exc})"
         )
     return None
+
+
+def describe_backup_copies(local_path: Path, server_status: str, server_detail: str) -> str:
+    if server_status == "ok":
+        return "Priority copy on the office server. Safety copy kept on this computer."
+    if server_status == "failed":
+        return (
+            "Saved on this computer only. "
+            "Office-server priority copy FAILED - check the shared folder and network."
+        )
+    return "Saved on this computer. Set the office-server shared folder to enable the municipal priority copy."
 
 
 def copy_zip_to_server(
@@ -181,25 +213,87 @@ def copy_zip_to_server(
     *,
     force: bool = False,
     settings: Optional[dict[str, Any]] = None,
-) -> str:
-    """Copy a local zip to the same relative path on the LGU server, if configured."""
+    retries: int = 2,
+) -> tuple[str, str]:
+    """
+    Publish a backup zip to the Daraga office server (priority archive).
+
+    Returns (ok|skipped|failed, detail). Retries briefly when the share is flaky.
+    """
     server_root, server_err = resolve_server_backup_root(base_dir, settings)
     if server_err:
-        return f" Server copy was not made: {server_err}"
+        return "failed", f"Office server copy FAILED: {server_err}"
     if server_root is None:
-        return ""
-    try:
-        server_dest = server_root / relative_path_on_server(server_root, relative)
-        if server_dest.exists() and server_dest.is_dir():
-            return f" Server copy was not made: a folder already exists at {server_dest}."
-        server_dest.parent.mkdir(parents=True, exist_ok=True)
-        if server_dest.exists() and not force:
-            return f" Also kept on the LGU server at {server_dest}."
-        shutil.copy2(source, server_dest)
-        return f" Also saved on the LGU server at {server_dest}."
-    except OSError as exc:
-        logger.warning("Could not copy backup to LGU server: %s", exc)
-        return f" Saved on this system, but the LGU server copy failed: {exc}"
+        return "skipped", "Saved on this computer."
+
+    last_error = ""
+    attempts = max(1, int(retries or 1))
+    for attempt in range(1, attempts + 1):
+        try:
+            if not source.is_file():
+                return "failed", f"Office server copy FAILED: source zip was missing ({source})."
+            server_dest = server_root / relative_path_on_server(server_root, relative)
+            dest_text = str(server_dest)
+            if os.path.isdir(dest_text):
+                return "failed", f"Office server copy FAILED: a folder already exists at {dest_text}."
+            os.makedirs(str(server_dest.parent), exist_ok=True)
+            shutil.copy2(str(source), dest_text)
+            if not os.path.isfile(dest_text):
+                last_error = f"file was not found after copy at {dest_text}"
+            else:
+                try:
+                    if os.path.getsize(dest_text) <= 0:
+                        last_error = f"empty file after copy at {dest_text}"
+                    else:
+                        return "ok", f"Office server (priority): {dest_text}"
+                except OSError as exc:
+                    last_error = str(exc)
+        except OSError as exc:
+            last_error = str(exc)
+            logger.warning(
+                "Office server backup copy attempt %s/%s failed: %s",
+                attempt,
+                attempts,
+                exc,
+            )
+        if attempt < attempts:
+            try:
+                import time
+
+                time.sleep(1.2 * attempt)
+            except Exception:
+                pass
+    return "failed", f"Office server copy FAILED after {attempts} tries: {last_error}"
+
+
+def get_backup_readiness(base_dir: Path, settings: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+    """Status for the Automatic Backup screen — ready for Daraga server connection."""
+    settings = settings if settings is not None else load_settings(base_dir)
+    server_path, server_err = resolve_server_backup_root(base_dir, settings)
+    server_writable = False
+    server_message = "Not set - daily backups stay on this computer until the office share is configured."
+    if server_err:
+        server_message = server_err
+    elif server_path is not None:
+        write_err = ensure_backup_dir_writable(server_path)
+        if write_err:
+            server_message = write_err
+        else:
+            server_writable = True
+            server_message = f"Ready - priority copies will go to {server_path}"
+    return {
+        "schedule_on": bool(settings.get("enabled")),
+        "daily_on": bool(settings.get("daily_enabled", True)),
+        "daily_time": str(settings.get("daily_time") or "20:00"),
+        "server_configured": server_path is not None and not server_err,
+        "server_writable": server_writable,
+        "server_path": str(server_path) if server_path is not None else "",
+        "server_message": server_message,
+        "local_path": str(local_backup_root(base_dir)),
+        "deploy_ready": bool(settings.get("enabled"))
+        and bool(settings.get("daily_enabled", True))
+        and server_writable,
+    }
 
 
 def sync_local_backups_to_server(base_dir: Path) -> tuple[int, int, Optional[str]]:
@@ -219,11 +313,11 @@ def sync_local_backups_to_server(base_dir: Path) -> tuple[int, int, Optional[str
             rel = str(path.relative_to(local)).replace("\\", "/")
         except ValueError:
             continue
-        extra = copy_zip_to_server(path, rel, base_dir, force=False)
-        if "failed" in extra.lower() or "was not made" in extra.lower():
-            failed += 1
-        elif "Also saved" in extra:
+        status, extra = copy_zip_to_server(path, rel, base_dir, force=True)
+        if status == "ok":
             copied += 1
+        elif status == "failed":
+            failed += 1
     return copied, failed, None
 
 
@@ -272,7 +366,7 @@ def _normalize_settings(settings: dict[str, Any]) -> dict[str, Any]:
         out["retain_count"] = max(1, min(100, int(out.get("retain_count", 10))))
     except (TypeError, ValueError):
         out["retain_count"] = 10
-    dest = str(out.get("destination_path") or "").strip().strip('"').strip("'")
+    dest = clean_destination_path(str(out.get("destination_path") or ""))
     if "\x00" in dest:
         dest = ""
     out["destination_path"] = dest[:1024]
@@ -527,11 +621,8 @@ def run_period_backup(
 
     try:
         if dest.exists() and not force:
-            extra = copy_zip_to_server(dest, rel, base_dir, force=force)
-            msg = (
-                f"{kind.title()} backup for {period_key} already exists on this system."
-                f"{extra} Original documents were left unchanged."
-            )
+            server_status, extra = copy_zip_to_server(dest, rel, base_dir, force=True)
+            msg = f"{kind.title()} backup already exists. {describe_backup_copies(dest, server_status, extra)}"
             from models import BackupRun
             last = (
                 BackupRun.query.filter_by(kind=kind, period_key=period_key)
@@ -554,27 +645,28 @@ def run_period_backup(
             raise RuntimeError("Backup file resolver is not ready. Restart the application.")
 
         write_period_documents_zip(dest, records, resolve_upload)
-        extra = copy_zip_to_server(dest, rel, base_dir, force=force)
-        msg = (
-            f"{kind.title()} backup saved on this system ({trigger}): "
-            f"{len(records)} document(s) for {period_key} at {dest}.{extra}"
-        )
+        server_status, extra = copy_zip_to_server(dest, rel, base_dir, force=True, retries=3)
+        msg = f"{kind.title()} backup ready. {describe_backup_copies(dest, server_status, extra)}"
+        run_status = "partial" if server_status == "failed" else "success"
         _save_backup_run(
             kind=kind,
             period_key=period_key,
-            status="success",
+            status=run_status,
             file_rel=rel,
             record_count=len(records),
             message=msg,
         )
         settings = load_settings(base_dir)
         settings["last_run_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        settings["last_run_status"] = "success"
+        settings["last_run_status"] = run_status
         settings["last_run_message"] = msg
         settings["last_run_file"] = rel
         save_settings(base_dir, settings)
         if audit_callback:
-            audit_callback("AUTO_BACKUP", f"kind={kind} period={period_key} records={len(records)} file={rel}")
+            audit_callback(
+                "AUTO_BACKUP",
+                f"kind={kind} period={period_key} records={len(records)} file={rel} server={server_status}",
+            )
         return True, msg, rel
     except Exception as exc:
         logger.exception("Date-based backup failed")
@@ -650,8 +742,8 @@ def run_full_backup(
 
     try:
         if dest.exists() and not force:
-            extra = copy_zip_to_server(dest, rel, base_dir, force=force)
-            msg = f"Full backup for {period_key} already exists on this system.{extra}"
+            server_status, extra = copy_zip_to_server(dest, rel, base_dir, force=True)
+            msg = f"Full backup already exists. {describe_backup_copies(dest, server_status, extra)}"
             from models import BackupRun
             last = (
                 BackupRun.query.filter_by(kind="full", period_key=period_key)
@@ -669,26 +761,27 @@ def run_full_backup(
             base_dir=base_dir,
             upload_dir=Path(upload_dir),
         )
-        extra = copy_zip_to_server(dest, rel, base_dir, force=True)
+        server_status, extra = copy_zip_to_server(dest, rel, base_dir, force=True, retries=3)
         count = Record.query.count()
-        msg = f"Full backup saved on this system ({trigger}) at {dest}.{extra}"
+        msg = f"Full backup ready. {describe_backup_copies(dest, server_status, extra)}"
+        run_status = "partial" if server_status == "failed" else "success"
         _save_backup_run(
             kind="full",
             period_key=period_key,
-            status="success",
+            status=run_status,
             file_rel=rel,
             record_count=count,
             message=msg,
         )
         settings = load_settings(base_dir)
         settings["last_run_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        settings["last_run_status"] = "success"
+        settings["last_run_status"] = run_status
         settings["last_run_message"] = msg
         settings["last_run_file"] = rel
         save_settings(base_dir, settings)
         _cleanup_old_backups(base_dir, int(settings.get("retain_count") or 10))
         if audit_callback:
-            audit_callback("AUTO_BACKUP", f"kind=full period={period_key} file={rel}")
+            audit_callback("AUTO_BACKUP", f"kind=full period={period_key} file={rel} server={server_status}")
         return True, msg, rel
     except Exception as exc:
         logger.exception("Full backup failed")
@@ -914,7 +1007,7 @@ def settings_from_form(form, base_dir: Path) -> dict[str, Any]:
         current["month"] = int(form.get("auto_backup_month") or 12)
     except ValueError:
         current["month"] = 12
-    current["destination_path"] = (form.get("auto_backup_destination") or "").strip().strip('"').strip("'")
+    current["destination_path"] = clean_destination_path(form.get("auto_backup_destination") or "")
     return _normalize_settings(current)
 
 

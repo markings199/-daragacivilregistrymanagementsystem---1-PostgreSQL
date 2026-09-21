@@ -10,6 +10,14 @@ os.environ.setdefault("FLAGS_minloglevel", "3")
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 os.environ.setdefault("KMP_WARNINGS", "0")
 os.environ.setdefault("OMP_DISPLAY_ENV", "FALSE")
+_cpu_n = os.cpu_count() or 4
+_ocr_threads = os.environ.get("OCR_CPU_THREADS") or ("2" if _cpu_n >= 4 else "1")
+os.environ.setdefault("OCR_CPU_THREADS", _ocr_threads)
+os.environ.setdefault("OMP_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("MKL_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("OPENBLAS_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("NUMEXPR_NUM_THREADS", _ocr_threads)
+os.environ.setdefault("FLAGS_omp_num_threads", _ocr_threads)
 
 import cv2
 import numpy as np
@@ -94,7 +102,10 @@ def get_ocr():
         )
 
     PaddleOCR = _load_paddleocr()
-    cpu_threads = max(4, min(8, os.cpu_count() or 4))
+    try:
+        cpu_threads = max(1, min(8, int(os.environ.get("OCR_CPU_THREADS") or "4")))
+    except ValueError:
+        cpu_threads = 4
     ocr_kwargs = dict(
         lang="en",
         ocr_version="PP-OCRv4",

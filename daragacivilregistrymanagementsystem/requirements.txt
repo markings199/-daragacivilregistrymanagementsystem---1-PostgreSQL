@@ -9,4 +9,5 @@ paddlepaddle==3.2.2
 opencv-python
 numpy
 APScheduler>=3.10.0
+fpdf2
 pywin32

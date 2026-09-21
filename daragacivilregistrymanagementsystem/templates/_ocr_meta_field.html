@@ -1,12 +1,32 @@
 {% set val = data.get(key, '') or '' %}
 {% set conf = confidence.get(key, 'LOW') %}
 {% set src = source.get(key, 'layout') %}
+{% set iso = date_input_value(val) if key in DATE_FIELD_KEYS else '' %}
+{% set _shown = display_label if display_label is defined and display_label else metadata_display_label(key) %}
 <div class="form-meta-field">
   <div class="form-meta-field-head">
-    <span class="confirm-item-label">{% if field_id is defined and field_id %}<label for="{{ field_id }}">{{ metadata_display_label(key) }}</label>{% else %}{{ metadata_display_label(key) }}{% endif %}</span>
+    <span class="confirm-item-label">{% if field_id is defined and field_id %}<label for="{{ field_id }}">{{ _shown }}</label>{% else %}{{ _shown }}{% endif %}</span>
     <span class="ocr-conf ocr-conf-{{ conf|lower }}">{{ conf }}{% if src == 'template' %} · template{% endif %}</span>
   </div>
   <div class="confirm-item-value">
-    <input {% if field_id is defined and field_id %}id="{{ field_id }}" {% endif %}name="{{ key }}" value="{{ val }}" type="text" autocomplete="off" />
+    {% if key in SEX_FIELD_KEYS %}
+      <div class="sex-radios" role="radiogroup" aria-label="{{ metadata_display_label(key) }}"{% if field_id is defined and field_id %} id="{{ field_id }}"{% endif %}>
+        <label class="sex-radio">
+          <input type="radio" name="{{ key }}" value="Male" {% if sex_choice(val) == 'Male' %}checked{% endif %} />
+          <span class="sex-radio-ui">Male</span>
+        </label>
+        <label class="sex-radio">
+          <input type="radio" name="{{ key }}" value="Female" {% if sex_choice(val) == 'Female' %}checked{% endif %} />
+          <span class="sex-radio-ui">Female</span>
+        </label>
+      </div>
+    {% elif key in DATE_FIELD_KEYS %}
+      <input {% if field_id is defined and field_id %}id="{{ field_id }}" {% endif %}name="{{ key }}" value="{{ iso }}" type="date" autocomplete="off" />
+      {% if val and not iso %}
+        <p class="date-ocr-hint">OCR text: {{ val }} — choose a date above</p>
+      {% endif %}
+    {% else %}
+      <input {% if field_id is defined and field_id %}id="{{ field_id }}" {% endif %}name="{{ key }}" value="{{ val }}" type="text" autocomplete="off" />
+    {% endif %}
   </div>
 </div>

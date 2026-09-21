@@ -357,6 +357,7 @@
                 <th class="col-staff" scope="col">Staff</th>
                 <th class="col-requested" scope="col">Requested</th>
                 <th class="col-reason" scope="col">Reason</th>
+                <th class="col-reject" scope="col">Rejection</th>
                 <th class="col-actions" scope="col">Actions</th>
               </tr>
             </thead>
@@ -382,7 +383,8 @@
                   <td class="col-status"><span class="status-badge status-{{ req.status | lower }}">{{ req.status }}</span></td>
                   <td class="col-staff">{{ req.requested_by.username if req.requested_by else '—' }}</td>
                   <td class="col-requested">{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else '—' }}</td>
-                  <td class="col-reason cell-reason" title="{{ req.reason or '' }}">{{ req.reason or '—' }}</td>
+                  <td class="col-reason cell-reason">{% set text = req.reason %}{% set note_kind = 'reason' %}{% include '_expandable_text.html' %}</td>
+                  <td class="col-reject">{% set text = req.rejection_reason %}{% set note_kind = 'rejection' %}{% include '_expandable_text.html' %}</td>
                   <td class="col-actions cell-actions">
                     {% if req.status == 'PENDING' %}
                       <div class="request-actions">
@@ -444,6 +446,7 @@
                 <th class="col-staff">Staff</th>
                 <th class="col-requested">Requested</th>
                 <th class="col-reason">Reason</th>
+                <th class="col-reject">Rejection</th>
                 <th class="col-view">View</th>
                 <th class="col-actions">Actions</th>
               </tr>
@@ -473,7 +476,8 @@
                   <td class="col-status"><span class="status-badge status-{{ req.status | lower }}">{{ req.status }}</span></td>
                   <td class="col-staff">{{ req.requested_by.username if req.requested_by else '—' }}</td>
                   <td class="col-requested">{{ req.requested_at.strftime('%Y-%m-%d %H:%M') if req.requested_at else '—' }}</td>
-                  <td class="col-reason cell-reason" title="{{ req.reason or '' }}">{{ req.reason or '—' }}</td>
+                  <td class="col-reason cell-reason">{% set text = req.reason %}{% set note_kind = 'reason' %}{% include '_expandable_text.html' %}</td>
+                  <td class="col-reject">{% set text = req.rejection_reason %}{% set note_kind = 'rejection' %}{% include '_expandable_text.html' %}</td>
                   <td class="col-view">
                     {% if req.record %}
                       <a href="{{ url_for('record_detail', record_id=req.record_id) }}" class="btn btn-secondary btn-sm">Open</a>
@@ -588,7 +592,10 @@
   {% elif tab == 'users' %}
     <div class="admin-section main-card">
       <h2 class="section-title">Users</h2>
-      <p class="section-desc">Create accounts and assign a role: <strong>Administrator</strong> (full access including this page) or <strong>Staff</strong> (encoding, search, edit requests).</p>
+      <p class="section-desc">
+        Create office accounts and assign a role: <strong>Administrator</strong> (this page, approvals, backups) or <strong>Staff</strong> (encoding, search, requests).
+        Passwords are issued once — they cannot be viewed later. If someone forgets theirs, set a new password from the account row.
+      </p>
 
       <div class="admin-user-create-card">
         <h3 class="admin-user-create-title">Add user</h3>
@@ -599,8 +606,11 @@
               <input id="new_username" name="username" type="text" required maxlength="64" placeholder="e.g. encoder1" autocomplete="off" />
             </div>
             <div class="field">
-              <label for="new_password">Password</label>
-              <input id="new_password" name="password" type="password" required minlength="6" placeholder="At least 6 characters" autocomplete="new-password" />
+              <label for="new_password">Temporary password</label>
+              <div class="admin-pw-field">
+                <input id="new_password" name="password" type="text" minlength="6" placeholder="Leave blank to generate" autocomplete="off" data-office-password />
+                <button type="button" class="btn btn-secondary btn-sm admin-pw-generate" data-fill-password="new_password">Generate</button>
+              </div>
             </div>
             <div class="field">
               <label for="new_role">Role</label>
@@ -616,29 +626,96 @@
         </form>
       </div>
 
+      {% if revealed_password %}
+        <div class="admin-cred-banner" id="admin-password-reveal">
+          <p class="admin-cred-kicker">{% if revealed_password.kind == 'reset' %}New password issued{% else %}New account created{% endif %}</p>
+          <p class="admin-cred-lead">Give these details to <strong>{{ revealed_password.username }}</strong> now. This page will not show them again.</p>
+          <dl class="admin-cred-grid">
+            <div>
+              <dt>Username</dt>
+              <dd>{{ revealed_password.username }}</dd>
+            </div>
+            {% if revealed_password.role %}
+            <div>
+              <dt>Role</dt>
+              <dd>{{ revealed_password.role }}</dd>
+            </div>
+            {% endif %}
+            <div class="admin-cred-password">
+              <dt>Temporary password</dt>
+              <dd>
+                <input id="revealed-password-value" type="text" readonly value="{{ revealed_password.password }}" aria-label="Temporary password" />
+              </dd>
+            </div>
+          </dl>
+          <div class="admin-cred-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="copy-revealed-password">Copy password</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="copy-revealed-login" data-username="{{ revealed_password.username }}">Copy username and password</button>
+          </div>
+          <p class="admin-cred-note">They must sign in with this password. If it is lost, use Set password on their account row — the old one cannot be recovered.</p>
+        </div>
+      {% endif %}
+
+      {% if password_target %}
+        <div class="admin-set-password-card" id="admin-set-password">
+          <div class="admin-set-password-head">
+            <div>
+              <p class="admin-set-password-kicker">Issue password</p>
+              <h3 class="admin-set-password-title">{{ password_target.username }}</h3>
+            </div>
+            <a href="{{ url_for('administration', tab='users') }}" class="admin-set-password-cancel">Cancel</a>
+          </div>
+          <p class="admin-set-password-copy">Sets a new password and signs this person out of every session. The current password cannot be recovered.</p>
+          <form method="post" action="{{ url_for('administration_reset_password', user_id=password_target.id) }}" class="admin-set-password-form" autocomplete="off" data-app-confirm data-confirm-title="Issue password" data-confirm-message="Issue a new password for {{ password_target.username }}? They will be signed out of every session." data-confirm-ok="Issue password" data-confirm-cancel="Go back">
+            <div class="admin-pw-field">
+              <input id="set_password" name="password" type="text" minlength="6" placeholder="Leave blank to generate" autocomplete="off" aria-label="New password for {{ password_target.username }}" data-office-password />
+              <button type="button" class="btn btn-secondary btn-sm admin-pw-generate" data-fill-password="set_password">Generate</button>
+            </div>
+            <button type="submit" class="btn btn-primary">Issue password</button>
+          </form>
+        </div>
+      {% endif %}
+
       <h3 class="admin-user-list-heading">Accounts</h3>
       {% if users_list %}
-        <div class="table-wrap admin-log-table-wrap">
-          <table class="table admin-log-table">
+        <div class="table-wrap admin-log-table-wrap admin-accounts-table-wrap">
+          <table class="table admin-log-table admin-accounts-table">
             <thead>
               <tr>
                 <th>Username</th>
                 <th>Role</th>
+                <th>Added</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for u in users_list %}
-                <tr>
-                  <td>{{ u.username }}</td>
-                  <td><span class="role-badge role-{{ (u.role or '')|lower }}">{{ u.role or '—' }}</span></td>
+                {% set is_self = current_user and current_user.id == u.id %}
+                {% set is_last_admin = (u.role or '')|upper == 'ADMIN' and admin_users_count <= 1 %}
+                <tr class="{% if is_self %}is-self{% endif %}{% if password_target and password_target.id == u.id %} is-password-target{% endif %}">
                   <td>
-                    {% if current_user and current_user.id == u.id %}
-                      <span class="quicklink-meta">Current account</span>
+                    <span class="admin-account-name">{{ u.username }}</span>
+                    {% if is_self %}<span class="admin-account-you">You</span>{% endif %}
+                  </td>
+                  <td><span class="role-badge role-{{ (u.role or '')|lower }}">{{ u.role or '—' }}</span></td>
+                  <td class="col-time">{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '—' }}</td>
+                  <td class="admin-accounts-actions-cell">
+                    {% if is_self %}
+                      <span class="admin-account-self-note">This account — <a href="{{ url_for('account') }}">My account</a></span>
                     {% else %}
-                      <form method="post" action="{{ url_for('administration_delete_user', user_id=u.id) }}" class="archive-delete-form" onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');">
-                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                      </form>
+                      <div class="admin-user-actions">
+                        <a class="btn btn-secondary btn-sm" href="{{ url_for('administration', tab='users', set=u.id) }}">Set password</a>
+                        <form method="post" action="{{ url_for('administration_force_logout', user_id=u.id) }}" data-app-confirm data-confirm-title="Sign out" data-confirm-message="Sign out {{ u.username }} from all devices?" data-confirm-ok="Sign out" data-confirm-cancel="Go back">
+                          <button type="submit" class="btn btn-secondary btn-sm">Sign out</button>
+                        </form>
+                        {% if is_last_admin %}
+                          <button type="button" class="btn btn-danger btn-sm" disabled title="At least one administrator must remain">Delete</button>
+                        {% else %}
+                          <form method="post" action="{{ url_for('administration_delete_user', user_id=u.id) }}" class="archive-delete-form" data-app-confirm data-confirm-danger="1" data-confirm-title="Delete account" data-confirm-message="Delete user {{ u.username }}? Request and print history will be kept under your account." data-confirm-ok="Delete account" data-confirm-cancel="Go back">
+                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                          </form>
+                        {% endif %}
+                      </div>
                     {% endif %}
                   </td>
                 </tr>
@@ -651,6 +728,71 @@
           <p>No users in the database yet. Create an account above.</p>
         </div>
       {% endif %}
+      <script>
+        (function () {
+          var alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+          function officePassword(length) {
+            var out = "";
+            var n = length || 10;
+            if (window.crypto && window.crypto.getRandomValues) {
+              var buf = new Uint32Array(n);
+              window.crypto.getRandomValues(buf);
+              for (var i = 0; i < n; i++) out += alphabet[buf[i] % alphabet.length];
+              return out;
+            }
+            for (var j = 0; j < n; j++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+            return out;
+          }
+          function copyText(value, btn, doneLabel) {
+            var label = doneLabel || "Copied";
+            var original = btn.textContent;
+            function mark() {
+              btn.textContent = label;
+              setTimeout(function () { btn.textContent = original; }, 1600);
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(value).then(mark).catch(function () {
+                fallbackCopy(value);
+                mark();
+              });
+              return;
+            }
+            fallbackCopy(value);
+            mark();
+          }
+          function fallbackCopy(value) {
+            var ta = document.createElement("textarea");
+            ta.value = value;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+          }
+          document.querySelectorAll("[data-fill-password]").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var field = document.getElementById(btn.getAttribute("data-fill-password"));
+              if (!field) return;
+              field.value = officePassword(10);
+              field.focus();
+              field.select();
+            });
+          });
+          var copyPw = document.getElementById("copy-revealed-password");
+          var field = document.getElementById("revealed-password-value");
+          if (copyPw && field) {
+            copyPw.addEventListener("click", function () {
+              copyText(field.value || "", copyPw, "Copied");
+            });
+          }
+          var copyLogin = document.getElementById("copy-revealed-login");
+          if (copyLogin && field) {
+            copyLogin.addEventListener("click", function () {
+              var user = copyLogin.getAttribute("data-username") || "";
+              copyText(user + " / " + (field.value || ""), copyLogin, "Copied");
+            });
+          }
+        })();
+      </script>
     </div>
 
   {% elif tab == 'automatic_backup' %}
@@ -683,7 +825,7 @@
                 <input type="checkbox" name="auto_backup_daily_enabled" value="1" {% if abs.daily_enabled %}checked{% endif %} />
                 <span class="ab-plan-copy">
                   <strong>Daily</strong>
-                  <em>Today’s records</em>
+                  <em>Municipal priority · today’s records</em>
                 </span>
               </label>
               <label class="ab-plan-time">
@@ -756,31 +898,51 @@
           <div class="ab-section-head">
             <h3 id="ab-dest-title">Storage</h3>
           </div>
+          {% set br = backup_readiness or {} %}
+          <div class="ab-ready {% if br.deploy_ready %}ab-ready-ok{% elif br.server_configured %}ab-ready-warn{% else %}ab-ready-wait{% endif %}">
+            {% if br.deploy_ready %}
+              <strong>Ready for Daraga server</strong>
+              <span>Daily schedule is on and the office-server share accepts backups (priority copy).</span>
+            {% elif br.server_configured and not br.server_writable %}
+              <strong>Server path set — not reachable yet</strong>
+              <span>{{ br.server_message }}</span>
+            {% else %}
+              <strong>Connect the office server to finish setup</strong>
+              <span>Turn Schedule <em>On</em>, keep <em>Daily</em> checked, then enter the Daraga shared folder below (example: \\DARAGA-SERVER\CivilRegistryBackups). Backups always keep a safety copy on this computer.</span>
+            {% endif %}
+          </div>
           <div class="ab-dest-grid ab-dest-locations">
-            <div class="ab-loc">
-              <div class="ab-loc-top">
-                <span class="ab-loc-name">This system</span>
-                <span class="ab-loc-badge ab-loc-badge-on">Active</span>
-              </div>
-              <code class="auto-backup-path">{{ auto_backup_folder }}</code>
-            </div>
             <div class="ab-loc {% if abs.destination_path %}ab-loc-ready{% endif %}">
               <div class="ab-loc-top">
-                <span class="ab-loc-name">LGU server</span>
-                <span class="ab-loc-badge {% if abs.destination_path %}ab-loc-badge-on{% else %}ab-loc-badge-off{% endif %}">{{ 'Active' if abs.destination_path else 'Optional' }}</span>
+                <span class="ab-loc-name">Office server (priority)</span>
+                <span class="ab-loc-badge {% if br.server_writable %}ab-loc-badge-on{% elif abs.destination_path %}ab-loc-badge-warn{% else %}ab-loc-badge-off{% endif %}">
+                  {% if br.server_writable %}Ready{% elif abs.destination_path %}Check path{% else %}Not set{% endif %}
+                </span>
               </div>
-              <label class="ab-loc-path-label" for="auto_backup_destination">Server path</label>
+              <label class="ab-loc-path-label" for="auto_backup_destination">Shared folder or disk</label>
               <input
                 type="text"
                 name="auto_backup_destination"
                 id="auto_backup_destination"
                 value="{{ abs.destination_path or '' }}"
-                placeholder="\\SERVERNAME\CivilRegistryBackups"
+                placeholder="\\DARAGA-SERVER\CivilRegistryBackups"
                 autocomplete="off"
                 spellcheck="false"
               />
+              <p class="ab-loc-hint">Municipal priority archive. Use a network share or a folder on the Daraga registry server. You can also set <code>DARAGA_BACKUP_ROOT</code> in <code>.env</code>.</p>
+            </div>
+            <div class="ab-loc">
+              <div class="ab-loc-top">
+                <span class="ab-loc-name">This computer (safety copy)</span>
+                <span class="ab-loc-badge ab-loc-badge-on">Always</span>
+              </div>
+              <code class="auto-backup-path">{{ auto_backup_folder }}</code>
+              <p class="ab-loc-hint">Always kept, even if the office server is offline.</p>
             </div>
           </div>
+          {% if abs.last_run_at %}
+          <p class="ab-last-run">Last backup {{ abs.last_run_at }}{% if abs.destination_path %} · server priority + local safety{% else %} · this computer only{% endif %}{% if abs.last_run_status == 'partial' %} · server copy failed{% endif %}</p>
+          {% endif %}
         </section>
 
         {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
@@ -798,8 +960,8 @@
                 <option value="full" selected>Full — database and scans</option>
               </select>
             </label>
-            <button type="submit" class="btn btn-secondary" formaction="{{ url_for('administration_auto_backup_run_now') }}" formmethod="post">Save here</button>
-            <button type="submit" class="btn btn-primary" formaction="{{ url_for('administration_auto_backup_get_now') }}" formmethod="post">Download</button>
+            <button type="submit" class="btn btn-secondary" formaction="{{ url_for('administration_auto_backup_run_now') }}" formmethod="post">Save now</button>
+            <button type="submit" class="btn btn-primary" formaction="{{ url_for('administration_auto_backup_get_now') }}" formmethod="post">Save and download</button>
           </div>
         </section>
         {% endif %}
@@ -813,7 +975,9 @@
         <div class="ab-history-head">
           <h3 id="ab-restore-title">Restore</h3>
         </div>
-        <p class="ab-restore-hint">PostgreSQL backups include <code>database.json</code> plus scans. Restoring replaces current registry data.</p>
+        {% with text='Restore replaces the current registry data.', tone='warning' %}
+          {% include '_app_note.html' %}
+        {% endwith %}
         <div class="ab-restore-row">
           <form method="post" action="{{ url_for('administration_restore') }}" enctype="multipart/form-data" class="restore-form ab-restore-form">
             <input type="file" name="backup_file" accept=".zip" required class="restore-file-input" />
@@ -831,34 +995,44 @@
         </div>
         {% if backup_history %}
           <div class="table-wrap auto-backup-table-wrap">
-            <table class="table auto-backup-table">
+            <table class="table auto-backup-table auto-backup-history-table">
+              <colgroup>
+                <col class="ab-col-when" />
+                <col class="ab-col-type" />
+                <col class="ab-col-period" />
+                <col class="ab-col-docs" />
+                <col class="ab-col-status" />
+                <col class="ab-col-actions" />
+              </colgroup>
               <thead>
                 <tr>
-                  <th>When</th>
-                  <th>Type</th>
-                  <th>Period</th>
-                  <th>Documents</th>
-                  <th>Status</th>
-                  <th class="col-actions"> </th>
+                  <th scope="col" class="ab-col-when">When</th>
+                  <th scope="col" class="ab-col-type">Type</th>
+                  <th scope="col" class="ab-col-period">Period</th>
+                  <th scope="col" class="ab-col-docs">Documents</th>
+                  <th scope="col" class="ab-col-status">Status</th>
+                  <th scope="col" class="ab-col-actions"><span class="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {% for h in backup_history %}
                   <tr>
-                    <td class="col-created">{{ h.created_at }}</td>
-                    <td>{{ h.kind|capitalize }}</td>
-                    <td class="auto-backup-file">{{ h.period_key }}</td>
-                    <td class="col-size">{{ h.record_count }}</td>
-                    <td>
+                    <td class="ab-col-when">{{ h.created_at }}</td>
+                    <td class="ab-col-type">{{ h.kind|capitalize }}</td>
+                    <td class="ab-col-period">{{ h.period_key }}</td>
+                    <td class="ab-col-docs">{{ h.record_count }}</td>
+                    <td class="ab-col-status">
                       {% if h.status == 'success' %}
                         <span class="auto-backup-pill auto-backup-pill-ok">Success</span>
+                      {% elif h.status == 'partial' %}
+                        <span class="auto-backup-pill auto-backup-pill-warn">Partial</span>
                       {% elif h.status == 'skipped' %}
                         <span class="auto-backup-pill">Skipped</span>
                       {% else %}
                         <span class="auto-backup-pill auto-backup-pill-err">Failed</span>
                       {% endif %}
                     </td>
-                    <td class="col-actions">
+                    <td class="ab-col-actions">
                       <div class="auto-backup-row-actions">
                         {% if h.file_rel %}
                           <a href="{{ url_for('administration_auto_backup_download_period', path=h.file_rel) }}" class="btn btn-secondary btn-sm">Download</a>
@@ -869,7 +1043,7 @@
                           </form>
                         {% endif %}
                         {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
-                          <form method="post" action="{{ url_for('administration_auto_backup_delete_run', run_id=h.id) }}" class="auto-backup-delete-form" onsubmit="return confirm('Delete this backup zip? Registry records will not be changed.');">
+                          <form method="post" action="{{ url_for('administration_auto_backup_delete_run', run_id=h.id) }}" class="auto-backup-delete-form" data-app-confirm data-confirm-danger="1" data-confirm-title="Delete backup" data-confirm-message="Delete this backup zip? Registry records will not be changed." data-confirm-ok="Delete backup" data-confirm-cancel="Go back">
                             <button type="submit" class="btn-delete-sm">Delete</button>
                           </form>
                         {% endif %}

@@ -1,0 +1,41 @@
+{% set flashed = get_flashed_messages(with_categories=true) %}
+<div id="toast-stack" class="toast-stack"{% if not flashed %} hidden{% endif %} aria-live="polite" aria-relevant="additions">
+  {% for category, msg in flashed %}
+    {% set ns = namespace(tone='info') %}
+    {% set cat = (category or '')|lower %}
+    {% set text = (msg or '')|lower %}
+    {% if cat in ['success', 'error', 'warning', 'info'] %}
+      {% set ns.tone = cat %}
+    {% elif cat in ['danger', 'fatal'] %}
+      {% set ns.tone = 'error' %}
+    {% elif 'fail' in text or 'invalid' in text or 'blocked' in text or 'not found' in text or 'incorrect' in text or 'could not' in text or 'cannot' in text or 'expired' in text or 'not allowed' in text or 'required' in text or 'corrupted' in text or 'unable' in text %}
+      {% set ns.tone = 'error' %}
+    {% elif 'saved' in text or 'approved' in text or 'created' in text or 'updated' in text or 'deleted' in text or 'restored' in text or 'accepted' in text or 'sent' in text or 'success' in text or 'reset' in text or 'copied' in text %}
+      {% set ns.tone = 'success' %}
+    {% endif %}
+    {% set tone = ns.tone %}
+    {% set title = {'success': 'Done', 'error': 'Action needed', 'warning': 'Please check', 'info': 'Notice'}[tone] %}
+    {% set linger = {'success': '5.2s', 'info': '5.6s', 'warning': '7.2s', 'error': '9s'}[tone] %}
+    <article class="app-toast app-toast--{{ tone }}" role="{{ 'alert' if tone == 'error' else 'status' }}" style="--toast-ms: {{ linger }}">
+      <span class="app-toast-ic" aria-hidden="true">
+        {% if tone == 'success' %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        {% elif tone == 'error' %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+        {% elif tone == 'warning' %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 4.7L2.8 17.5A2 2 0 004.5 20.5h15a2 2 0 001.7-3L13.7 4.7a2 2 0 00-3.4 0z"/></svg>
+        {% else %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>
+        {% endif %}
+      </span>
+      <div class="app-toast-copy">
+        <p class="app-toast-kicker">{{ title }}</p>
+        <p class="app-toast-msg">{{ msg }}</p>
+      </div>
+      <button type="button" class="app-toast-close" aria-label="Dismiss notification">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+      <span class="app-toast-bar" aria-hidden="true"></span>
+    </article>
+  {% endfor %}
+</div>

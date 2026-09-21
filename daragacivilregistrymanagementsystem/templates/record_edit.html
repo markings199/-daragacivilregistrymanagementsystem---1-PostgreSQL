@@ -114,8 +114,27 @@
         {% for key, val in public_record_fields(data).items() %}
           {% if not (record.document_type == 'death' and key == 'Name of Mother') %}
           <div class="metadata-edit-field">
-            <label class="metadata-edit-label" for="edit_{{ loop.index }}">{{ metadata_display_label(key) }}</label>
-            <input class="metadata-edit-input" id="edit_{{ loop.index }}" name="{{ key }}" value="{{ val or '' }}" type="text" autocomplete="off" />
+            <label class="metadata-edit-label" {% if key not in SEX_FIELD_KEYS %}for="edit_{{ loop.index }}"{% endif %}>{{ metadata_display_label(key) }}</label>
+            {% if key in SEX_FIELD_KEYS %}
+              <div class="sex-radios" role="radiogroup" aria-label="{{ metadata_display_label(key) }}">
+                <label class="sex-radio">
+                  <input type="radio" name="{{ key }}" value="Male" {% if sex_choice(val) == 'Male' %}checked{% endif %} />
+                  <span class="sex-radio-ui">Male</span>
+                </label>
+                <label class="sex-radio">
+                  <input type="radio" name="{{ key }}" value="Female" {% if sex_choice(val) == 'Female' %}checked{% endif %} />
+                  <span class="sex-radio-ui">Female</span>
+                </label>
+              </div>
+            {% elif key in DATE_FIELD_KEYS %}
+              {% set iso = date_input_value(val) %}
+              <input class="metadata-edit-input" id="edit_{{ loop.index }}" name="{{ key }}" value="{{ iso }}" type="date" autocomplete="off" />
+              {% if val and not iso %}
+                <p class="date-ocr-hint">OCR text: {{ val }} — choose a date above</p>
+              {% endif %}
+            {% else %}
+              <input class="metadata-edit-input" id="edit_{{ loop.index }}" name="{{ key }}" value="{{ val or '' }}" type="text" autocomplete="off" />
+            {% endif %}
           </div>
           {% endif %}
         {% endfor %}

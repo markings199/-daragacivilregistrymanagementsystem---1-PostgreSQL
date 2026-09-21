@@ -28,13 +28,11 @@
     });
   }
 
-  var ms = 25000;
+  var ms = 40000;
   setInterval(function () {
+    if (document.hidden) return;
+    var bar = document.getElementById("ocr-job-bar");
+    if (bar && bar.getAttribute("aria-busy") === "true") return;
     window.location.reload();
   }, ms);
-  document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible") {
-      window.location.reload();
-    }
-  });
 })();

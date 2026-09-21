@@ -167,14 +167,10 @@
     color: #64748b;
   }
   .archiving-note {
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    padding: 0;
-    color: #64748b;
-    font-size: 0.7rem;
-    font-weight: 600;
-    line-height: 1.3;
+    margin-top: 8px;
+  }
+  .archive-sections > .app-note {
+    margin: 0 0 10px;
   }
   .archive-sections { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px 12px; }
   .archive-section { border-radius: 10px; overflow: hidden; }
@@ -493,7 +489,10 @@
         <span class="archiving-stat-meta">certificates</span>
       </a>
     </div>
-    <p class="archiving-note">Counts are from records saved on this machine. Open a type to filter the lists below, or browse all.</p>
+    <p class="archiving-note app-note app-note--quiet" role="note">
+      <span class="app-note-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg></span>
+      <span class="app-note-text">Counts are from records saved on this machine. Open a type to filter the lists below, or browse all.</span>
+    </p>
   </div>
 </div>
 
@@ -528,7 +527,9 @@
     {% endif %}
   </form>
   {% if not archive_doc_type %}
-    <p class="archive-filter-hint">Choose a document type first to search by registry number. Lists stay visible below.</p>
+    {% with text='Choose a document type first to search by registry number. Lists stay visible below.', tone='info' %}
+      {% include '_app_note.html' %}
+    {% endwith %}
   {% endif %}
 
   {% if not archive_doc_type or archive_doc_type == 'birth' %}
@@ -550,7 +551,7 @@
               <td>
                 <a href="{{ url_for('record_detail', record_id=r.id) }}" class="btn btn-secondary btn-sm">View</a>
                 {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
-                <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" onsubmit="return confirm('Permanently delete this birth record?');" style="display:inline;">
+                <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" data-app-confirm data-confirm-danger="1" data-confirm-title="Delete record" data-confirm-message="Permanently delete this birth record? This cannot be undone." data-confirm-ok="Delete record" data-confirm-cancel="Go back" style="display:inline;">
                   {% if archive_doc_type %}<input type="hidden" name="doc_type" value="{{ archive_doc_type }}">{% endif %}
                   {% if archive_registry_q %}<input type="hidden" name="registry" value="{{ archive_registry_q }}">{% endif %}
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -595,7 +596,7 @@
               <td>
                 <a href="{{ url_for('record_detail', record_id=r.id) }}" class="btn btn-secondary btn-sm">View</a>
                 {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
-                <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" onsubmit="return confirm('Permanently delete this marriage record?');" style="display:inline;">
+                <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" data-app-confirm data-confirm-danger="1" data-confirm-title="Delete record" data-confirm-message="Permanently delete this marriage record? This cannot be undone." data-confirm-ok="Delete record" data-confirm-cancel="Go back" style="display:inline;">
                   {% if archive_doc_type %}<input type="hidden" name="doc_type" value="{{ archive_doc_type }}">{% endif %}
                   {% if archive_registry_q %}<input type="hidden" name="registry" value="{{ archive_registry_q }}">{% endif %}
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>
@@ -640,7 +641,7 @@
               <td>
                 <a href="{{ url_for('record_detail', record_id=r.id) }}" class="btn btn-secondary btn-sm">View</a>
                 {% if current_user and (current_user.role or '')|upper == 'ADMIN' %}
-                <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" onsubmit="return confirm('Permanently delete this death record?');" style="display:inline;">
+                <form method="post" action="{{ url_for('record_delete', record_id=r.id) }}" class="archive-delete-form" data-app-confirm data-confirm-danger="1" data-confirm-title="Delete record" data-confirm-message="Permanently delete this death record? This cannot be undone." data-confirm-ok="Delete record" data-confirm-cancel="Go back" style="display:inline;">
                   {% if archive_doc_type %}<input type="hidden" name="doc_type" value="{{ archive_doc_type }}">{% endif %}
                   {% if archive_registry_q %}<input type="hidden" name="registry" value="{{ archive_registry_q }}">{% endif %}
                   <button type="submit" class="btn btn-danger btn-sm">Delete</button>

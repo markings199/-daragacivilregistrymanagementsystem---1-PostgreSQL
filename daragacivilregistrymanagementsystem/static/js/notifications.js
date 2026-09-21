@@ -60,8 +60,10 @@
     }
     if (empty) empty.hidden = true;
     items.forEach(function (item) {
+      var row = document.createElement("div");
+      row.className = "notif-item";
       var a = document.createElement("a");
-      a.className = "notif-item";
+      a.className = "notif-item-main";
       a.href = item.url || "#";
       a.innerHTML =
         '<span class="notif-item-dot" aria-hidden="true"></span>' +
@@ -73,19 +75,43 @@
       a.querySelector(".notif-item-title").textContent = item.title || "Update";
       a.querySelector(".notif-item-body").textContent = item.body || "";
       a.querySelector(".notif-item-time").textContent = timeAgo(item.at);
-      list.appendChild(a);
+      row.appendChild(a);
+      if (item.detail) {
+        var det = document.createElement("details");
+        det.className = "notif-item-more";
+        var sum = document.createElement("summary");
+        sum.textContent = "Show details";
+        var p = document.createElement("p");
+        p.textContent = item.detail;
+        det.appendChild(sum);
+        det.appendChild(p);
+        det.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+        });
+        row.appendChild(det);
+      }
+      list.appendChild(row);
     });
   }
 
+  var loadTimer = null;
+  var loadInFlight = false;
+
   function load() {
     if (!url) return;
-    fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin" })
+    if (document.hidden) return;
+    if (loadInFlight) return;
+    loadInFlight = true;
+    fetch(url, { headers: { Accept: "application/json" }, credentials: "same-origin", cache: "no-store" })
       .then(function (res) {
         if (!res.ok) throw new Error("notif");
         return res.json();
       })
       .then(render)
-      .catch(function () {});
+      .catch(function () {})
+      .then(function () {
+        loadInFlight = false;
+      });
   }
 
   btn.addEventListener("click", function (ev) {
@@ -110,5 +136,18 @@
   });
 
   load();
-  setInterval(load, 20000);
+  loadTimer = setInterval(load, 15000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) load();
+  });
+})();
+
+(function () {
+  document.addEventListener("toggle", function (ev) {
+    var el = ev.target;
+    if (!el || !el.classList || !el.classList.contains("note-fold") || !el.open) return;
+    document.querySelectorAll("details.note-fold[open]").forEach(function (other) {
+      if (other !== el) other.open = false;
+    });
+  }, true);
 })();

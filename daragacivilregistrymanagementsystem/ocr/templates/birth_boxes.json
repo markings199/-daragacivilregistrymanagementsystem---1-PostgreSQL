@@ -1,0 +1,192 @@
+{
+  "image": "birth_form102.jpg",
+  "fields": [
+    {
+      "key": "Registry Number",
+      "box": [
+        0.68,
+        0.098,
+        0.965,
+        0.128
+      ],
+      "kind": "registry",
+      "printed": "Registry No Number"
+    },
+    {
+      "key": "Name of Child",
+      "box": [
+        0.18,
+        0.128,
+        0.965,
+        0.166
+      ],
+      "kind": "name",
+      "printed": "Name First Middle Last"
+    },
+    {
+      "key": "Sex",
+      "box": [
+        0.14,
+        0.168,
+        0.34,
+        0.204
+      ],
+      "kind": "sex",
+      "printed": "Sex Male Female"
+    },
+    {
+      "key": "Date of Birth",
+      "box": [
+        0.42,
+        0.168,
+        0.965,
+        0.204
+      ],
+      "kind": "date",
+      "printed": "Date of Birth Day Month Year"
+    },
+    {
+      "key": "Place of Birth",
+      "box": [
+        0.2,
+        0.208,
+        0.965,
+        0.248
+      ],
+      "kind": "place",
+      "printed": "Place of Birth Name Hospital Clinic Institution House Street Barangay City Municipality Province"
+    },
+    {
+      "key": "Type of Birth",
+      "box": [
+        0.14,
+        0.252,
+        0.36,
+        0.292
+      ],
+      "kind": "text",
+      "printed": "Type of Birth Single Twin Triplet"
+    },
+    {
+      "key": "Birth Order",
+      "box": [
+        0.5,
+        0.252,
+        0.74,
+        0.292
+      ],
+      "kind": "text",
+      "printed": "Birth Order First Second Third"
+    },
+    {
+      "key": "Name of Mother",
+      "box": [
+        0.16,
+        0.268,
+        0.965,
+        0.312
+      ],
+      "kind": "name",
+      "printed": "Maiden Name First Middle Last including fetal Second Third etc Birth Order"
+    },
+    {
+      "key": "Citizenship of Mother",
+      "box": [
+        0.16,
+        0.318,
+        0.5,
+        0.352
+      ],
+      "kind": "citizenship",
+      "printed": "Citizenship"
+    },
+    {
+      "key": "Religion of Mother",
+      "box": [
+        0.54,
+        0.318,
+        0.965,
+        0.352
+      ],
+      "kind": "text",
+      "printed": "Religion Religious Sect"
+    },
+    {
+      "key": "Name of Father",
+      "box": [
+        0.16,
+        0.400,
+        0.965,
+        0.442
+      ],
+      "kind": "name",
+      "printed": "Name First Middle Last"
+    },
+    {
+      "key": "Citizenship of Father",
+      "box": [
+        0.14,
+        0.438,
+        0.36,
+        0.472
+      ],
+      "kind": "citizenship",
+      "printed": "Citizenship"
+    },
+    {
+      "key": "Religion of Father",
+      "box": [
+        0.38,
+        0.438,
+        0.62,
+        0.472
+      ],
+      "kind": "text",
+      "printed": "Religion Religious Sect"
+    },
+    {
+      "key": "Date of Marriage of Parents",
+      "box": [
+        0.16,
+        0.516,
+        0.48,
+        0.554
+      ],
+      "kind": "date",
+      "printed": "Date Day Month Year"
+    },
+    {
+      "key": "Place of Marriage of Parents",
+      "box": [
+        0.5,
+        0.516,
+        0.965,
+        0.554
+      ],
+      "kind": "place",
+      "printed": "Place City Municipality Province Country"
+    },
+    {
+      "key": "Date of Registration",
+      "box": [
+        0.52,
+        0.796,
+        0.82,
+        0.832
+      ],
+      "kind": "date",
+      "printed": "Date"
+    },
+    {
+      "key": "Remarks",
+      "box": [
+        0.16,
+        0.836,
+        0.965,
+        0.876
+      ],
+      "kind": "text",
+      "printed": "Remarks Annotations LCRO CRG Use Only"
+    }
+  ]
+}

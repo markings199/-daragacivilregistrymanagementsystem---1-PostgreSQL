@@ -24,33 +24,49 @@
             {% set document_viewer_section_id = 'form-marriage-doc-viewer' %}
             {% include '_document_viewer.html' %}
           {% else %}
-            <p class="scan-preview-empty">No image for this session.</p>
+            <p class="scan-preview-empty">No scanned image is attached to this review. Go to Scan Workflow, choose a document, and run OCR again.</p>
           {% endif %}
         </div>
       </div>
 
       <div class="main-card form-review-meta">
-        <div class="form-review-card-head">
-          <h2 class="section-title">Extracted metadata</h2>
-        </div>
+        {% include '_extracted_metadata_head.html' %}
         <div class="form-meta-scroll">
           {% set confidence = data.get('__confidence__', {}) %}
           {% set source = data.get('__source__', {}) %}
           <div class="confirm-grid">
             <div class="metadata-section-title">Shared</div>
-            {% for key in ['Registry Number', 'Page Number', 'Book Number', 'Date of Registration', 'Date of Marriage', 'Place of Marriage'] %}
+            {% for key in ['Registry Number', 'Date of Registration', 'Date of Marriage', 'Place of Marriage'] %}
               {% set field_id = none %}
               {% include '_ocr_meta_field.html' %}
             {% endfor %}
 
             <div class="metadata-section-title">Husband</div>
-            {% for key in ['Husband Name', 'Husband Age', 'Husband Citizenship', 'Husband Civil Status', 'Husband Father', 'Husband Mother'] %}
+            <div class="form-meta-name-row">
+              {% set field_id = none %}
+              {% set key = 'Husband Name' %}
+              {% include '_ocr_meta_field.html' %}
+              {% set key = 'Husband Age' %}
+              {% set display_label = 'Age' %}
+              {% include '_ocr_meta_field.html' %}
+              {% set display_label = none %}
+            </div>
+            {% for key in ['Husband Citizenship', 'Husband Civil Status', 'Husband Father', 'Husband Mother'] %}
               {% set field_id = none %}
               {% include '_ocr_meta_field.html' %}
             {% endfor %}
 
             <div class="metadata-section-title">Wife</div>
-            {% for key in ['Wife Name', 'Wife Age', 'Wife Citizenship', 'Wife Civil Status', 'Wife Father', 'Wife Mother'] %}
+            <div class="form-meta-name-row">
+              {% set field_id = none %}
+              {% set key = 'Wife Name' %}
+              {% include '_ocr_meta_field.html' %}
+              {% set key = 'Wife Age' %}
+              {% set display_label = 'Age' %}
+              {% include '_ocr_meta_field.html' %}
+              {% set display_label = none %}
+            </div>
+            {% for key in ['Wife Citizenship', 'Wife Civil Status', 'Wife Father', 'Wife Mother'] %}
               {% set field_id = none %}
               {% include '_ocr_meta_field.html' %}
             {% endfor %}
@@ -59,13 +75,17 @@
         </div>
 
         <div class="button-row form-review-actions">
-          <a href="{{ url_for('search_records') }}" class="btn btn-secondary">Back to Search</a>
+          <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Scan Workflow</a>
           <button
             type="submit"
             class="btn btn-secondary"
             formaction="{{ url_for('autofilled_form_cancel') }}"
             formmethod="post"
-            onclick="return confirm('Cancel this auto-filled form review? Unsaved changes will be lost.');"
+            data-app-confirm
+            data-confirm-title="Cancel review"
+            data-confirm-message="This auto-filled form will be closed. Unsaved changes will be lost."
+            data-confirm-ok="Cancel review"
+            data-confirm-cancel="Keep review"
           >
             Cancel
           </button>

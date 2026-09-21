@@ -1,0 +1,25 @@
+{% set text = (text or '')|trim %}
+{% set kind = note_kind|default('note') %}
+{% if kind == 'rejection' %}
+  {% set kicker = 'Rejection note' %}
+{% elif kind == 'reason' %}
+  {% set kicker = 'Staff reason' %}
+{% else %}
+  {% set kicker = 'Note' %}
+{% endif %}
+{% if not text %}
+  <span class="note-empty">—</span>
+{% elif text|length <= 48 %}
+  <span class="note-inline note-inline--{{ kind }}">{{ text }}</span>
+{% else %}
+  <details class="note-fold note-fold--{{ kind }}">
+    <summary>
+      <span class="note-fold-preview">{{ text[:36] }}…</span>
+      <span class="note-fold-toggle"></span>
+    </summary>
+    <div class="note-fold-panel">
+      <p class="note-fold-kicker">{{ kicker }}</p>
+      <p class="note-fold-body">{{ text }}</p>
+    </div>
+  </details>
+{% endif %}

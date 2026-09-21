@@ -73,8 +73,11 @@
     </label>
     <label>
       Rows
-      <select name="per_page" disabled title="Record book shows 25 rows per page">
-        <option value="25" selected>25 per page</option>
+      <select name="per_page" title="Rows per page" onchange="this.form.submit()">
+        {% for n in [10, 25, 50, 100] %}
+          <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }} per page</option>
+        {% endfor %}
+        <option value="0" {% if per_page == 0 %}selected{% endif %}>All</option>
       </select>
     </label>
     {% if focus %}
@@ -100,7 +103,8 @@
       {% else %}
         <a class="btn btn-primary reg-btn-lead" href="{{ url_for('civil_registry_reports', **enter_focus_args) }}">Focus form</a>
       {% endif %}
-      <button type="button" class="btn btn-secondary" onclick="window.print()">Print PDF</button>
+      <button type="button" class="btn btn-secondary" onclick="window.print()">Print</button>
+      <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports_pdf', **excel_args) }}">Download PDF</a>
       <a class="btn btn-secondary" href="{{ url_for('civil_registry_reports_excel', **excel_args) }}">Excel</a>
     </div>
     </div>

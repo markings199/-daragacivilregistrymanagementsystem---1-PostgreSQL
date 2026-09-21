@@ -1,5 +1,5 @@
-{# Shared OCR review command header. Expects: review_title. Optional: review_sub #}
-<div class="form-review-hero">
+{# Shared command header. Expects: review_title. Optional: review_sub, hero_kicker, hero_chips #}
+<div class="form-review-hero no-print">
   <div class="form-review-hero-main">
     <span class="form-review-hero-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -9,13 +9,19 @@
       </svg>
     </span>
     <div class="form-review-hero-copy">
-      <p class="form-review-hero-kicker">OCR review</p>
+      <p class="form-review-hero-kicker">{{ hero_kicker|default('OCR review') }}</p>
       <h1 class="page-title">{{ review_title }}</h1>
       <p class="page-state">{{ review_sub|default('Correct any OCR fields, then confirm to save.') }}</p>
     </div>
     <div class="form-review-hero-pills" aria-label="Workflow">
-      <span class="form-review-chip">State <strong>Review</strong></span>
-      <span class="form-review-chip">Next <strong>Confirm</strong></span>
+      {% if hero_chips is defined and hero_chips %}
+        {% for chip in hero_chips %}
+          <span class="form-review-chip">{{ chip.label }} <strong>{{ chip.value }}</strong></span>
+        {% endfor %}
+      {% else %}
+        <span class="form-review-chip">State <strong>Review</strong></span>
+        <span class="form-review-chip">Next <strong>Confirm</strong></span>
+      {% endif %}
     </div>
   </div>
 </div>

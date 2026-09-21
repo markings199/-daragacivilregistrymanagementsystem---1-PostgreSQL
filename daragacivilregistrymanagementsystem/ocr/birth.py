@@ -11,6 +11,8 @@ from typing import Dict, Any, List
 import cv2
 from ocr.shared import run_ocr_on_image
 from ocr.engine import extract_from_ocr_text, ocr_pages_to_text
+from ocr.field_boxes import extract_field_boxes
+from ocr.sex import sex_from_ocr_text, sex_from_tokens
 
 
 # =========================================================
@@ -94,13 +96,14 @@ OCR_WORD_FIXES = {
 }
 
 BAD_VALUE_KEYWORDS = {
-    "DATE", "SIGNATURE", "NAME IN PRINT", "TITLE OF POSITION",
+    "DATE", "SIGNATURE", "NAME IN PRINT", "TITLE OF POSITION", "TITLE OR POSITION",
     "CITIZENSHIP", "RELIGION", "OCCUPATION", "AGE", "YEARS",
     "TOTAL NUMBER", "NO OF", "NO.", "PREPARED BY", "INFORMANT",
     "ATTENDANT", "CERTIFICATION", "RESIDENCE", "TYPE OF BIRTH",
     "BIRTH ORDER", "MULTIPLE", "BIRTHCHILD", "IF MULTIPLE",
     "FOR OCRG USE ONLY", "TO BE FILLED", "CIVIL REGISTRAR",
-    "POPULATION REFERENCES", "REMARKS", "ANNOTATION"
+    "POPULATION REFERENCES", "REMARKS", "ANNOTATION",
+    "HOUSE NO", "ST BARANGAY", "CITY MUNICIPALITY", "PROVINCE COUNTRY",
 }
 
 NATIONALITY_WORDS = {
@@ -111,6 +114,14 @@ NATIONALITY_WORDS = {
 NOT_A_PLACE = NATIONALITY_WORDS | {
     "MALE", "FEMALE", "UNKNOWN", "CATHOLIC", "CHRISTIAN", "MUSLIM",
     "IGLESIA", "RELIGION", "CITIZENSHIP", "SINGLE", "MARRIED",
+}
+
+FORM_JUNK_NAME_MARKERS = {
+    "TITLE", "POSITION", "SIGNATURE", "PRINT", "INFORMANT", "ATTENDANT",
+    "PREPARED", "RECEIVED", "REGISTERED", "CERTIFY", "CERTIFICATION",
+    "HOUSE", "BARANGAY", "MUNICIPALITY", "PROVINCE", "COUNTRY", "STREET",
+    "HOSPITAL", "CLINIC", "INSTITUTION", "RELATIONSHIP", "OCCUPATION",
+    "RELIGION", "CITIZENSHIP", "RESIDENCE", "WEIGHT", "GRAMS",
 }
 
 PLACE_HINTS = {
@@ -132,9 +143,17 @@ def _is_placeholder_text(text: str) -> bool:
     nt = norm_text(raw)
     if not nt:
         return True
-    if re.search(r"\(\s*(DAY|MONTH|YEAR)", raw, flags=re.I):
+    if re.search(r"\(\s*(DAY|MONTH|YEAR|HOUSE|CITY|NAME|FIRST|MIDDLE|LAST)", raw, flags=re.I):
+        return True
+    if "(" in raw and ")" in raw and any(
+        tip in nt for tip in ("HOUSE", "BARANGAY", "MUNICIPALITY", "PROVINCE", "STREET", "CITY")
+    ):
         return True
     if "DAY" in nt and "MONTH" in nt:
+        return True
+    if "TITLE" in nt and "POSITION" in nt:
+        return True
+    if "NAME IN PRINT" in nt:
         return True
     compact = nt.replace(" ", "")
     if compact in PLACEHOLDER_MARKERS or "DAYMONTH" in compact or "YESE" in compact:
@@ -172,8 +191,12 @@ def _is_plausible_place(text: str) -> bool:
         return False
     if any(bad in nt for bad in (
         "INFORMANT", "SIGNATURE", "CERTIFY", "PARENTS", "PRINT", "REMARKS",
-        "ANNOTATION", "REGISTRY", "RELIGION",
+        "ANNOTATION", "REGISTRY", "RELIGION", "TITLE", "POSITION",
+        "HOUSE NO", "ST BARANGAY",
     )):
+        return False
+    # Reject date-like "places" (common OCR mix-up with marriage date).
+    if parse_date_from_string(text):
         return False
     letters = alpha_count(nt)
     vowels = sum(ch in "AEIOU" for ch in nt)
@@ -194,8 +217,14 @@ def _is_plausible_person_name(text: str) -> bool:
         return False
     if _is_placeholder_text(text):
         return False
+    if any(marker in nt for marker in FORM_JUNK_NAME_MARKERS):
+        return False
+    if parse_date_from_string(text):
+        return False
     words = [w for w in nt.split() if w]
     if not words:
+        return False
+    if len(words) < 2:
         return False
     for i in range(1, len(words)):
         if words[i] == words[i - 1] and len(words[i]) >= 4:
@@ -231,6 +260,35 @@ def _collapse_repeated_words(text: str) -> str:
             continue
         out.append(word)
     return " ".join(out)
+
+
+def _clean_person_name(text: str) -> str:
+    """Strip form chrome that often sticks to OCR name rows (Sex, months, citizenship)."""
+    raw = _collapse_repeated_words(str(text or "").strip())
+    if not raw:
+        return ""
+    drop = {
+        "MALE", "FEMALE", "SEX", "UNKNOWN", "SINGLE", "TWIN", "TRIPLET",
+        "FIRST", "MIDDLE", "LAST", "NAME", "MAIDEN", "OF", "THE", "CHILD",
+        "MOTHER", "FATHER", "FILIPINO", "FILIPINA", "CITIZENSHIP", "RELIGION",
+        "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER",
+        "OCTOBER", "NOVEMBER", "DECEMBER", "JANUARY", "FEBRUARY",
+        "JAN", "FEB", "MAR", "APR", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    }
+    kept = []
+    for w in raw.split():
+        nw = norm_text(w)
+        if not nw or nw in drop:
+            continue
+        if re.fullmatch(r"\d+[A-Z]?", nw):
+            continue
+        if len(nw) <= 1:
+            continue
+        kept.append(w)
+    cleaned = _collapse_repeated_words(" ".join(kept))
+    if not _is_plausible_person_name(cleaned):
+        return ""
+    return cleaned
 
 
 # =========================================================
@@ -349,46 +407,141 @@ def find_best_label(items, patterns, x_min=None, x_max=None, y_min=None, y_max=N
     return best
 
 
-def find_child_name_label(items, img_w, img_h):
-    candidates = []
+def find_child_name_label(items, img_w, img_h, dob_label=None):
+    """
+    Form 102 item 1 is near the top. A bare OCR token 'NAME' also appears under
+    Maiden Name (mother) ~y 0.27 — never pick that as the child label.
+    """
+    y_max = img_h * 0.20
+    if dob_label is not None:
+        y_max = min(y_max, max(dob_label["y1"] - 2, img_h * 0.10))
 
+    candidates = []
     for it in items:
         if it["score"] < 0.15:
+            continue
+        if it["cx"] > img_w * 0.55:
+            continue
+        if it["cy"] < img_h * 0.04 or it["cy"] > y_max:
             continue
 
         nt = norm_text(it["text"])
         ct = compact_text(it["text"])
-
-        if it["cx"] > img_w * 0.50:
+        if "MOTHER" in nt or "FATHER" in nt or "MAIDEN" in nt:
             continue
-        if it["cy"] < img_h * 0.04 or it["cy"] > img_h * 0.32:
+        if "CHILD" in nt and "NAME" in nt:
+            candidates.append((0, it))
             continue
-
         if nt in {"1 NAME", "1NAME", "I NAME"} or ct in {"1NAME", "INAME"}:
-            candidates.append(it)
+            candidates.append((1, it))
             continue
-
         if re.fullmatch(r"[1I][ .]*NAME", nt):
-            candidates.append(it)
+            candidates.append((1, it))
             continue
-
-        if "NAME OF CHILD" in nt or "NAME OF THE CHILD" in nt:
-            candidates.append(it)
+        # Bare 'NAME' / '.NAME' only in the top child band (already limited by y_max).
+        if nt == "NAME" or ct == "NAME":
+            candidates.append((2, it))
             continue
 
     if candidates:
-        candidates.sort(key=lambda x: (x["cy"], x["x1"]))
-        return candidates[0]
+        candidates.sort(key=lambda pair: (pair[0], pair[1]["cy"], pair[1]["x1"]))
+        return candidates[0][1]
 
+    # Strict fallback — no fuzzy match on bare NAME (that hits the mother row).
     return find_best_label(
         items,
         patterns=["NAME OF CHILD", "NAME OF THE CHILD", "1 NAME", "1. NAME", "1.NAME"],
         x_min=0,
         x_max=img_w * 0.55,
         y_min=img_h * 0.04,
-        y_max=img_h * 0.34,
-        min_match_score=5.0,
+        y_max=y_max,
+        min_match_score=6.5,
     )
+
+
+def find_mother_name_label(items, img_w, img_h, y_min=None):
+    """
+    Locate 'Maiden name of mother' only.
+
+    Fuzzy matching alone is unsafe: NAME OF CHILD ≈ NAME OF MOTHER (~0.78),
+    which previously made Name of Mother copy the child's name.
+    Prefer the 'NAME' token under MAIDEN when both are present (write-ins sit on that row).
+    """
+    y0 = y_min if y_min is not None else img_h * 0.20
+    maiden = None
+    name_under = None
+    mother_named = None
+    for it in items:
+        if it["score"] < 0.15:
+            continue
+        if it["cx"] > img_w * 0.60:
+            continue
+        if it["cy"] < y0 or it["cy"] > img_h * 0.58:
+            continue
+        nt = norm_text(it["text"])
+        ct = compact_text(it["text"])
+        if "CHILD" in nt or "FATHER" in nt:
+            continue
+        if "MAIDEN" in nt:
+            maiden = it if maiden is None or it["cy"] < maiden["cy"] else maiden
+            continue
+        if "NAME" in nt and "MOTHER" in nt:
+            mother_named = it if mother_named is None or it["cy"] < mother_named["cy"] else mother_named
+            continue
+        if "MOTHER" in nt and mother_named is None:
+            mother_named = it
+            continue
+    if maiden:
+        # Use the NAME row just under/ beside MAIDEN — that is where First/Middle/Last sit.
+        for it in items:
+            if it["score"] < 0.15 or it["cx"] > img_w * 0.55:
+                continue
+            nt = norm_text(it["text"])
+            ct = compact_text(it["text"])
+            if nt != "NAME" and ct != "NAME":
+                continue
+            if it["cy"] < maiden["y1"] - 8 or it["cy"] > maiden["y2"] + img_h * 0.04:
+                continue
+            if name_under is None or it["cy"] < name_under["cy"]:
+                name_under = it
+        return name_under or maiden
+    return mother_named
+
+
+def find_father_name_label(items, img_w, img_h, y_min=None):
+    """Locate father name label; never fuzzy-match mother/child name rows."""
+    y0 = y_min if y_min is not None else img_h * 0.32
+    candidates = []
+    for it in items:
+        if it["score"] < 0.15:
+            continue
+        if it["cx"] > img_w * 0.60:
+            continue
+        if it["cy"] < y0 or it["cy"] > img_h * 0.62:
+            continue
+        nt = norm_text(it["text"])
+        ct = compact_text(it["text"])
+        if "MOTHER" in nt or "CHILD" in nt or "MAIDEN" in nt:
+            continue
+        if "NAME OF FATHER" in nt or ("FATHER" in nt and "NAME" in nt):
+            candidates.append((0, it))
+            continue
+        if "FATHER" in nt:
+            candidates.append((1, it))
+            continue
+        # Form 102 uses 14. NAME; OCR often drops the leading 1 -> '4.NAME'.
+        if re.fullmatch(r"(4|12|13|14)[ .]*NAME", nt) or ct in {
+            "4NAME", "12NAME", "13NAME", "14NAME",
+        }:
+            candidates.append((2, it))
+            continue
+        if nt == "NAME" or ct == "NAME":
+            candidates.append((3, it))
+            continue
+    if candidates:
+        candidates.sort(key=lambda pair: (pair[0], pair[1]["cy"], pair[1]["x1"]))
+        return candidates[0][1]
+    return None
 
 
 def find_label_below(items, anchor_label, patterns, y_min_offset=2, y_max_offset=95, x_max=None, min_match_score=5.8):
@@ -670,8 +823,8 @@ def row_has_field_keywords(row):
 
 def extract_name_field_v2(items, label, stop_y, max_x, exclude_keywords=None):
     """
-    Improved name extraction - looks for name tokens below the label.
-    Uses position-based approach with better filtering.
+    Improved name extraction - looks for name tokens on/below the label row.
+    Form 102 writes First / Middle / Last on the same row as the NAME label.
     """
     if exclude_keywords is None:
         exclude_keywords = []
@@ -679,17 +832,17 @@ def extract_name_field_v2(items, label, stop_y, max_x, exclude_keywords=None):
     if not label:
         return ""
 
-    # Search in the region below the label
-    search_top = label["y2"] + 5
-    search_bottom = min(stop_y + 15, label["y2"] + 80)
+    # Prefer the write-in row (same band as the label), then a short band below.
+    search_top = label["y1"] - 8
+    search_bottom = min(max(stop_y + 10, label["y2"] + 36), label["y2"] + 70)
 
     region = tokens_in_region(
         items,
-        label["x1"] - 10,
+        label["x2"] + 2,
         max_x,
         search_top,
         search_bottom,
-        min_score=0.15  # Lower threshold to catch more tokens
+        min_score=0.15
     )
 
     name_tokens = []
@@ -697,24 +850,23 @@ def extract_name_field_v2(items, label, stop_y, max_x, exclude_keywords=None):
         txt = clean_text(it["text"])
         nt = norm_text(txt)
 
-        # Skip tokens that are:
-        # - Too short
-        # - Numbers only
-        # - Form labels/keywords
-        # - Contains date patterns
         if len(txt) < 2:
             continue
         if re.fullmatch(r"\d+", nt):
             continue
-        if re.search(r"\d{4}", nt):  # Contains year
+        if re.search(r"\d{4}", nt):
             continue
         if any(kw in nt for kw in exclude_keywords):
             continue
         if any(kw in nt for kw in BAD_VALUE_KEYWORDS):
             continue
-        if nt in {"FIRST", "MIDDLE", "LAST", "NAME", "MAIDEN"}:
+        if nt in {"FIRST", "MIDDLE", "LAST", "NAME", "MAIDEN", "OF", "THE", "CHILD", "MOTHER", "FATHER"}:
             continue
         if _is_citizenship(nt):
+            continue
+        if _is_placeholder_text(txt):
+            continue
+        if any(marker in nt for marker in FORM_JUNK_NAME_MARKERS):
             continue
 
         name_tokens.append(it)
@@ -722,15 +874,22 @@ def extract_name_field_v2(items, label, stop_y, max_x, exclude_keywords=None):
     def _best_name_from_tokens(tokens):
         if not tokens:
             return ""
-        rows = group_rows(tokens, y_tol=10)
+        rows = group_rows(tokens, y_tol=12)
         best_row = None
         best_score = 0
         for row in rows:
             row_text = join_tokens(row)
+            cleaned = normalize_simple_text(row_text)
+            if not _is_plausible_person_name(cleaned):
+                # Still allow partial rows with 2+ alpha words before final sanitize.
+                words = [w for w in norm_text(cleaned).split() if len(w) > 1]
+                if len(words) < 2 or alpha_count(cleaned) < 6:
+                    continue
             alpha = alpha_count(row_text)
-            if alpha < 3:
-                continue
             score = alpha * len(row_text) / 100
+            # Prefer rows closest to the label vertically.
+            row_cy = sum(t["cy"] for t in row) / len(row)
+            score -= abs(row_cy - label["cy"]) / 200.0
             if score > best_score:
                 best_score = score
                 best_row = row
@@ -738,18 +897,20 @@ def extract_name_field_v2(items, label, stop_y, max_x, exclude_keywords=None):
             return ""
         return normalize_simple_text(join_tokens(best_row))
 
-    below_name = _best_name_from_tokens(name_tokens)
+    same_row_name = _best_name_from_tokens(name_tokens)
+    if same_row_name and _is_plausible_person_name(same_row_name):
+        return same_row_name
 
-    right_region = tokens_in_region(
+    below_region = tokens_in_region(
         items,
-        label["x2"] + 4,
+        label["x1"] - 10,
         max_x,
-        label["y1"] - 10,
-        label["y2"] + 22,
+        label["y2"] + 2,
+        min(stop_y + 15, label["y2"] + 55),
         min_score=0.15,
     )
-    right_tokens = []
-    for it in right_region:
+    below_tokens = []
+    for it in below_region:
         txt = clean_text(it["text"])
         nt = norm_text(txt)
         if len(txt) < 2 or re.fullmatch(r"\d+", nt) or re.search(r"\d{4}", nt):
@@ -758,12 +919,14 @@ def extract_name_field_v2(items, label, stop_y, max_x, exclude_keywords=None):
             continue
         if nt in {"FIRST", "MIDDLE", "LAST", "NAME", "MAIDEN"}:
             continue
-        if _is_citizenship(nt):
+        if _is_citizenship(nt) or _is_placeholder_text(txt):
             continue
-        right_tokens.append(it)
-    right_name = _best_name_from_tokens(right_tokens)
+        if any(marker in nt for marker in FORM_JUNK_NAME_MARKERS):
+            continue
+        below_tokens.append(it)
+    below_name = _best_name_from_tokens(below_tokens)
 
-    candidates = [c for c in (right_name, below_name) if c]
+    candidates = [c for c in (same_row_name, below_name) if c]
     for cand in candidates:
         if _is_plausible_person_name(cand):
             return cand
@@ -939,31 +1102,6 @@ def detect_sex(items, sex_label, dob_label=None, img_h=None):
     def _in_upper_form(it):
         return img_h is None or it["cy"] <= img_h * 0.55
 
-    for it in items:
-        if not _in_upper_form(it):
-            continue
-        raw = clean_text(it["text"]).upper()
-        nt = norm_text(it["text"])
-        if re.search(r"(X|\[X\]).{0,16}FEMALE|FEMALE.{0,10}(X|\[X\])", raw):
-            return "Female"
-        if "FEMALE" not in nt and re.search(r"(X|\[X\]).{0,16}MALE|MALE.{0,10}(X|\[X\])", raw):
-            return "Male"
-        if nt in {"X", "XX"} or re.fullmatch(r"X+", nt):
-            for other in items:
-                if abs(other["cy"] - it["cy"]) > 30:
-                    continue
-                dx = other["cx"] - it["cx"]
-                if dx < -30 or dx > 150:
-                    continue
-                ont = norm_text(other["text"])
-                if "FEMALE" in ont:
-                    return "Female"
-                if re.search(r"\bMALE\b", ont):
-                    return "Male"
-
-    male_score = 0
-    female_score = 0
-
     if sex_label:
         xmax = dob_label["x1"] - 5 if dob_label else sex_label["x2"] + 320
         region = tokens_in_region(
@@ -971,42 +1109,17 @@ def detect_sex(items, sex_label, dob_label=None, img_h=None):
             sex_label["x1"] - 20,
             xmax,
             sex_label["y1"] - 6,
-            sex_label["y2"] + 50,
+            sex_label["y2"] + 70,
             min_score=0.15
         )
-        for it in region:
-            raw = clean_text(it["text"])
-            nt = norm_text(raw)
+        value = sex_from_tokens(region)
+        if value:
+            return value
 
-            if "FEMALE" in nt:
-                female_score += 3
-                if re.search(r"^[^A-Z0-9]*[IXL/\\_]+", raw.upper()):
-                    female_score += 4
-                if re.search(r"\bX\b", raw.upper()):
-                    female_score += 5
-            elif re.search(r"\bMALE\b", nt):
-                male_score += 3
-                if re.search(r"^[^A-Z0-9]*[IXL/\\_]+", raw.upper()):
-                    male_score += 4
-                if re.search(r"\bX\b", raw.upper()):
-                    male_score += 5
-
-        raw_joined = (" ".join(clean_text(it["text"]) for it in region)).upper()
-        raw_joined = re.sub(r"\s+", " ", raw_joined).strip()
-
-        if re.search(r"[IXL/\\_]+\s*1\s*MALE", raw_joined):
-            male_score += 4
-        if re.search(r"[IXL/\\_]+\s*2\s*FEMALE", raw_joined):
-            female_score += 4
-        if re.search(r"\bX\s*1\s*MALE", raw_joined):
-            male_score += 5
-        if re.search(r"\bX\s*2\s*FEMALE", raw_joined):
-            female_score += 5
-
-        if male_score > female_score and male_score >= 7:
-            return "Male"
-        if female_score > male_score and female_score >= 7:
-            return "Female"
+    upper_items = [it for it in items if _in_upper_form(it)]
+    value = sex_from_tokens(upper_items)
+    if value:
+        return value
 
     return "Unknown"
 
@@ -1307,11 +1420,21 @@ BIRTH_OUTPUT_KEYS = [
 
 def _sanitize_birth_fields(data: Dict[str, Any]) -> None:
     for name_key in ("Name of Child", "Name of Mother", "Name of Father"):
-        val = _collapse_repeated_words((data.get(name_key) or "").strip())
-        if val and (not _is_plausible_person_name(val) or _is_placeholder_text(val)):
-            data[name_key] = ""
-        else:
-            data[name_key] = val
+        val = _clean_person_name(data.get(name_key) or "")
+        data[name_key] = val
+
+    child = norm_text(data.get("Name of Child") or "")
+    mother = norm_text(data.get("Name of Mother") or "")
+    father = norm_text(data.get("Name of Father") or "")
+    # Layout/box OCR sometimes latches mother onto the child name row.
+    if child and mother and mother == child:
+        data["Name of Mother"] = ""
+        mother = ""
+    if child and father and father == child:
+        data["Name of Father"] = ""
+        father = ""
+    if mother and father and father == mother:
+        data["Name of Father"] = ""
 
     for date_key in ("Date of Birth", "Date of Registration", "Date of Marriage of Parents"):
         val = (data.get(date_key) or "").strip()
@@ -1321,6 +1444,16 @@ def _sanitize_birth_fields(data: Dict[str, Any]) -> None:
             data[date_key] = ""
         else:
             data[date_key] = parse_date_from_string(val)
+
+    # Registration date is often confused with Date of Birth when OCR reads the DOB band.
+    dob = (data.get("Date of Birth") or "").strip()
+    reg = (data.get("Date of Registration") or "").strip()
+    if dob and reg and norm_text(dob) == norm_text(reg):
+        data["Date of Registration"] = ""
+
+    marriage_date = (data.get("Date of Marriage of Parents") or "").strip()
+    if dob and marriage_date and norm_text(dob) == norm_text(marriage_date):
+        data["Date of Marriage of Parents"] = ""
 
     for place_key in ("Place of Birth", "Place of Marriage of Parents"):
         val = _collapse_repeated_words((data.get(place_key) or "").strip())
@@ -1411,11 +1544,9 @@ def _template_birth_map(result) -> Dict[str, str]:
             "Place of Marriage of Parents": _v("place_of_marriage_of_parents"),
             "Date of Registration": _v("date_of_registration"),
         }
-        sex = (tpl_map.get("Sex") or "").strip().upper()
-        if sex in {"M", "MALE"}:
-            tpl_map["Sex"] = "Male"
-        elif sex in {"F", "FEMALE"}:
-            tpl_map["Sex"] = "Female"
+        sex = sex_from_ocr_text(tpl_map.get("Sex") or "")
+        if sex:
+            tpl_map["Sex"] = sex
     except Exception:
         return {}
 
@@ -1447,7 +1578,12 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
         if img is None:
             raise FileNotFoundError(f"Could not read temp cropped image: {temp_cropped}")
         img = enhance_birth_image(img)
-        result = run_ocr_on_image(img, max_side=1440)
+        result = run_ocr_on_image(img)
+        box_map: Dict[str, str] = {}
+        try:
+            box_map = extract_field_boxes(img, "birth", pages=result)
+        except Exception:
+            box_map = {}
         tpl_map = _template_birth_map(result)
 
         img_h, img_w = img.shape[:2]
@@ -1478,8 +1614,6 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
             min_match_score=5.0
         )
 
-        name_label = find_child_name_label(items, img_w, img_h)
-
         dob_label = find_best_label(
             items,
             patterns=["DATE OF BIRTH", "OATE OF BIRTH", "DATEOBIRTH", "DATE OFBIRTH", "3 DATE OF BIRTH", "3.DATE OF BIRTH", "3DATE OF BIRTH"],
@@ -1489,6 +1623,8 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
             y_max=img_h * 0.42,
             min_match_score=5.0
         )
+
+        name_label = find_child_name_label(items, img_w, img_h, dob_label=dob_label)
 
         sex_label = find_best_label(
             items,
@@ -1520,15 +1656,11 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
             min_match_score=6.0
         )
 
-        mother_label = find_best_label(
-            items,
-            patterns=["MAIDEN NAME OF MOTHER", "NAME OF MOTHER", "MAIDEN NAME", "MOTHER"],
-            x_min=0,
-            x_max=img_w * 0.55,
-            y_min=img_h * 0.16,
-            y_max=img_h * 0.58,
-            min_match_score=5.0
-        )
+        mother_y_min = img_h * 0.20
+        for anchor in (type_birth_label, pob_label, dob_label):
+            if anchor:
+                mother_y_min = max(mother_y_min, anchor["y2"] + 4)
+        mother_label = find_mother_name_label(items, img_w, img_h, y_min=mother_y_min)
 
         mother_cit_label = find_label_below(
             items, mother_label,
@@ -1544,20 +1676,15 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
             patterns=["RELIGION", "8 RELIGION", "8. RELIGION"],
             x_min=img_w * 0.20,
             x_max=img_w * 0.75,
-            y_min=mother_label["y1"] if mother_label else img_h * 0.20,
-            y_max=(mother_label["y1"] + 100) if mother_label else img_h * 0.45,
+            y_min=mother_label["y1"] if mother_label else img_h * 0.22,
+            y_max=(mother_label["y1"] + 100) if mother_label else img_h * 0.48,
             min_match_score=6.0
         )
 
-        father_label = find_best_label(
-            items,
-            patterns=["13 NAME", "13. NAME", "12 NAME", "12. NAME", "NAME OF FATHER", "FATHER"],
-            x_min=0,
-            x_max=img_w * 0.55,
-            y_min=img_h * 0.28,
-            y_max=img_h * 0.72,
-            min_match_score=5.0
-        )
+        father_y_min = img_h * 0.32
+        if mother_label:
+            father_y_min = max(father_y_min, mother_label["y2"] + 8)
+        father_label = find_father_name_label(items, img_w, img_h, y_min=father_y_min)
 
         father_cit_label = find_label_below(
             items, father_label,
@@ -1839,6 +1966,35 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
             current = (data.get(key) or "").strip()
             if val and (not current or current.lower() == "unknown"):
                 data[key] = val
+        child_name = norm_text(data.get("Name of Child") or "")
+        mother_name = norm_text(data.get("Name of Mother") or "")
+        for key, val in (box_map or {}).items():
+            if not val:
+                continue
+            val = str(val).strip()
+            if key in {"Name of Child", "Name of Mother", "Name of Father"}:
+                if not _is_plausible_person_name(val):
+                    continue
+                if key != "Name of Child" and child_name and norm_text(val) == child_name:
+                    continue
+                if key == "Name of Father" and mother_name and norm_text(val) == mother_name:
+                    continue
+            elif key in {"Place of Birth", "Place of Marriage of Parents"}:
+                if not _is_plausible_place(val):
+                    continue
+            elif "Citizenship" in key:
+                cit = _normalize_citizenship(val)
+                if not cit:
+                    continue
+                val = cit
+            elif "Date" in key:
+                parsed = parse_date_from_string(val)
+                if not parsed:
+                    continue
+                val = parsed
+            elif _is_placeholder_text(val):
+                continue
+            data[key] = val
         _sanitize_birth_fields(data)
 
         out = {key: data.get(key, "") for key in BIRTH_OUTPUT_KEYS}
@@ -1846,11 +2002,14 @@ def extract_birth_data(img_path: str) -> Dict[str, Any]:
         source_map: Dict[str, str] = {}
         for key in BIRTH_OUTPUT_KEYS:
             val = (out.get(key) or "").strip()
-            is_template_fill = (
-                not (before_template.get(key) or "").strip()
-                or (before_template.get(key) or "").strip().lower() == "unknown"
-            ) and bool(val) and bool((tpl_map or {}).get(key))
-            source = "template" if is_template_fill else "layout"
+            if (box_map or {}).get(key) and val:
+                source = "box"
+            else:
+                is_template_fill = (
+                    not (before_template.get(key) or "").strip()
+                    or (before_template.get(key) or "").strip().lower() == "unknown"
+                ) and bool(val) and bool((tpl_map or {}).get(key))
+                source = "template" if is_template_fill else "layout"
             source_map[key] = source
             confidence_map[key] = _field_confidence(key, val, source=source)
         out["__confidence__"] = confidence_map

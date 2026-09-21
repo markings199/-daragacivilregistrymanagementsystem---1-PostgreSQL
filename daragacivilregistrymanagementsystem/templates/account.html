@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}My account{% endblock %}
+{% block body_class %}page-account{% endblock %}
+{% block after_theme %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/account.css') }}" />
+{% endblock %}
+
+{% block content %}
+{% set role = (current_user.role or 'STAFF')|upper %}
+{% set uname = current_user.username or 'User' %}
+{% set is_staff = role == 'STAFF' %}
+<div class="account-page">
+  <article class="account-shell">
+    <aside class="account-brand" aria-label="Signed-in user">
+      <p class="account-kicker">My account</p>
+      <div class="account-avatar" aria-hidden="true">{{ uname[:1]|upper }}</div>
+      <h1 class="account-username">{{ uname }}</h1>
+      <span class="account-role account-role--{{ role|lower }}">{{ 'Administrator' if role == 'ADMIN' else 'Staff' }}</span>
+      <p class="account-office">Municipality of Daraga · Civil Registry</p>
+      {% if current_user.last_login_at %}
+      <p class="account-since">Signed in {{ current_user.last_login_at.strftime('%Y-%m-%d %H:%M') }}</p>
+      {% elif current_user.created_at %}
+      <p class="account-since">Since {{ current_user.created_at.strftime('%b %Y') }}</p>
+      {% endif %}
+    </aside>
+
+    <div class="account-main">
+      <section class="account-panel" aria-labelledby="account-details-title">
+        <header class="account-panel-head">
+          <span class="account-panel-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </span>
+          <div>
+            <h2 id="account-details-title">Account</h2>
+            <p>Username and role are assigned by the administrator.</p>
+          </div>
+        </header>
+        <dl class="account-facts">
+          <div>
+            <dt>Username</dt>
+            <dd>{{ uname }}</dd>
+          </div>
+          <div>
+            <dt>Role</dt>
+            <dd>{{ 'Administrator' if role == 'ADMIN' else 'Staff encoder' }}</dd>
+          </div>
+          <div>
+            <dt>Added</dt>
+            <dd>{{ current_user.created_at.strftime('%Y-%m-%d') if current_user.created_at else '—' }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="account-panel" aria-labelledby="account-password-title">
+        <header class="account-panel-head">
+          <span class="account-panel-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="11" width="14" height="10" rx="2"/>
+              <path d="M8 11V8a4 4 0 018 0v3"/>
+            </svg>
+          </span>
+          <div>
+            <h2 id="account-password-title">Change password</h2>
+            <p>
+              {% if is_staff %}
+                You can set a new password yourself — no administrator approval. Enter the current one first. If you forgot it, ask an administrator to issue a new login.
+              {% endif %}
+              At least 6 characters. Other devices will be signed out.
+            </p>
+          </div>
+        </header>
+
+        <form class="account-form" method="post" action="{{ url_for('account_change_password') }}" autocomplete="off">
+          <div class="field">
+            <label for="current_password">Current password</label>
+            <div class="account-input-wrap">
+              <input id="current_password" name="current_password" type="password" required autocomplete="current-password" />
+              <button type="button" class="account-eye" data-target="current_password" aria-label="Show password" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="account-form-row">
+            <div class="field">
+              <label for="new_password">New password</label>
+              <div class="account-input-wrap">
+                <input id="new_password" name="new_password" type="password" required minlength="6" autocomplete="new-password" />
+                <button type="button" class="account-eye" data-target="new_password" aria-label="Show password" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="confirm_password">Confirm password</label>
+              <div class="account-input-wrap">
+                <input id="confirm_password" name="confirm_password" type="password" required minlength="6" autocomplete="new-password" />
+                <button type="button" class="account-eye" data-target="confirm_password" aria-label="Show password" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
+              <p class="account-match" id="account-match" hidden></p>
+            </div>
+          </div>
+          <div class="account-actions">
+            <button type="submit" class="btn btn-primary">Save password</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="account-panel account-panel--sessions" aria-labelledby="account-sessions-title">
+        <header class="account-panel-head">
+          <span class="account-panel-ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="4" width="14" height="16" rx="2"/>
+              <path d="M9 8h6M9 12h6M9 16h4"/>
+            </svg>
+          </span>
+          <div>
+            <h2 id="account-sessions-title">This computer</h2>
+            <p>Use this if you left your account open on another desk, or think someone else used it.</p>
+          </div>
+        </header>
+        <form method="post" action="{{ url_for('account_revoke_sessions') }}" data-app-confirm data-confirm-title="Sign out other devices" data-confirm-message="Sign out all other devices? This computer will stay signed in." data-confirm-ok="Sign out others" data-confirm-cancel="Go back">
+          <button type="submit" class="btn btn-secondary">Sign out other devices</button>
+        </form>
+      </section>
+    </div>
+  </article>
+
+  {% if is_staff and staff_queue %}
+  <section class="account-work" aria-labelledby="account-work-title">
+    <h2 id="account-work-title">Your queue</h2>
+    <p class="account-work-lead">Edit and print still need administrator approval. Open a card to continue.</p>
+    <div class="account-work-grid">
+      <a class="account-work-card" href="{{ url_for('my_edit_requests') }}">
+        <span class="account-work-label">Edit requests</span>
+        <span class="account-work-nums">
+          <span><strong>{{ staff_queue.edit_pending }}</strong> waiting</span>
+          <span><strong>{{ staff_queue.edit_ready }}</strong> ready to use</span>
+        </span>
+      </a>
+      <a class="account-work-card" href="{{ url_for('my_print_requests') }}">
+        <span class="account-work-label">Print requests</span>
+        <span class="account-work-nums">
+          <span><strong>{{ staff_queue.print_pending }}</strong> waiting</span>
+          <span><strong>{{ staff_queue.print_ready }}</strong> ready to print</span>
+        </span>
+      </a>
+    </div>
+  </section>
+  {% endif %}
+</div>
+<script>
+(function () {
+  var eyeOpen = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  var eyeOff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><path d="M14.12 14.12a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+  document.querySelectorAll(".account-eye").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var input = document.getElementById(btn.getAttribute("data-target"));
+      if (!input) return;
+      var show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.setAttribute("aria-pressed", show ? "true" : "false");
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      btn.innerHTML = show ? eyeOff : eyeOpen;
+    });
+  });
+  var neu = document.getElementById("new_password");
+  var conf = document.getElementById("confirm_password");
+  var hint = document.getElementById("account-match");
+  function checkMatch() {
+    if (!neu || !conf || !hint) return;
+    if (!conf.value) {
+      hint.hidden = true;
+      conf.classList.remove("is-mismatch", "is-match");
+      return;
+    }
+    var ok = neu.value === conf.value;
+    hint.hidden = false;
+    hint.textContent = ok ? "Passwords match." : "Passwords do not match.";
+    hint.classList.toggle("is-ok", ok);
+    conf.classList.toggle("is-match", ok);
+    conf.classList.toggle("is-mismatch", !ok);
+  }
+  if (neu && conf) {
+    neu.addEventListener("input", checkMatch);
+    conf.addEventListener("input", checkMatch);
+  }
+})();
+</script>
+{% endblock %}

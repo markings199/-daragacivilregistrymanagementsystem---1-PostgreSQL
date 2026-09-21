@@ -272,6 +272,61 @@
     border-color: #002080;
     background: #fff;
   }
+  .scanflow-detect-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid #c5d4e8;
+    background: #f8fafc;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #334155;
+    line-height: 1.3;
+  }
+  .scanflow-detect-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: #94a3b8;
+  }
+  .scanflow-detect-status.is-busy .scanflow-detect-dot {
+    background: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18);
+    animation: scanflow-detect-pulse 1s ease-in-out infinite;
+  }
+  .scanflow-detect-status.is-ready {
+    border-color: #86efac;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .scanflow-detect-status.is-ready .scanflow-detect-dot { background: #16a34a; }
+  .scanflow-detect-status.is-fail {
+    border-color: #fcd34d;
+    background: #fffbeb;
+    color: #92400e;
+  }
+  .scanflow-detect-status.is-fail .scanflow-detect-dot { background: #d97706; }
+  @keyframes scanflow-detect-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  .scanflow-detect-toggle {
+    margin: 6px 0 0;
+    padding: 0;
+    border: none;
+    background: none;
+    color: #1d4ed8;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .scanflow-detect-toggle:hover { text-decoration: underline; }
+  .scanflow-detect-change { margin-top: 6px; }
+  .scanflow-detect-change[hidden] { display: none; }
 
   .scanflow-scanner-btns {
     display: flex;
@@ -318,9 +373,12 @@
   .scanflow-ocr-hint {
     margin: 0;
     flex: 1 1 14rem;
+    align-items: flex-start;
+    padding: 0;
+  }
+  .scanflow-ocr-hint .app-note-text {
     font-size: 0.75rem;
     font-weight: 600;
-    color: #64748b;
     line-height: 1.35;
   }
   .btn-scanflow-primary {
@@ -333,6 +391,14 @@
     border-radius: 8px;
     font-size: 0.84rem;
     font-weight: 800;
+    margin-left: 0;
+  }
+  .scanflow-ocr-btns {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
     margin-left: auto;
   }
   .btn-scanflow-primary svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; }
@@ -347,6 +413,26 @@
     animation: scanflow-ocr-spin 0.7s linear infinite;
   }
   .btn-scanflow-primary.is-running .btn-ocr-spin { display: inline-block; }
+  .btn-scanflow-cancel {
+    min-height: 40px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-weight: 800;
+    border: 1px solid #fca5a5;
+    background: #fff5f5;
+    color: #991b1b;
+  }
+  .btn-scanflow-cancel:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+  }
+  .btn-scanflow-cancel[hidden] {
+    display: none !important;
+  }
+  #scan-preview-empty[hidden],
+  #scan-preview-viewer-wrap[hidden] {
+    display: none !important;
+  }
   @keyframes scanflow-ocr-spin {
     to { transform: rotate(360deg); }
   }
@@ -484,6 +570,11 @@
     .scanflow-form-card form > .scanflow-field-row { grid-template-columns: 1fr; }
     .scanflow-field-label-col { padding-top: 0; }
     .btn-scanflow-primary { width: 100%; margin-left: 0; }
+    .scanflow-ocr-btns {
+      width: 100%;
+      margin-left: 0;
+    }
+    .btn-scanflow-cancel { width: 100%; }
     .scanflow-actions-primary #ocr-loading {
       flex: 1 1 100%;
       width: 100%;
@@ -708,7 +799,7 @@
       </div>
       <div class="scanflow-card-head-copy">
         <h2>Scan to archive</h2>
-        <p class="scanflow-card-sub">Select the document, scan or upload, then run OCR.</p>
+        <p class="scanflow-card-sub">Scan or upload the certificate. Document type is identified automatically.</p>
       </div>
     </div>
     <form method="post" action="{{ url_for('index') }}" enctype="multipart/form-data" id="scan-form">
@@ -717,14 +808,24 @@
       <div class="scanflow-field-row">
         <div class="scanflow-field-label-col">
           <svg class="scanflow-field-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-          <label for="document_type">Document type</label>
+          <label for="doc-type-status-text">Document type</label>
         </div>
         <div class="scanflow-field-control field">
-          <select id="document_type" name="document_type" required{% if active_ocr %} disabled{% endif %}>
-            <option value="birth"{% if active_ocr and active_ocr.doc_type == 'birth' %} selected{% endif %}>Birth</option>
-            <option value="marriage"{% if active_ocr and active_ocr.doc_type == 'marriage' %} selected{% endif %}>Marriage</option>
-            <option value="death"{% if active_ocr and active_ocr.doc_type == 'death' %} selected{% endif %}>Death</option>
-          </select>
+          {% set _ocr_dt = (active_ocr.doc_type if active_ocr else '') %}
+          <input type="hidden" id="document_type" name="document_type" value="{% if _ocr_dt in ['birth', 'marriage', 'death'] %}{{ _ocr_dt }}{% else %}auto{% endif %}" />
+          <div id="doc-type-status" class="scanflow-detect-status {% if _ocr_dt in ['birth', 'marriage', 'death'] %}is-ready{% else %}is-wait{% endif %}" role="status">
+            <span class="scanflow-detect-dot" aria-hidden="true"></span>
+            <span id="doc-type-status-text">{% if _ocr_dt == 'birth' %}Birth certificate{% elif _ocr_dt == 'marriage' %}Marriage certificate{% elif _ocr_dt == 'death' %}Death certificate{% else %}Identified automatically from the certificate{% endif %}</span>
+          </div>
+          <button type="button" class="scanflow-detect-toggle" id="doc-type-change-btn"{% if active_ocr %} disabled{% endif %}>Wrong type?</button>
+          <div class="scanflow-detect-change" id="doc-type-change-wrap" hidden>
+            <select id="document_type_override"{% if active_ocr %} disabled{% endif %} aria-label="Override document type">
+              <option value="auto"{% if _ocr_dt not in ['birth', 'marriage', 'death'] %} selected{% endif %}>Auto-detect</option>
+              <option value="birth"{% if _ocr_dt == 'birth' %} selected{% endif %}>Birth</option>
+              <option value="marriage"{% if _ocr_dt == 'marriage' %} selected{% endif %}>Marriage</option>
+              <option value="death"{% if _ocr_dt == 'death' %} selected{% endif %}>Death</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -778,12 +879,18 @@
       </div>
 
       <div class="scanflow-actions-primary">
-        <p class="scanflow-ocr-hint">OCR reads the image and opens the form for review. Nothing is saved until you confirm.</p>
-        <button type="submit" class="btn btn-primary btn-scanflow-primary{% if active_ocr %} is-running{% endif %}" id="btn-ocr"{% if active_ocr %} disabled{% endif %}>
-          <svg class="btn-ocr-idle-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
-          <span class="btn-ocr-spin" aria-hidden="true"></span>
-          <span class="btn-ocr-label">{% if active_ocr %}Running OCR…{% else %}Run OCR{% endif %}</span>
-        </button>
+        <p class="scanflow-ocr-hint app-note app-note--quiet" role="note">
+          <span class="app-note-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg></span>
+          <span class="app-note-text">The heading at the top is matched to Certificate of Live Birth, Marriage, or Death. OCR then fills the form. Nothing is saved until you confirm.</span>
+        </p>
+        <div class="scanflow-ocr-btns">
+          <button type="submit" class="btn btn-primary btn-scanflow-primary{% if active_ocr %} is-running{% endif %}" id="btn-ocr"{% if active_ocr %} disabled{% endif %}>
+            <svg class="btn-ocr-idle-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+            <span class="btn-ocr-spin" aria-hidden="true"></span>
+            <span class="btn-ocr-label">{% if active_ocr %}Running OCR…{% else %}Run OCR{% endif %}</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-scanflow-cancel" id="btn-ocr-cancel"{% if not active_ocr %} hidden{% endif %}>Cancel OCR</button>
+        </div>
         <div id="ocr-loading" class="ocr-loading{% if active_ocr %} is-on{% endif %}" aria-live="polite" aria-busy="{% if active_ocr %}true{% else %}false{% endif %}">
           <div class="ocr-loading-head">
             <span class="ocr-loading-pulse" aria-hidden="true"></span>
@@ -857,6 +964,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  function setCancelOcrVisible(show) {
+    var cancelBtn = document.getElementById('btn-ocr-cancel');
+    if (!cancelBtn) return;
+    if (show) {
+      cancelBtn.removeAttribute('hidden');
+      cancelBtn.hidden = false;
+    } else {
+      cancelBtn.hidden = true;
+      cancelBtn.setAttribute('hidden', '');
+    }
+  }
+
+  function hasScanDocument() {
+    var wrap = document.getElementById('scan-preview-viewer-wrap');
+    var hid = document.getElementById('image_filename');
+    if (wrap && !wrap.hidden) return true;
+    if (fileInput && fileInput.files && fileInput.files.length) return true;
+    if (hid && hid.value) return true;
+    return false;
+  }
+
   var ocrFakeTimer = null;
   var ocrShownProgress = 8;
 
@@ -886,6 +1014,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.getElementById('workflow-state').textContent = 'OCR PROCESSING';
     document.getElementById('workflow-next').textContent = 'Please wait';
+    setCancelOcrVisible(true);
     syncStateCheckIcon();
     if (ocrLoading && ocrLoading.scrollIntoView) {
       requestAnimationFrame(function () {
@@ -907,6 +1036,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var ocrLbl2 = btnOcr.querySelector('.btn-ocr-label');
       if (ocrLbl2) ocrLbl2.textContent = 'Run OCR';
     }
+    setCancelOcrVisible(hasScanDocument());
     if (ocrLoading) {
       ocrLoading.classList.remove('is-on');
       ocrLoading.style.setProperty('display', 'none', 'important');
@@ -943,8 +1073,44 @@ document.addEventListener('DOMContentLoaded', function() {
     empty.hidden = true;
     wrap.hidden = false;
     if (filenameHint) setPreviewFilename(filenameHint);
+    setCancelOcrVisible(true);
     reapplyScanPreviewZoom();
   }
+
+  function clearScanPreview() {
+    if (scanPreviewBlobUrl) {
+      try { URL.revokeObjectURL(scanPreviewBlobUrl); } catch (e) {}
+      scanPreviewBlobUrl = null;
+    }
+    var wrap = document.getElementById('scan-preview-viewer-wrap');
+    var empty = document.getElementById('scan-preview-empty');
+    var img = document.getElementById('scan-wf-viewer-image');
+    var hid = document.getElementById('image_filename');
+    var status = document.getElementById('ocr-image-in-use');
+    if (img) {
+      img.onload = null;
+      img.removeAttribute('src');
+      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+    }
+    if (wrap) wrap.hidden = true;
+    if (empty) empty.hidden = false;
+    if (fileInput) {
+      try { fileInput.value = ''; } catch (e) {}
+    }
+    if (hid) hid.value = '';
+    setPreviewFilename('');
+    if (status) {
+      status.hidden = true;
+      status.textContent = '';
+    }
+    setCancelOcrVisible(false);
+    if (window.DaragaDocType && window.DaragaDocType.reset) {
+      window.DaragaDocType.reset();
+    }
+    syncStateCheckIcon();
+  }
+  window.DaragaScanPreview = { clear: clearScanPreview, setCancelVisible: setCancelOcrVisible };
+  setCancelOcrVisible(hasScanDocument());
 
   syncStateCheckIcon();
 
@@ -952,6 +1118,116 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('workflow-state').textContent = 'READY';
     document.getElementById('workflow-next').textContent = 'Click OCR';
     syncStateCheckIcon();
+  }
+
+  var typeManual = false;
+  var detectSeq = 0;
+  var TYPE_LABELS = {
+    birth: 'Birth certificate',
+    marriage: 'Marriage certificate',
+    death: 'Death certificate'
+  };
+
+  function setDocTypeStatus(state, text) {
+    var box = document.getElementById('doc-type-status');
+    var txt = document.getElementById('doc-type-status-text');
+    if (txt) txt.textContent = text;
+    if (!box) return;
+    box.classList.remove('is-wait', 'is-busy', 'is-ready', 'is-fail');
+    box.classList.add(state);
+  }
+
+  function resetDocType() {
+    typeManual = false;
+    detectSeq += 1;
+    var hidden = document.getElementById('document_type');
+    if (hidden) hidden.value = 'auto';
+    var ov = document.getElementById('document_type_override');
+    if (ov) ov.value = 'auto';
+    setDocTypeStatus('is-wait', 'Identified automatically from the certificate');
+    var wrap = document.getElementById('doc-type-change-wrap');
+    if (wrap) wrap.hidden = true;
+  }
+
+  function applyDetectedType(type, label) {
+    if (!TYPE_LABELS[type]) return;
+    var hidden = document.getElementById('document_type');
+    if (hidden) hidden.value = type;
+    var ov = document.getElementById('document_type_override');
+    if (ov && ov.value !== type) ov.value = type;
+    setDocTypeStatus('is-ready', label || TYPE_LABELS[type]);
+  }
+
+  function showDetectFallback() {
+    var hidden = document.getElementById('document_type');
+    if (hidden) hidden.value = 'auto';
+    setDocTypeStatus('is-fail', 'Could not identify — choose the type below');
+    var wrap = document.getElementById('doc-type-change-wrap');
+    if (wrap) wrap.hidden = false;
+  }
+
+  function detectDocumentType() {
+    if (typeManual) return;
+    var fd = new FormData();
+    if (fileInput && fileInput.files && fileInput.files.length) {
+      fd.append('image', fileInput.files[0]);
+    } else {
+      var fn = document.getElementById('image_filename');
+      if (!fn || !fn.value) return;
+      fd.append('image_filename', fn.value);
+    }
+    var seq = ++detectSeq;
+    setDocTypeStatus('is-busy', 'Identifying document type…');
+    fetch('{{ url_for("api_detect_document_type") }}', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    })
+      .then(function(r){ return r.json().then(function(j){ return r.ok ? j : Promise.reject(j); }); })
+      .then(function(data) {
+        if (seq !== detectSeq || typeManual) return;
+        if (data.image_filename) {
+          document.getElementById('image_filename').value = data.image_filename;
+          if (fileInput) {
+            try { fileInput.value = ''; } catch (e) {}
+          }
+          if (data.image_url) showScanPreview(data.image_url, data.image_filename);
+        }
+        if (data.doc_type && TYPE_LABELS[data.doc_type]) {
+          applyDetectedType(data.doc_type, data.label);
+        } else {
+          showDetectFallback();
+        }
+      })
+      .catch(function() {
+        if (seq !== detectSeq || typeManual) return;
+        showDetectFallback();
+      });
+  }
+
+  window.DaragaDocType = { apply: applyDetectedType, reset: resetDocType };
+
+  var docTypeChangeBtn = document.getElementById('doc-type-change-btn');
+  if (docTypeChangeBtn) {
+    docTypeChangeBtn.addEventListener('click', function() {
+      var wrap = document.getElementById('doc-type-change-wrap');
+      if (!wrap) return;
+      wrap.hidden = !wrap.hidden;
+    });
+  }
+  var docTypeOverride = document.getElementById('document_type_override');
+  if (docTypeOverride) {
+    docTypeOverride.addEventListener('change', function() {
+      var v = this.value;
+      if (v === 'auto') {
+        typeManual = false;
+        if (hasScanDocument()) detectDocumentType();
+        else resetDocType();
+        return;
+      }
+      typeManual = true;
+      applyDetectedType(v, TYPE_LABELS[v]);
+    });
   }
 
   document.getElementById('detect-scanner').onclick = function() {
@@ -988,8 +1264,13 @@ document.addEventListener('DOMContentLoaded', function() {
           showScanPreview(data.image_url, hint);
         }
         markReadyForOcr();
+        detectDocumentType();
       })
-      .catch(function(err){ alert(err && err.error ? err.error : 'Scan failed'); });
+      .catch(function(err){
+        if (window.DaragaToast && window.DaragaToast.error) {
+          window.DaragaToast.error(err && err.error, "Scan failed. Check the printer and try again.");
+        }
+      });
   };
 
   fileInput.addEventListener('change', function() {
@@ -998,13 +1279,20 @@ document.addEventListener('DOMContentLoaded', function() {
       var url = URL.createObjectURL(this.files[0]);
       showScanPreview(url, this.files[0].name);
       markReadyForOcr();
+      detectDocumentType();
     }
   });
 
   scanForm.onsubmit = function(e) {
     e.preventDefault();
     if (!(fileInput.files && fileInput.files.length) && !document.getElementById('image_filename').value) {
-      alert('Please scan from printer, or choose an image first.');
+      if (window.DaragaToast && window.DaragaToast.show) {
+        window.DaragaToast.show({
+          tone: "warning",
+          title: "Please check",
+          message: "Scan from the printer, or choose an image first.",
+        });
+      }
       return false;
     }
     startOcrLoading();
@@ -1017,9 +1305,26 @@ document.addEventListener('DOMContentLoaded', function() {
           window.DaragaOcr.follow(jobId);
         }
       })
-      .catch(function(err){ resetOcrLoading(); alert(err && err.error ? err.error : 'Unable to start OCR.'); });
+      .catch(function(err){
+        resetOcrLoading();
+        if (window.DaragaToast && window.DaragaToast.error) {
+          window.DaragaToast.error(err && err.error, "Unable to start OCR. Try again.");
+        }
+      });
     return false;
   };
+
+  var btnOcrCancel = document.getElementById('btn-ocr-cancel');
+  if (btnOcrCancel) {
+    btnOcrCancel.addEventListener('click', function () {
+      if (window.DaragaOcr && window.DaragaOcr.cancel) {
+        window.DaragaOcr.cancel();
+      } else {
+        clearScanPreview();
+        resetOcrLoading();
+      }
+    });
+  }
 
 });
 </script>
